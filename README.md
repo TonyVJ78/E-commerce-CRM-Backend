@@ -61,18 +61,6 @@ Con el servidor corriendo, puedes ejecutar la suite de pruebas:
 ```bash
 python test_api.py
 ```
-
----
-
-## Casos de Uso Implementados (Sprint 0)
-
-1. ✅ **CU-01 — Registro de usuario**: Registro con email, contraseña segura y selección de rol (`administrador`, `empresa`, `cliente`).
-2. ✅ **CU-02 — Inicio de sesión**: Autenticación mediante JWT (`access` y `refresh` tokens) y registro automático en la bitácora de accesos (`BitacoraAcceso`).
-3. ✅ **CU-03 — Cierre de sesión**: Invalidación segura del refresh token en la blacklist de JWT.
-4. ✅ **CU-04 — Ver y editar perfil**: Consulta (`GET`) y edición (`PATCH`) de datos personales del usuario autenticado.
-5. ✅ **CU-05 — Recuperación de contraseña**: Solicitud de token vía email y confirmación para cambio de clave.
-6. ✅ **CU-06 — Registro y gestión de tiendas**: Creación (`POST`) y listado (`GET`) de tiendas asociadas al usuario empresa autenticado.
-
 ---
 
 ##  Endpoints API
