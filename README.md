@@ -1,8 +1,8 @@
-# ⚙️ Kantu Market — Backend API
+#  Kantu Market — Backend API
 
 Backend RESTful y CRM para la plataforma SaaS multitenant **Kantu Market**, desarrollado con **Django 5.1**, **Django REST Framework**, **SimpleJWT** y **PostgreSQL 16**.
 
-## 🏗️ Estructura del Repositorio
+## Estructura del Repositorio
 
 ```
 E-commerce-CRM-Backend/
@@ -23,7 +23,7 @@ E-commerce-CRM-Backend/
 └── README.md
 ```
 
-## 🚀 Inicio Rápido
+## Inicio Rápido
 
 ### Requisitos previos
 - [Docker](https://www.docker.com/) (v20+)
@@ -53,7 +53,7 @@ Esto levantará los siguientes servicios:
 - **API Base**: [http://localhost:8000/api/](http://localhost:8000/api/)
 - **Admin Django**: [http://localhost:8000/admin/](http://localhost:8000/admin/)
 
-> ℹ️ Las migraciones y los roles iniciales (`administrador`, `empresa`, `cliente`) se ejecutan de manera automática al iniciar el contenedor `server`.
+> Las migraciones y los roles iniciales (`administrador`, `empresa`, `cliente`) se ejecutan de manera automática al iniciar el contenedor `server`.
 
 ### 3. Ejecutar pruebas automatizadas
 
@@ -64,7 +64,7 @@ python test_api.py
 
 ---
 
-## 📋 Casos de Uso Implementados (Sprint 0)
+## Casos de Uso Implementados (Sprint 0)
 
 1. ✅ **CU-01 — Registro de usuario**: Registro con email, contraseña segura y selección de rol (`administrador`, `empresa`, `cliente`).
 2. ✅ **CU-02 — Inicio de sesión**: Autenticación mediante JWT (`access` y `refresh` tokens) y registro automático en la bitácora de accesos (`BitacoraAcceso`).
@@ -75,7 +75,7 @@ python test_api.py
 
 ---
 
-## 🔌 Endpoints API
+##  Endpoints API
 
 | Método | Endpoint | Descripción | Requiere Auth |
 |---|---|---|:---:|
@@ -92,16 +92,9 @@ python test_api.py
 
 ---
 
-## 🗄️ Modelos de Base de Datos (Sprint 0)
+##  Modelos de Base de Datos (Sprint 0)
 
 - **Rol**: `administrador`, `empresa`, `cliente` (poblado automáticamente por migración semilla).
 - **Usuario**: Extensión de `AbstractUser` con `email` como identificador único principal.
 - **BitacoraAcceso**: Registro de auditoría con fecha, hora, IP y usuario en cada login exitoso.
 - **Tienda**: Modelo multitenant para la gestión de tiendas vinculadas a un usuario propietario.
-
----
-
-## 🎨 Identidad Visual
-- 🔴 **Rojo** `#C8102E`
-- 🟡 **Amarillo** `#F4D03F`
-- 🟢 **Verde** `#27AE60`
