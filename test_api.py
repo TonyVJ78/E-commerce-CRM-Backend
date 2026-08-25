@@ -106,4 +106,37 @@ status, res = make_request(
 assert status == 201, f"Empresa debió poder crear tienda: {res}"
 print(f"[OK] Empresa creo tienda exitosamente (Slug: {res['slug']})")
 
-print("\n[OK] TODOS LOS NUEVOS REQUISITOS Y AJUSTES DE COMPORTAMIENTO VERIFICADOS AL 100%!")
+print("\n=== 4. Prueba de Recuperación de Contraseña ===")
+# 4.1 Solicitar recuperación para un correo existente
+status, res = make_request(
+    f"{BASE_URL}/auth/password-reset/",
+    method="POST",
+    data={"email": cliente_email}
+)
+assert status == 200 and "mensaje" in res, f"Solicitud de reseteo debió ser 200: {res}"
+print(f"[OK] Solicitud de recuperación procesada correctamente para {cliente_email}")
+
+# 4.2 Solicitar recuperación con email inválido (debe dar 400)
+status, res = make_request(
+    f"{BASE_URL}/auth/password-reset/",
+    method="POST",
+    data={"email": "email_no_valido"}
+)
+assert status == 400 and "email" in res, f"Solicitud con email inválido debió ser 400: {res}"
+print("[OK] Email con formato incorrecto rechazado con 400")
+
+# 4.3 Solicitar confirmación con token/uid inválidos (debe dar 400)
+status, res = make_request(
+    f"{BASE_URL}/auth/password-reset-confirm/",
+    method="POST",
+    data={
+        "uid": "invalid-uid",
+        "token": "invalid-token",
+        "new_password": "NewPassword123!",
+        "new_password_confirm": "NewPassword123!"
+    }
+)
+assert status == 400, f"Token inválido debió ser 400: {res}"
+print("[OK] Intento de reseteo con token/uid inválido rechazado con 400")
+
+print("\n[OK] TODOS LOS REQUISITOS Y FLUJOS VERIFICADOS AL 100%!")

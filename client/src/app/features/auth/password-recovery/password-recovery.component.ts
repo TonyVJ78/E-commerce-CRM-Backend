@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -18,6 +18,9 @@ export class PasswordRecoveryComponent {
   message = '';
   errorMessage = '';
   loading = false;
+  resetSuccess = false;
+  showPassword = false;
+  showPasswordConfirm = false;
   uid = '';
   token = '';
 
@@ -31,9 +34,9 @@ export class PasswordRecoveryComponent {
     });
 
     this.resetForm = this.fb.group({
-      new_password: ['', [Validators.required, Validators.minLength(8)]],
+      new_password: ['', [Validators.required, this.passwordComplexityValidator]],
       new_password_confirm: ['', [Validators.required]]
-    });
+    }, { validators: this.passwordMatchValidator });
 
     // Detectar si estamos en modo "reset" por parámetros de ruta
     this.route.params.subscribe(params => {
@@ -43,6 +46,58 @@ export class PasswordRecoveryComponent {
         this.token = params['token'];
       }
     });
+  }
+
+  togglePasswordVisibility(): void {
+    this.showPassword = !this.showPassword;
+  }
+
+  togglePasswordConfirmVisibility(): void {
+    this.showPasswordConfirm = !this.showPasswordConfirm;
+  }
+
+  passwordComplexityValidator(control: AbstractControl): ValidationErrors | null {
+    const value = control.value || '';
+    if (!value) return null;
+
+    const hasMinLength = value.length >= 8;
+    const hasLetter = /[a-zA-Z]/.test(value);
+    const hasNumber = /[0-9]/.test(value);
+    const hasSpecial = /[^a-zA-Z0-9]/.test(value);
+
+    const errors: ValidationErrors = {};
+    if (!hasMinLength) errors['minLength'] = true;
+    if (!hasLetter) errors['missingLetter'] = true;
+    if (!hasNumber) errors['missingNumber'] = true;
+    if (!hasSpecial) errors['missingSpecial'] = true;
+
+    return Object.keys(errors).length > 0 ? errors : null;
+  }
+
+  passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
+    const password = control.get('new_password');
+    const confirm = control.get('new_password_confirm');
+    if (password && confirm && password.value && confirm.value && password.value !== confirm.value) {
+      return { passwordMismatch: true };
+    }
+    return null;
+  }
+
+  // Helpers para la guía visual de requisitos en tiempo real
+  get hasMinLength(): boolean {
+    return (this.resetForm.get('new_password')?.value || '').length >= 8;
+  }
+
+  get hasLetter(): boolean {
+    return /[a-zA-Z]/.test(this.resetForm.get('new_password')?.value || '');
+  }
+
+  get hasNumber(): boolean {
+    return /[0-9]/.test(this.resetForm.get('new_password')?.value || '');
+  }
+
+  get hasSpecial(): boolean {
+    return /[^a-zA-Z0-9]/.test(this.resetForm.get('new_password')?.value || '');
   }
 
   onRequestSubmit(): void {
@@ -57,9 +112,14 @@ export class PasswordRecoveryComponent {
         this.loading = false;
         this.message = res.mensaje || 'Si el correo existe, recibirás un enlace de recuperación.';
       },
-      error: () => {
+      error: (err) => {
         this.loading = false;
-        this.errorMessage = 'Error al procesar la solicitud. Intenta de nuevo.';
+        if (err.error && typeof err.error === 'object') {
+          const messages = Object.values(err.error).flat();
+          this.errorMessage = (messages as string[]).join(' ');
+        } else {
+          this.errorMessage = 'Error al procesar la solicitud. Intenta de nuevo.';
+        }
       }
     });
   }
@@ -80,7 +140,9 @@ export class PasswordRecoveryComponent {
     this.authService.confirmPasswordReset(this.uid, this.token, new_password, new_password_confirm).subscribe({
       next: (res) => {
         this.loading = false;
+        this.resetSuccess = true;
         this.message = res.mensaje || 'Contraseña restablecida exitosamente. Ya puedes iniciar sesión.';
+        this.resetForm.reset();
       },
       error: (err) => {
         this.loading = false;
@@ -88,7 +150,7 @@ export class PasswordRecoveryComponent {
           const messages = Object.values(err.error).flat();
           this.errorMessage = (messages as string[]).join(' ');
         } else {
-          this.errorMessage = 'Error al restablecer la contraseña. El enlace puede haber expirado.';
+          this.errorMessage = 'Error al restablecer la contraseña. El enlace puede haber expirado o ser inválido.';
         }
       }
     });

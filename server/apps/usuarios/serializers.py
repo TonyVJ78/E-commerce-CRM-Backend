@@ -2,6 +2,7 @@
 Serializers del módulo de Usuarios.
 """
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
@@ -55,7 +56,10 @@ class RegistroSerializer(serializers.ModelSerializer):
         if not any(not c.isalnum() for c in password):
             raise serializers.ValidationError({'password': 'La contraseña debe contener al menos un carácter especial.'})
 
-        validate_password(password)
+        try:
+            validate_password(password)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({'password': list(e.messages)})
         return attrs
 
     def create(self, validated_data):
@@ -94,22 +98,41 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     """Serializer para confirmar nueva contraseña con token."""
     uid = serializers.CharField()
     token = serializers.CharField()
-    new_password = serializers.CharField(min_length=8, style={'input_type': 'password'})
-    new_password_confirm = serializers.CharField(style={'input_type': 'password'})
+    new_password = serializers.CharField(
+        min_length=8,
+        style={'input_type': 'password'},
+    )
+    new_password_confirm = serializers.CharField(
+        style={'input_type': 'password'},
+    )
 
     def validate(self, attrs):
         if attrs['new_password'] != attrs['new_password_confirm']:
             raise serializers.ValidationError({'new_password_confirm': 'Las contraseñas no coinciden.'})
-        validate_password(attrs['new_password'])
+
+        new_password = attrs['new_password']
+        if len(new_password) < 8:
+            raise serializers.ValidationError({'new_password': 'La contraseña debe tener al menos 8 caracteres.'})
+        if not any(c.isalpha() for c in new_password):
+            raise serializers.ValidationError({'new_password': 'La contraseña debe contener al menos una letra.'})
+        if not any(c.isdigit() for c in new_password):
+            raise serializers.ValidationError({'new_password': 'La contraseña debe contener al menos un número.'})
+        if not any(not c.isalnum() for c in new_password):
+            raise serializers.ValidationError({'new_password': 'La contraseña debe contener al menos un carácter especial.'})
 
         try:
             uid = urlsafe_base64_decode(attrs['uid']).decode()
             user = Usuario.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
+        except (TypeError, ValueError, OverflowError, UnicodeDecodeError, Usuario.DoesNotExist):
             raise serializers.ValidationError({'uid': 'Enlace de recuperación inválido.'})
 
         if not default_token_generator.check_token(user, attrs['token']):
             raise serializers.ValidationError({'token': 'Token inválido o expirado.'})
+
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({'new_password': list(e.messages)})
 
         attrs['user'] = user
         return attrs

@@ -140,6 +140,11 @@ class PerfilView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class PasswordResetRequestView(APIView):
     """POST /api/auth/password-reset/ — Solicitar email de recuperación."""
     permission_classes = [permissions.AllowAny]
@@ -156,20 +161,28 @@ class PasswordResetRequestView(APIView):
             token = default_token_generator.make_token(usuario)
             reset_url = f"{settings.FRONTEND_URL}/recuperar-password/{uid}/{token}"
 
-            send_mail(
-                subject='Kantu Market — Recuperación de contraseña',
-                message=(
-                    f'Hola {usuario.first_name or usuario.email},\n\n'
-                    f'Recibimos una solicitud para restablecer tu contraseña.\n'
-                    f'Usa el siguiente enlace para establecer una nueva contraseña:\n\n'
-                    f'{reset_url}\n\n'
-                    f'Si no solicitaste este cambio, ignora este correo.\n\n'
-                    f'— Equipo Kantu Market'
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
-            )
+            try:
+                send_mail(
+                    subject='Kantu Market — Recuperación de contraseña',
+                    message=(
+                        f'Hola {usuario.first_name or usuario.email},\n\n'
+                        f'Recibimos una solicitud para restablecer tu contraseña.\n'
+                        f'Usa el siguiente enlace para establecer una nueva contraseña:\n\n'
+                        f'{reset_url}\n\n'
+                        f'Si no solicitaste este cambio, ignora este correo.\n\n'
+                        f'— Equipo Kantu Market'
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                logger.error(f"Error al enviar correo de recuperación a {email}: {e}")
+                # En desarrollo o si falla el backend de email, se imprime en consola para facilitar pruebas
+                print(f"\n=======================================================")
+                print(f"🔑 [RECUPERAR CONTRASEÑA] Enlace generado para {email}:")
+                print(f"🔗 {reset_url}")
+                print(f"=======================================================\n")
         except Usuario.DoesNotExist:
             pass  # No revelar que el email no existe
 

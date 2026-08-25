@@ -38,9 +38,14 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
-    # Local apps
+    # Local apps (en orden de dependencia)
     'apps.usuarios',
     'apps.tiendas',
+    'apps.catalogo',
+    'apps.pedidos',
+    'apps.crm',
+    'apps.marketing',
+    'apps.ia',
 ]
 
 # =============================================================================

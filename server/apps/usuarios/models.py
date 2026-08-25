@@ -101,3 +101,67 @@ class BitacoraAcceso(models.Model):
 
     def __str__(self):
         return f'{self.usuario.email} - {self.fecha}'
+
+
+class Permiso(models.Model):
+    """Permiso del sistema para control de acceso granular."""
+    codigo = models.CharField(max_length=50, unique=True)
+    nombre = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = 'permiso'
+        verbose_name = 'Permiso'
+        verbose_name_plural = 'Permisos'
+
+    def __str__(self):
+        return f'{self.codigo} - {self.nombre}'
+
+
+class RolPermiso(models.Model):
+    """Tabla intermedia explícita entre Rol y Permiso."""
+    rol = models.ForeignKey(
+        Rol,
+        on_delete=models.CASCADE,
+        related_name='roles_permisos',
+    )
+    permiso = models.ForeignKey(
+        Permiso,
+        on_delete=models.CASCADE,
+        related_name='permisos_roles',
+    )
+
+    class Meta:
+        db_table = 'rol_permiso'
+        verbose_name = 'Rol Permiso'
+        verbose_name_plural = 'Roles Permisos'
+        unique_together = ('rol', 'permiso')
+
+    def __str__(self):
+        return f'{self.rol.nombre} - {self.permiso.codigo}'
+
+
+class LogAuditoria(models.Model):
+    """Registro de auditoría de cambios en tablas (solo rol administrador)."""
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name='logs_auditoria',
+        null=True,
+        blank=True,
+    )
+    tabla_afectada = models.CharField(max_length=50)
+    registro_id = models.IntegerField()
+    accion = models.CharField(max_length=20)
+    datos_anteriores = models.JSONField(null=True, blank=True)
+    datos_nuevos = models.JSONField(null=True, blank=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'log_auditoria'
+        verbose_name = 'Log de Auditoría'
+        verbose_name_plural = 'Logs de Auditoría'
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f'{self.accion} en {self.tabla_afectada} (#{self.registro_id}) - {self.fecha}'
+

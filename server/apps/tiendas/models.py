@@ -47,3 +47,49 @@ class Tienda(models.Model):
                 counter += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+
+class UsuarioTienda(models.Model):
+    """Asociación de usuarios a una tienda con un rol interno."""
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='usuarios_tiendas',
+    )
+    tienda = models.ForeignKey(
+        Tienda,
+        on_delete=models.CASCADE,
+        related_name='usuarios_tienda',
+    )
+    rol_interno = models.CharField(max_length=30)
+    fecha_asignacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'usuario_tienda'
+        verbose_name = 'Usuario Tienda'
+        verbose_name_plural = 'Usuarios Tiendas'
+        unique_together = ('usuario', 'tienda')
+
+    def __str__(self):
+        return f'{self.usuario} - {self.tienda.nombre} ({self.rol_interno})'
+
+
+class DireccionTienda(models.Model):
+    """Dirección física y datos de contacto de una tienda."""
+    tienda = models.ForeignKey(
+        Tienda,
+        on_delete=models.CASCADE,
+        related_name='direcciones',
+    )
+    direccion = models.CharField(max_length=200)
+    ciudad = models.CharField(max_length=100)
+    telefono = models.CharField(max_length=30, blank=True, default='')
+
+    class Meta:
+        db_table = 'direccion_tienda'
+        verbose_name = 'Dirección de Tienda'
+        verbose_name_plural = 'Direcciones de Tiendas'
+
+    def __str__(self):
+        return f'{self.tienda.nombre} - {self.ciudad}: {self.direccion}'
+
