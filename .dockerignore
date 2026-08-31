@@ -1,4 +1,10 @@
+.env
+.git
+.gitignore
 __pycache__
 *.pyc
 *.pyo
+*.log
 staticfiles
+venv
+.venv

@@ -2,7 +2,7 @@
 set -e
 
 echo "Esperando a que PostgreSQL esté listo..."
-while ! python -c "import socket; s = socket.socket(); s.settimeout(2); s.connect(('db', 5432)); s.close()" 2>/dev/null; do
+while ! python -c "import os, socket; s = socket.socket(); s.settimeout(5); s.connect((os.environ['DB_HOST'], int(os.environ.get('DB_PORT', '5432')))); s.close()" 2>/dev/null; do
     echo "PostgreSQL no disponible, reintentando en 2s..."
     sleep 2
 done
