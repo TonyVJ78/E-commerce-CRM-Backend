@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .audit import ACCION_CERRAR_SESION, registrar_auditoria
 from .models import BitacoraAcceso
 from .serializers import (
     LoginSerializer,
@@ -117,6 +118,12 @@ class LogoutView(APIView):
                 )
             token = RefreshToken(refresh_token)
             token.blacklist()
+            registrar_auditoria(
+                request,
+                ACCION_CERRAR_SESION,
+                tabla='sesion',
+                registro_id=request.user.id,
+            )
             return Response(
                 {'mensaje': 'Sesión cerrada exitosamente.'},
                 status=status.HTTP_200_OK,
