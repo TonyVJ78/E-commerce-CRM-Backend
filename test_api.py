@@ -139,4 +139,43 @@ status, res = make_request(
 assert status == 400, f"Token inválido debió ser 400: {res}"
 print("[OK] Intento de reseteo con token/uid inválido rechazado con 400")
 
+print("\n=== 5. CU07 — Bitácora y auditoría (solo administrador) ===")
+# 5.1 Login del administrador semilla
+status, res_admin = make_request(f"{BASE_URL}/auth/login/", method="POST", data={"email": "admin@kantu.bo", "password": "Password123!"})
+assert status == 200 and res_admin["usuario"]["rol"] == "administrador", f"Login admin semilla falló: {res_admin}"
+token_admin = res_admin["access"]
+refresh_admin = res_admin["refresh"]
+print("[OK] Login administrador semilla OK")
+
+# 5.2 Un cliente NO puede consultar la bitácora -> 403
+status, res = make_request(f"{BASE_URL}/auditoria/bitacora/", headers={"Authorization": f"Bearer {token_cliente}"})
+assert status == 403, f"Cliente debió recibir 403 al consultar bitácora, obtuvo {status}: {res}"
+print("[OK] Cliente bloqueado con 403 en /auditoria/bitacora/")
+
+# 5.3 El administrador consulta la bitácora de accesos (respuesta paginada)
+status, res = make_request(f"{BASE_URL}/auditoria/bitacora/", headers={"Authorization": f"Bearer {token_admin}"})
+assert status == 200 and "results" in res and "count" in res, f"Bitácora debió responder paginada: {res}"
+assert res["count"] >= 3, f"Debería haber registros de login previos en la bitácora: {res['count']}"
+print(f"[OK] Administrador consulta bitácora de accesos (count={res['count']})")
+
+# 5.4 Filtro por usuario
+status, res = make_request(f"{BASE_URL}/auditoria/bitacora/?usuario={cliente_email}", headers={"Authorization": f"Bearer {token_admin}"})
+assert status == 200 and res["count"] >= 1, f"Filtro por usuario debió devolver registros: {res}"
+assert all(r["usuario_email"] == cliente_email for r in res["results"]), f"El filtro por usuario no aisló correctamente: {res}"
+print("[OK] Filtro ?usuario= aísla los accesos del usuario indicado")
+
+# 5.5 El logout deja rastro en el log de auditoría (accion=CERRAR_SESION)
+status, res = make_request(f"{BASE_URL}/auth/logout/", method="POST", data={"refresh": refresh_admin}, headers={"Authorization": f"Bearer {token_admin}"})
+assert status == 200, f"Logout admin debió ser 200: {res}"
+status, res_admin = make_request(f"{BASE_URL}/auth/login/", method="POST", data={"email": "admin@kantu.bo", "password": "Password123!"})
+token_admin = res_admin["access"]
+status, res = make_request(f"{BASE_URL}/auditoria/logs/?accion=CERRAR_SESION", headers={"Authorization": f"Bearer {token_admin}"})
+assert status == 200 and res["count"] >= 1, f"El logout debió registrarse en log_auditoria: {res}"
+print(f"[OK] El cierre de sesión queda registrado en /auditoria/logs/ (count={res['count']})")
+
+# 5.6 La creación de tienda (CRUD) queda auditada
+status, res = make_request(f"{BASE_URL}/auditoria/logs/?tabla=tienda&accion=CREAR", headers={"Authorization": f"Bearer {token_admin}"})
+assert status == 200 and res["count"] >= 1, f"La creación de tienda debió auditarse: {res}"
+print(f"[OK] La creación de tienda queda auditada en /auditoria/logs/ (count={res['count']})")
+
 print("\n[OK] TODOS LOS REQUISITOS Y FLUJOS VERIFICADOS AL 100%!")

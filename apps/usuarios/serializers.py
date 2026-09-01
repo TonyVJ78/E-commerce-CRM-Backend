@@ -10,7 +10,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import serializers
 
-from .models import Rol
+from .models import BitacoraAcceso, LogAuditoria, Rol
 
 Usuario = get_user_model()
 
@@ -87,6 +87,35 @@ class PerfilSerializer(serializers.ModelSerializer):
         model = Usuario
         fields = ['id', 'email', 'first_name', 'last_name', 'rol', 'fecha_registro', 'activo']
         read_only_fields = ['id', 'email', 'rol', 'fecha_registro', 'activo']
+
+
+class BitacoraAccesoSerializer(serializers.ModelSerializer):
+    """Serializer de solo lectura para la bitácora de accesos (CU07)."""
+    usuario_email = serializers.EmailField(source='usuario.email', read_only=True)
+    usuario_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BitacoraAcceso
+        fields = ['id', 'usuario', 'usuario_email', 'usuario_nombre', 'fecha', 'ip', 'dispositivo']
+
+    def get_usuario_nombre(self, obj):
+        nombre = f'{obj.usuario.first_name} {obj.usuario.last_name}'.strip()
+        return nombre or obj.usuario.email
+
+
+class LogAuditoriaSerializer(serializers.ModelSerializer):
+    """Serializer de solo lectura para el log de auditoría de cambios (CU07)."""
+    usuario_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LogAuditoria
+        fields = [
+            'id', 'usuario', 'usuario_email', 'tabla_afectada', 'registro_id',
+            'accion', 'datos_anteriores', 'datos_nuevos', 'fecha',
+        ]
+
+    def get_usuario_email(self, obj):
+        return obj.usuario.email if obj.usuario else None
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

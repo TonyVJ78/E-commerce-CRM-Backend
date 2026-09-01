@@ -16,6 +16,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | djangorestframework-simplejwt | 5.5.0 | Autenticación JWT (access + refresh tokens, blacklist) |
 | django-cors-headers | 4.7.0 | Manejo de CORS para permitir peticiones del frontend |
 | django-environ | 0.12.0 | Lectura de variables de entorno desde `.env` |
+| django-filter | 24.3 | Filtros declarativos por querystring para los endpoints de bitácora/auditoría (CU07) |
 | psycopg2-binary | 2.9.10 | Driver de PostgreSQL para Python |
 | Gunicorn | 23.0.0 | Servidor WSGI para producción (no usado en dev, incluido para futura referencia) |
 
