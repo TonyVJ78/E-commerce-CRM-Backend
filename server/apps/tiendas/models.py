@@ -1,6 +1,6 @@
 """
-Modelo Tienda — Módulo de Gestión de Tiendas (Multitenant).
-Sprint 0: Solo la tabla tienda con campos base.
+Modelo Tienda y Producto — Módulo de Gestión de Tiendas y Catálogo (Multitenant).
+Sprint 1: CU09 Editar y Eliminar Productos.
 """
 
 from django.conf import settings
@@ -47,3 +47,34 @@ class Tienda(models.Model):
                 counter += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+
+class Producto(models.Model):
+    """
+    Producto perteneciente al catálogo de una tienda (Tenant).
+    Soporta baja lógica mediante el campo 'activo' para preservar integridad de órdenes.
+    """
+    tienda = models.ForeignKey(
+        Tienda,
+        on_delete=models.CASCADE,
+        related_name='productos',
+        verbose_name='tienda'
+    )
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True, default='')
+    precio = models.DecimalField(max_digits=10, decimal_places=2)
+    stock = models.PositiveIntegerField(default=0)
+    categoria = models.CharField(max_length=100, blank=True, default='')
+    imagen_url = models.URLField(max_length=500, blank=True, default='')
+    activo = models.BooleanField(default=True)  # Borrado lógico
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'producto'
+        verbose_name = 'Producto'
+        verbose_name_plural = 'Productos'
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"{self.nombre} ({self.tienda.nombre})"

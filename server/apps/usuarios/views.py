@@ -151,7 +151,7 @@ class PasswordResetRequestView(APIView):
 
         # Siempre responder 200 para no revelar si el email existe
         try:
-            usuario = Usuario.objects.get(email=email)
+            usuario = Usuario.objects.get(email__iexact=email)
             uid = urlsafe_base64_encode(force_bytes(usuario.pk))
             token = default_token_generator.make_token(usuario)
             reset_url = f"{settings.FRONTEND_URL}/recuperar-password/{uid}/{token}"
