@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Sum, F
 
-from apps.catalogo.models import Producto, Inventario
+from apps.catalogo.models import Producto, Variante
 from apps.pedidos.models import Pedido
 
 from apps.usuarios.audit import AuditoriaCreateMixin
@@ -70,10 +70,11 @@ class DashboardVendedorView(APIView):
             suma=Sum('total')
         )['suma'] or 0.00
         
-        # 4. Inventario bajo stock (stock <= umbral_minimo)
-        productos_bajo_stock = Inventario.objects.filter(
-            tienda__propietario=user,
-            stock__lte=F('umbral_minimo')
+        # 4. Variantes bajo stock (stock <= stock_minimo)
+        productos_bajo_stock = Variante.objects.filter(
+            producto__tienda__propietario=user,
+            activa=True,
+            stock__lte=F('stock_minimo')
         ).count()
         
         # 5. Datos para gráfico (últimos 7 días de cantidad de productos vendidos)

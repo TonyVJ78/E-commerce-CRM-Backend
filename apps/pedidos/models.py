@@ -44,7 +44,7 @@ class ItemCarrito(models.Model):
         related_name='items',
     )
     variante = models.ForeignKey(
-        'catalogo.VarianteProducto',
+        'catalogo.Variante',
         on_delete=models.CASCADE,
         related_name='en_carritos',
     )
@@ -112,7 +112,7 @@ class ItemPedido(models.Model):
         related_name='items',
     )
     variante = models.ForeignKey(
-        'catalogo.VarianteProducto',
+        'catalogo.Variante',
         on_delete=models.CASCADE,
         related_name='items_pedido',
     )

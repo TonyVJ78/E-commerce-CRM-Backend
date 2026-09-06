@@ -1,9 +1,9 @@
 """
-Modelos del Módulo 3: Catálogo e Inventario.
-9 tablas: categoria, producto, variante_producto, atributo, variante_atributo,
-          imagen_producto, inventario, etiqueta, producto_etiqueta.
+Modelos del modulo de catalogo.
+Las tablas principales son categoria, producto y variante.
 """
 
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 
@@ -41,16 +41,23 @@ class Producto(models.Model):
     )
     categoria = models.ForeignKey(
         Categoria,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name='productos',
         null=True,
         blank=True,
     )
     nombre = models.CharField(max_length=150)
+    slug = models.CharField(max_length=180, default='')
     descripcion = models.TextField(blank=True, default='')
-    precio_base = models.DecimalField(max_digits=10, decimal_places=2)
-    sku = models.CharField(max_length=50, blank=True, default='')
+    etiquetas = ArrayField(
+        models.CharField(max_length=50),
+        default=list,
+        blank=True,
+    )
+    imagenes = models.JSONField(default=list, blank=True)
     activo = models.BooleanField(default=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'producto'
@@ -61,167 +68,53 @@ class Producto(models.Model):
         return f'{self.nombre} ({self.tienda.nombre})'
 
 
-class VarianteProducto(models.Model):
+class Variante(models.Model):
     """Variante específica de un producto (talla, color, etc.)."""
-    tienda = models.ForeignKey(
-        'tiendas.Tienda',
-        on_delete=models.CASCADE,
-        related_name='variantes_producto',
-    )
     producto = models.ForeignKey(
         Producto,
         on_delete=models.CASCADE,
         related_name='variantes',
     )
-    nombre_variante = models.CharField(max_length=100)
-    precio_adicional = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    sku_variante = models.CharField(max_length=50, blank=True, default='')
-
-    class Meta:
-        db_table = 'variante_producto'
-        verbose_name = 'Variante de Producto'
-        verbose_name_plural = 'Variantes de Productos'
-
-    def __str__(self):
-        return f'{self.producto.nombre} - {self.nombre_variante}'
-
-
-class Atributo(models.Model):
-    """Definición de atributos de producto (ej. Color, Talla, Material)."""
-    tienda = models.ForeignKey(
-        'tiendas.Tienda',
-        on_delete=models.CASCADE,
-        related_name='atributos',
-    )
-    nombre = models.CharField(max_length=50)
-
-    class Meta:
-        db_table = 'atributo'
-        verbose_name = 'Atributo'
-        verbose_name_plural = 'Atributos'
-
-    def __str__(self):
-        return f'{self.tienda.nombre} - {self.nombre}'
-
-
-class VarianteAtributo(models.Model):
-    """Tabla intermedia explícita que asigna un valor a una variante para un atributo."""
-    tienda = models.ForeignKey(
-        'tiendas.Tienda',
-        on_delete=models.CASCADE,
-        related_name='variantes_atributos',
-    )
-    variante = models.ForeignKey(
-        VarianteProducto,
-        on_delete=models.CASCADE,
-        related_name='variantes_atributos',
-    )
-    atributo = models.ForeignKey(
-        Atributo,
-        on_delete=models.CASCADE,
-        related_name='variantes_atributos',
-    )
-    valor = models.CharField(max_length=50)
-
-    class Meta:
-        db_table = 'variante_atributo'
-        verbose_name = 'Variante Atributo'
-        verbose_name_plural = 'Variantes Atributos'
-
-    def __str__(self):
-        return f'{self.variante} -> {self.atributo.nombre}: {self.valor}'
-
-
-class ImagenProducto(models.Model):
-    """Imágenes asociadas a un producto."""
-    tienda = models.ForeignKey(
-        'tiendas.Tienda',
-        on_delete=models.CASCADE,
-        related_name='imagenes_producto',
-    )
-    producto = models.ForeignKey(
-        Producto,
-        on_delete=models.CASCADE,
-        related_name='imagenes',
-    )
-    url = models.CharField(max_length=255)
-    orden = models.IntegerField(default=0)
-
-    class Meta:
-        db_table = 'imagen_producto'
-        verbose_name = 'Imagen de Producto'
-        verbose_name_plural = 'Imágenes de Productos'
-        ordering = ['orden']
-
-    def __str__(self):
-        return f'Imagen #{self.orden} de {self.producto.nombre}'
-
-
-class Inventario(models.Model):
-    """Control de existencias de cada variante de producto."""
-    tienda = models.ForeignKey(
-        'tiendas.Tienda',
-        on_delete=models.CASCADE,
-        related_name='inventarios',
-    )
-    variante = models.ForeignKey(
-        VarianteProducto,
-        on_delete=models.CASCADE,
-        related_name='inventarios',
+    nombre = models.CharField(max_length=100, default='Unica')
+    sku = models.CharField(max_length=60)
+    precio = models.DecimalField(max_digits=12, decimal_places=2)
+    precio_oferta = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
     )
     stock = models.IntegerField(default=0)
-    umbral_minimo = models.IntegerField(default=5)
+    stock_minimo = models.IntegerField(default=5)
+    atributos = models.JSONField(default=dict, blank=True)
+    activa = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'inventario'
-        verbose_name = 'Inventario'
-        verbose_name_plural = 'Inventarios'
+        db_table = 'variante'
+        verbose_name = 'Variante'
+        verbose_name_plural = 'Variantes'
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(precio__gte=0),
+                name='variante_precio_no_negativo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(precio_oferta__isnull=True) | models.Q(precio_oferta__gte=0),
+                name='variante_precio_oferta_no_negativo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(stock__gte=0),
+                name='variante_stock_no_negativo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(stock_minimo__gte=0),
+                name='variante_stock_minimo_no_negativo',
+            ),
+            models.UniqueConstraint(
+                fields=['producto', 'sku'],
+                name='variante_producto_sku_unico',
+            ),
+        ]
 
     def __str__(self):
-        return f'Stock: {self.stock} (Min: {self.umbral_minimo}) - {self.variante}'
-
-
-class Etiqueta(models.Model):
-    """Etiquetas para clasificar y filtrar productos."""
-    tienda = models.ForeignKey(
-        'tiendas.Tienda',
-        on_delete=models.CASCADE,
-        related_name='etiquetas',
-    )
-    nombre = models.CharField(max_length=50)
-
-    class Meta:
-        db_table = 'etiqueta'
-        verbose_name = 'Etiqueta'
-        verbose_name_plural = 'Etiquetas'
-
-    def __str__(self):
-        return f'{self.tienda.nombre} - {self.nombre}'
-
-
-class ProductoEtiqueta(models.Model):
-    """Tabla intermedia explícita entre Producto y Etiqueta."""
-    tienda = models.ForeignKey(
-        'tiendas.Tienda',
-        on_delete=models.CASCADE,
-        related_name='productos_etiquetas',
-    )
-    producto = models.ForeignKey(
-        Producto,
-        on_delete=models.CASCADE,
-        related_name='productos_etiquetas',
-    )
-    etiqueta = models.ForeignKey(
-        Etiqueta,
-        on_delete=models.CASCADE,
-        related_name='productos_etiquetas',
-    )
-
-    class Meta:
-        db_table = 'producto_etiqueta'
-        verbose_name = 'Producto Etiqueta'
-        verbose_name_plural = 'Productos Etiquetas'
-        unique_together = ('producto', 'etiqueta')
-
-    def __str__(self):
-        return f'{self.producto.nombre} - {self.etiqueta.nombre}'
+        return f'{self.producto.nombre} - {self.nombre}'

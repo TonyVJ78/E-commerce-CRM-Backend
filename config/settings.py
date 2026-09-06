@@ -94,6 +94,10 @@ DATABASES = {
         'PASSWORD': env('DB_PASSWORD', default='postgres'),
         'HOST': env('DB_HOST', default='db'),
         'PORT': env('DB_PORT', default='5432'),
+        'OPTIONS': {
+            'sslmode': env('DB_SSLMODE', default='prefer'),
+            'channel_binding': env('DB_CHANNEL_BINDING', default='prefer'),
+        },
     }
 }
 
@@ -177,3 +181,10 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@kantumarket.com'
 
 # URL base del frontend para links de recuperación de contraseña
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:4200')
+
+# =============================================================================
+# CLOUDINARY
+# =============================================================================
+CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME', default='')
+CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY', default='')
+CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET', default='')
