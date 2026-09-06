@@ -5,17 +5,22 @@ Los roles semilla (`administrador`, `empresa`, `cliente`) se crean en la migraci
 `usuarios/0002_roles_semilla.py`. Las clases `Is*` de este módulo comparan
 `request.user.rol.nombre` contra ese string.
 
-CU07 añade el control de acceso **por permiso** (`TienePermiso('codigo')`), que
-consulta la tabla `rol_permiso` en vez de comparar el nombre del rol. El catálogo
-de permisos y su mapeo a los roles semilla se siembran en
-`usuarios/0005_permisos_semilla.py`.
+CU07 añade el control de acceso **por permiso**, que consulta la tabla
+`rol_permiso` en vez de comparar el nombre del rol:
 
-Este es el único lugar donde deben vivir los permisos: si necesitás uno nuevo,
-agregalo acá en vez de declararlo dentro de una vista.
+- `PermisoModulo('<modulo>')` — resuelve la acción (`ver`/`crear`/`editar`/
+  `eliminar`) desde el método HTTP y exige `"<modulo>.<accion>"`. Es la forma
+  preferida para las vistas de la matriz de accesos.
+- `TienePermiso('<codigo>')` — exige un código exacto; útil para permisos que no
+  siguen el patrón módulo.acción.
+
+El catálogo (módulo × acción) vive en `accesos_catalogo.py` y se siembra en
+`usuarios/0006_matriz_permisos.py`.
 """
 
 from rest_framework import permissions
 
+from .accesos_catalogo import ACCION_POR_METODO
 from .models import RolPermiso
 
 
@@ -89,3 +94,23 @@ def TienePermiso(codigo):
 
     _TienePermiso.__name__ = f'TienePermiso_{codigo}'
     return _TienePermiso
+
+
+def PermisoModulo(modulo):
+    """Fábrica de permisos DRF para la matriz módulo × acción.
+
+    La acción se deduce del método HTTP (`ACCION_POR_METODO`): GET→`ver`,
+    POST→`crear`, PUT/PATCH→`editar`, DELETE→`eliminar`. Así un rol puede tener,
+    p. ej., `accesos.ver` pero no `accesos.editar` y solo podrá consultar.
+    """
+
+    class _PermisoModulo(permissions.BasePermission):
+        def has_permission(self, request, view):
+            accion = ACCION_POR_METODO.get(request.method, 'ver')
+            self.message = (
+                f"Se requiere el permiso '{modulo}.{accion}' para esta operación."
+            )
+            return usuario_tiene_permiso(request.user, f'{modulo}.{accion}')
+
+    _PermisoModulo.__name__ = f'PermisoModulo_{modulo}'
+    return _PermisoModulo

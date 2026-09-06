@@ -26,9 +26,19 @@ class RolSerializer(serializers.ModelSerializer):
 
 
 class PermisoSerializer(serializers.ModelSerializer):
+    """Un permiso de la matriz. `modulo`/`accion` salen de partir `codigo` por el punto."""
+    modulo = serializers.SerializerMethodField()
+    accion = serializers.SerializerMethodField()
+
     class Meta:
         model = Permiso
-        fields = ['id', 'codigo', 'nombre']
+        fields = ['id', 'codigo', 'nombre', 'modulo', 'accion']
+
+    def get_modulo(self, obj):
+        return obj.codigo.split('.', 1)[0] if '.' in obj.codigo else obj.codigo
+
+    def get_accion(self, obj):
+        return obj.codigo.split('.', 1)[1] if '.' in obj.codigo else ''
 
 
 class RolConPermisosSerializer(serializers.ModelSerializer):

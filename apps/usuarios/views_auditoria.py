@@ -15,7 +15,7 @@ from rest_framework import filters, generics, permissions
 from rest_framework.pagination import PageNumberPagination
 
 from .models import BitacoraAcceso, LogAuditoria
-from .permissions import TienePermiso
+from .permissions import PermisoModulo
 from .serializers import BitacoraAccesoSerializer, LogAuditoriaSerializer
 
 
@@ -58,7 +58,7 @@ class LogAuditoriaFilter(django_filters.FilterSet):
 class BitacoraAccesoListView(generics.ListAPIView):
     """GET /api/auditoria/bitacora/ — Bitácora de inicios de sesión."""
     serializer_class = BitacoraAccesoSerializer
-    permission_classes = [permissions.IsAuthenticated, TienePermiso('ver_bitacora')]
+    permission_classes = [permissions.IsAuthenticated, PermisoModulo('bitacora')]
     pagination_class = AuditoriaPagination
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = BitacoraAccesoFilter
@@ -70,7 +70,7 @@ class BitacoraAccesoListView(generics.ListAPIView):
 class LogAuditoriaListView(generics.ListAPIView):
     """GET /api/auditoria/logs/ — Log de cambios en la base de datos y cierres de sesión."""
     serializer_class = LogAuditoriaSerializer
-    permission_classes = [permissions.IsAuthenticated, TienePermiso('ver_bitacora')]
+    permission_classes = [permissions.IsAuthenticated, PermisoModulo('bitacora')]
     pagination_class = AuditoriaPagination
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = LogAuditoriaFilter

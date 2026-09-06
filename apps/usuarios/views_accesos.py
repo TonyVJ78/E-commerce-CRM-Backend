@@ -1,9 +1,11 @@
 """
 Vistas del CU07 — Gestionar roles y permisos.
 
-Actor: Administrador (módulo "Accesos Avanzados"). Todo el módulo exige el
-permiso `gestionar_accesos` (ver `permissions.TienePermiso`), que la migración
-`0005_permisos_semilla.py` concede al rol `administrador`.
+Actor: Administrador (módulo "Accesos Avanzados"). El acceso se controla con la
+matriz módulo × acción (`permissions.PermisoModulo`): las vistas de roles/permisos
+exigen `accesos.<accion>` y las de usuarios `usuarios.<accion>`, donde la acción
+sale del método HTTP (GET→ver, POST→crear, PUT/PATCH→editar, DELETE→eliminar). El
+catálogo se siembra en `0006_matriz_permisos.py`.
 
 Endpoints (montados en `config/urls.py` bajo `/api/`):
 - GET/POST        /api/roles/
@@ -30,7 +32,7 @@ from .audit import (
     registrar_auditoria,
 )
 from .models import Permiso, Rol, RolPermiso
-from .permissions import TienePermiso
+from .permissions import PermisoModulo
 from .serializers import (
     ROLES_SEMILLA,
     PermisoSerializer,
@@ -41,7 +43,8 @@ from .serializers import (
 
 Usuario = get_user_model()
 
-GESTIONAR_ACCESOS = [permissions.IsAuthenticated, TienePermiso('gestionar_accesos')]
+ACCESOS = [permissions.IsAuthenticated, PermisoModulo('accesos')]
+USUARIOS = [permissions.IsAuthenticated, PermisoModulo('usuarios')]
 
 
 class RolEnUsoError(APIException):
@@ -53,7 +56,7 @@ class RolEnUsoError(APIException):
 class RolListCreateView(AuditoriaCreateMixin, generics.ListCreateAPIView):
     """GET /api/roles/ · POST /api/roles/ — Listar y crear roles."""
     serializer_class = RolConPermisosSerializer
-    permission_classes = GESTIONAR_ACCESOS
+    permission_classes = ACCESOS
     audit_tabla = 'rol'
 
     def get_queryset(self):
@@ -68,7 +71,7 @@ class RolDetailView(AuditoriaUpdateMixin, AuditoriaDeleteMixin,
     renombrar (lo valida el serializer) ni eliminar.
     """
     serializer_class = RolConPermisosSerializer
-    permission_classes = GESTIONAR_ACCESOS
+    permission_classes = ACCESOS
     audit_tabla = 'rol'
     queryset = Rol.objects.prefetch_related('roles_permisos__permiso', 'usuarios')
 
@@ -83,7 +86,7 @@ class RolDetailView(AuditoriaUpdateMixin, AuditoriaDeleteMixin,
 
 class RolPermisosView(APIView):
     """GET/PUT /api/roles/<pk>/permisos/ — Consultar y reemplazar los permisos de un rol."""
-    permission_classes = GESTIONAR_ACCESOS
+    permission_classes = ACCESOS
 
     def get_object(self, pk):
         try:
@@ -110,6 +113,24 @@ class RolPermisosView(APIView):
         nuevos = {p.pk for p in serializer.validated_data['permisos']}
         actuales = set(rol.roles_permisos.values_list('permiso_id', flat=True))
 
+        # Un admin no-superuser no puede dejar a su propio rol sin las llaves con
+        # las que administra accesos (si no, se autobloquea de esta pantalla).
+        if rol.pk == request.user.rol_id and not request.user.is_superuser:
+            criticos = {'accesos.ver', 'accesos.editar'}
+            tenia = set(
+                Permiso.objects.filter(pk__in=actuales, codigo__in=criticos)
+                .values_list('codigo', flat=True)
+            )
+            conserva = set(
+                Permiso.objects.filter(pk__in=nuevos, codigo__in=criticos)
+                .values_list('codigo', flat=True)
+            )
+            if tenia - conserva:
+                raise ValidationError(
+                    'No puedes quitarle a tu propio rol los permisos con los que '
+                    'gestionas accesos (accesos.ver / accesos.editar).'
+                )
+
         a_agregar = nuevos - actuales
         a_quitar = actuales - nuevos
 
@@ -134,7 +155,7 @@ class RolPermisosView(APIView):
 class PermisoListView(generics.ListAPIView):
     """GET /api/permisos/ — Catálogo de permisos (solo lectura; lo define el sistema)."""
     serializer_class = PermisoSerializer
-    permission_classes = GESTIONAR_ACCESOS
+    permission_classes = ACCESOS
     queryset = Permiso.objects.all().order_by('nombre')
     pagination_class = None
 
@@ -148,7 +169,7 @@ class UsuariosPagination(PageNumberPagination):
 class UsuarioAdminListView(generics.ListAPIView):
     """GET /api/usuarios/ — Listar usuarios para asignarles rol (filtros: rol, activo, buscar)."""
     serializer_class = UsuarioAdminSerializer
-    permission_classes = GESTIONAR_ACCESOS
+    permission_classes = USUARIOS
     pagination_class = UsuariosPagination
 
     def get_queryset(self):
@@ -177,7 +198,7 @@ class UsuarioAdminListView(generics.ListAPIView):
 class UsuarioAdminDetailView(AuditoriaUpdateMixin, generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/usuarios/<pk>/ — Cambiar el rol y el estado (activo) de un usuario."""
     serializer_class = UsuarioAdminSerializer
-    permission_classes = GESTIONAR_ACCESOS
+    permission_classes = USUARIOS
     audit_tabla = 'usuario'
     queryset = Usuario.objects.select_related('rol')
     http_method_names = ['get', 'patch', 'head', 'options']
