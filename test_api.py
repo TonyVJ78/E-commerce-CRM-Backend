@@ -178,4 +178,102 @@ status, res = make_request(f"{BASE_URL}/auditoria/logs/?tabla=tienda&accion=CREA
 assert status == 200 and res["count"] >= 1, f"La creación de tienda debió auditarse: {res}"
 print(f"[OK] La creación de tienda queda auditada en /auditoria/logs/ (count={res['count']})")
 
+print("\n=== 6. CU07 — Gestionar roles y permisos (solo administrador) ===")
+auth_admin = {"Authorization": f"Bearer {token_admin}"}
+
+# 6.1 Un cliente NO puede gestionar accesos -> 403
+status, res = make_request(f"{BASE_URL}/roles/", headers={"Authorization": f"Bearer {token_cliente}"})
+assert status == 403, f"Cliente debió recibir 403 en /roles/, obtuvo {status}: {res}"
+print("[OK] Cliente bloqueado con 403 en /roles/")
+
+# 6.2 El catálogo de permisos está sembrado como matriz módulo × acción
+status, res = make_request(f"{BASE_URL}/permisos/", headers=auth_admin)
+assert status == 200 and isinstance(res, list) and len(res) >= 36, f"El catálogo debió tener >= 36 filas (9 módulos × 4 acciones): {res}"
+permisos_por_codigo = {p["codigo"]: p["id"] for p in res}
+for cod in ("accesos.ver", "accesos.crear", "accesos.editar", "accesos.eliminar", "usuarios.editar", "bitacora.ver"):
+    assert cod in permisos_por_codigo, f"Falta el permiso '{cod}': {sorted(permisos_por_codigo)}"
+assert all(p["modulo"] and p["accion"] for p in res), "Cada permiso debe exponer modulo y accion"
+print(f"[OK] Matriz de permisos sembrada ({len(res)} permisos)")
+
+# 6.3 Los roles semilla vienen con su mapeo de permisos y marcados como del sistema
+status, res = make_request(f"{BASE_URL}/roles/", headers=auth_admin)
+assert status == 200, f"Admin debió listar roles: {res}"
+rol_admin = next((r for r in res if r["nombre"] == "administrador"), None)
+assert rol_admin and rol_admin["es_semilla"] is True, f"El rol administrador debió marcarse es_semilla: {res}"
+assert any(p["codigo"] == "accesos.editar" for p in rol_admin["permisos"]), "El rol administrador debió tener 'accesos.editar'"
+print("[OK] Roles semilla con permisos asignados y es_semilla=True")
+
+# 6.4 Crear un rol nuevo
+nombre_rol = f"soporte_{UNIQUE_ID}"
+status, res = make_request(f"{BASE_URL}/roles/", method="POST", data={"nombre": nombre_rol}, headers=auth_admin)
+assert status == 201, f"Crear rol debió ser 201: {status} {res}"
+rol_nuevo_id = res["id"]
+print(f"[OK] Rol '{nombre_rol}' creado (id={rol_nuevo_id})")
+
+# 6.5 Asignar permisos al rol nuevo (reemplaza el set completo)
+solo_ver = sorted(permisos_por_codigo[c] for c in ("accesos.ver", "usuarios.ver"))
+status, res = make_request(
+    f"{BASE_URL}/roles/{rol_nuevo_id}/permisos/",
+    method="PUT",
+    data={"permisos": solo_ver},
+    headers=auth_admin,
+)
+assert status == 200 and sorted(res["asignados"]) == solo_ver, f"PUT permisos no asignó el set esperado: {res}"
+status, res = make_request(f"{BASE_URL}/roles/{rol_nuevo_id}/permisos/", headers=auth_admin)
+assert status == 200 and sorted(res["asignados"]) == solo_ver, f"GET permisos no refleja la asignación: {res}"
+print("[OK] Asignación/consulta de permisos de un rol")
+
+# 6.5b Un rol "solo ver" puede consultar pero NO crear/editar/eliminar
+status, res = make_request(f"{BASE_URL}/usuarios/?buscar={cliente_email}", headers=auth_admin)
+cliente_id_tmp = next(u["id"] for u in res["results"] if u["email"] == cliente_email)
+make_request(f"{BASE_URL}/usuarios/{cliente_id_tmp}/", method="PATCH", data={"rol_id": rol_nuevo_id}, headers=auth_admin)
+_, res_login = make_request(f"{BASE_URL}/auth/login/", method="POST", data={"email": cliente_email, "password": "Password123!"})
+auth_lector = {"Authorization": f"Bearer {res_login['access']}"}
+status, _ = make_request(f"{BASE_URL}/roles/", headers=auth_lector)
+assert status == 200, f"'solo ver' debió poder GET /roles/: {status}"
+status, _ = make_request(f"{BASE_URL}/roles/", method="POST", data={"nombre": f"x_{UNIQUE_ID}"}, headers=auth_lector)
+assert status == 403, f"'solo ver' NO debió poder crear roles: {status}"
+status, _ = make_request(f"{BASE_URL}/roles/{rol_nuevo_id}/", method="DELETE", headers=auth_lector)
+assert status == 403, f"'solo ver' NO debió poder eliminar roles: {status}"
+status, _ = make_request(f"{BASE_URL}/usuarios/{cliente_id_tmp}/", method="PATCH", data={"activo": True}, headers=auth_lector)
+assert status == 403, f"'solo ver' NO tiene usuarios.editar: {status}"
+make_request(f"{BASE_URL}/usuarios/{cliente_id_tmp}/", method="PATCH", data={"rol_id": 3}, headers=auth_admin)
+print("[OK] Rol 'solo ver': GET permitido, POST/PATCH/DELETE rechazados con 403")
+
+# 6.6 Los roles del sistema no se pueden eliminar ni renombrar
+status, res = make_request(f"{BASE_URL}/roles/{rol_admin['id']}/", method="DELETE", headers=auth_admin)
+assert status == 400, f"Eliminar rol semilla debió ser 400, obtuvo {status}: {res}"
+status, res = make_request(f"{BASE_URL}/roles/{rol_admin['id']}/", method="PATCH", data={"nombre": "otro"}, headers=auth_admin)
+assert status == 400, f"Renombrar rol semilla debió ser 400, obtuvo {status}: {res}"
+print("[OK] Roles semilla protegidos contra borrado y renombrado")
+
+# 6.7 Listar usuarios (paginado) y filtrar por email
+status, res = make_request(f"{BASE_URL}/usuarios/?buscar={cliente_email}", headers=auth_admin)
+assert status == 200 and "results" in res and res["count"] >= 1, f"El listado de usuarios debió responder paginado: {res}"
+cliente_id = next((u["id"] for u in res["results"] if u["email"] == cliente_email), None)
+assert cliente_id, f"No se encontró al cliente en el listado: {res}"
+print(f"[OK] Listado de usuarios con filtro ?buscar= (count={res['count']})")
+
+# 6.8 Asignar el rol nuevo al usuario y luego restaurarlo
+status, res = make_request(f"{BASE_URL}/usuarios/{cliente_id}/", method="PATCH", data={"rol_id": rol_nuevo_id}, headers=auth_admin)
+assert status == 200 and res["rol"]["nombre"] == nombre_rol, f"El PATCH de rol de usuario falló: {res}"
+status, res = make_request(f"{BASE_URL}/usuarios/{cliente_id}/", method="PATCH", data={"rol_id": 3}, headers=auth_admin)
+assert status == 200, f"Restaurar el rol del usuario falló: {res}"
+print("[OK] Asignación de rol a un usuario")
+
+# 6.9 Los cambios de accesos quedan auditados
+status, res = make_request(f"{BASE_URL}/auditoria/logs/?tabla=rol_permiso", headers=auth_admin)
+assert status == 200 and res["count"] >= 1, f"Los cambios de permisos de rol debieron auditarse: {res}"
+print(f"[OK] Los cambios de accesos quedan auditados en /auditoria/logs/ (count={res['count']})")
+
+# 6.10 El endpoint de bitácora se controla ahora con el permiso 'bitacora.ver'
+status, res = make_request(f"{BASE_URL}/auditoria/bitacora/", headers=auth_admin)
+assert status == 200, f"El administrador debió acceder a la bitácora vía 'bitacora.ver': {status}"
+print("[OK] Control de acceso por permiso: /auditoria/bitacora/ usa 'bitacora.ver'")
+
+# 6.11 Limpieza: eliminar el rol de prueba
+status, res = make_request(f"{BASE_URL}/roles/{rol_nuevo_id}/", method="DELETE", headers=auth_admin)
+assert status == 204, f"Eliminar el rol de prueba debió ser 204: {status} {res}"
+print("[OK] Rol de prueba eliminado")
+
 print("\n[OK] TODOS LOS REQUISITOS Y FLUJOS VERIFICADOS AL 100%!")

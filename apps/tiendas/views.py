@@ -12,22 +12,10 @@ from apps.catalogo.models import Producto, Variante
 from apps.pedidos.models import Pedido
 
 from apps.usuarios.audit import AuditoriaCreateMixin
+from apps.usuarios.permissions import IsEmpresaUser
 
 from .models import Tienda
 from .serializers import TiendaSerializer
-
-
-class IsEmpresaUser(permissions.BasePermission):
-    """Permiso que permite acceso únicamente a usuarios con rol 'empresa'."""
-    message = "Solo los usuarios con rol 'empresa' pueden crear o administrar tiendas."
-
-    def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.rol
-            and request.user.rol.nombre == 'empresa'
-        )
 
 
 class TiendaListCreateView(AuditoriaCreateMixin, generics.ListCreateAPIView):

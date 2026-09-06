@@ -10,15 +10,95 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import serializers
 
-from .models import BitacoraAcceso, LogAuditoria, Rol
+from .models import BitacoraAcceso, LogAuditoria, Permiso, Rol, RolPermiso
 
 Usuario = get_user_model()
+
+# Roles creados por la migración `0002_roles_semilla.py`. No se pueden renombrar
+# ni eliminar desde la API porque hay lógica de negocio atada a estos nombres.
+ROLES_SEMILLA = {'administrador', 'empresa', 'cliente'}
 
 
 class RolSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rol
         fields = ['id', 'nombre']
+
+
+class PermisoSerializer(serializers.ModelSerializer):
+    """Un permiso de la matriz. `modulo`/`accion` salen de partir `codigo` por el punto."""
+    modulo = serializers.SerializerMethodField()
+    accion = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Permiso
+        fields = ['id', 'codigo', 'nombre', 'modulo', 'accion']
+
+    def get_modulo(self, obj):
+        return obj.codigo.split('.', 1)[0] if '.' in obj.codigo else obj.codigo
+
+    def get_accion(self, obj):
+        return obj.codigo.split('.', 1)[1] if '.' in obj.codigo else ''
+
+
+class RolConPermisosSerializer(serializers.ModelSerializer):
+    """Rol con la lista de permisos que tiene asignados y si es un rol del sistema."""
+    permisos = serializers.SerializerMethodField()
+    es_semilla = serializers.SerializerMethodField()
+    usuarios_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Rol
+        fields = ['id', 'nombre', 'permisos', 'es_semilla', 'usuarios_count']
+
+    def get_permisos(self, obj):
+        permisos = [rp.permiso for rp in obj.roles_permisos.select_related('permiso').all()]
+        return PermisoSerializer(permisos, many=True).data
+
+    def get_es_semilla(self, obj):
+        return obj.nombre in ROLES_SEMILLA
+
+    def get_usuarios_count(self, obj):
+        return obj.usuarios.count()
+
+    def validate_nombre(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('El nombre del rol es obligatorio.')
+        qs = Rol.objects.filter(nombre__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Ya existe un rol con ese nombre.')
+        # No permitir renombrar un rol semilla ni "convertir" otro en semilla.
+        if self.instance and self.instance.nombre in ROLES_SEMILLA and value != self.instance.nombre:
+            raise serializers.ValidationError('Los roles del sistema no se pueden renombrar.')
+        if not self.instance and value.lower() in ROLES_SEMILLA:
+            raise serializers.ValidationError('Ese nombre está reservado por el sistema.')
+        return value
+
+
+class RolPermisosUpdateSerializer(serializers.Serializer):
+    """Body de `PUT /api/roles/<pk>/permisos/`: reemplaza el set completo."""
+    permisos = serializers.PrimaryKeyRelatedField(
+        queryset=Permiso.objects.all(), many=True
+    )
+
+
+class UsuarioAdminSerializer(serializers.ModelSerializer):
+    """Gestión de usuarios por el administrador (CU07): rol y estado."""
+    rol = RolSerializer(read_only=True)
+    rol_id = serializers.PrimaryKeyRelatedField(
+        queryset=Rol.objects.all(), source='rol', write_only=True, required=False
+    )
+
+    class Meta:
+        model = Usuario
+        fields = [
+            'id', 'email', 'first_name', 'last_name',
+            'rol', 'rol_id', 'activo', 'is_active', 'fecha_registro',
+        ]
+        read_only_fields = ['id', 'email', 'first_name', 'last_name', 'fecha_registro']
 
 
 class RegistroSerializer(serializers.ModelSerializer):
@@ -91,14 +171,24 @@ class PerfilSerializer(serializers.ModelSerializer):
 
 class BitacoraAccesoSerializer(serializers.ModelSerializer):
     """Serializer de solo lectura para la bitácora de accesos (CU07)."""
-    usuario_email = serializers.EmailField(source='usuario.email', read_only=True)
+    usuario_email = serializers.SerializerMethodField()
     usuario_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = BitacoraAcceso
-        fields = ['id', 'usuario', 'usuario_email', 'usuario_nombre', 'fecha', 'ip', 'dispositivo']
+        fields = [
+            'id', 'usuario', 'usuario_email', 'usuario_nombre', 'email_intento',
+            'exitoso', 'motivo', 'fecha', 'ip', 'dispositivo',
+        ]
+
+    def get_usuario_email(self, obj):
+        if obj.usuario:
+            return obj.usuario.email
+        return obj.email_intento or None
 
     def get_usuario_nombre(self, obj):
+        if not obj.usuario:
+            return obj.email_intento or None
         nombre = f'{obj.usuario.first_name} {obj.usuario.last_name}'.strip()
         return nombre or obj.usuario.email
 
