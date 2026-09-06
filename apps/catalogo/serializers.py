@@ -2,6 +2,8 @@ import json
 
 from rest_framework import serializers
 
+from apps.tiendas.models import Tienda
+
 from .models import Categoria, Producto, Variante
 
 
@@ -167,3 +169,56 @@ class ProductoSerializer(serializers.ModelSerializer):
 
     def get_en_stock(self, obj):
         return not self.get_agotado(obj)
+
+
+# =========================================================================
+# Serializers de Catálogo Público para Clientes (CU-11)
+# =========================================================================
+
+class TiendaCatalogoSerializer(serializers.ModelSerializer):
+    """Datos públicos mínimos de una tienda para el catálogo."""
+
+    class Meta:
+        model = Tienda
+        fields = [
+            'id',
+            'nombre',
+            'slug',
+            'logo_url',
+            'color_primario',
+            'descripcion',
+        ]
+
+
+class VarianteCatalogoSerializer(serializers.ModelSerializer):
+    """Datos de una variante para visualización en el catálogo público."""
+
+    class Meta:
+        model = Variante
+        fields = [
+            'id',
+            'nombre',
+            'sku',
+            'precio',
+            'precio_oferta',
+            'stock',
+            'activa',
+            'atributos',
+        ]
+
+
+class ProductoCatalogoSerializer(serializers.ModelSerializer):
+    """Producto con las variantes activas precargadas."""
+
+    variantes = VarianteCatalogoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Producto
+        fields = [
+            'id',
+            'nombre',
+            'slug',
+            'descripcion',
+            'imagenes',
+            'variantes',
+        ]

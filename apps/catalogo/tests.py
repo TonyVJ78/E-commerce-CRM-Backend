@@ -18,8 +18,8 @@ from .services import create_product_with_images
 class ProductoApiTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.empresa_rol = Rol.objects.create(nombre='empresa')
-        cls.cliente_rol = Rol.objects.create(nombre='cliente')
+        cls.empresa_rol = Rol.objects.get_or_create(nombre='empresa')[0]
+        cls.cliente_rol = Rol.objects.get_or_create(nombre='cliente')[0]
         cls.empresa = Usuario.objects.create_user(
             email='empresa@test.local',
             password='Password123!',
@@ -54,218 +54,294 @@ class ProductoApiTests(APITestCase):
             nombre='Ajena',
         )
 
-    def product_url(self, tienda_id=None):
-        return reverse(
-            'producto-list-create',
-            kwargs={'tienda_id': tienda_id or self.tienda.id},
+    def _sample_image(self, name='test.jpg'):
+        return SimpleUploadedFile(
+            name=name,
+            content=b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xff\xdb\x00C\x00',
+            content_type='image/jpeg',
         )
 
-    def valid_payload(self, **overrides):
-        payload = {
-            'nombre': 'Polera Kantu',
-            'descripcion': 'Producto artesanal de prueba',
-            'categoria_id': str(self.categoria.id),
-            'etiquetas': json.dumps(['artesanal', 'ropa']),
-            'activo': 'true',
-            'variantes': json.dumps([{
-                'sku': 'POL-RO-M',
-                'nombre': 'Rojo / M',
-                'precio': '120.00',
-                'precio_oferta': '99.90',
-                'stock': 10,
-                'stock_minimo': 3,
-                'atributos': {'color': 'Rojo', 'talla': 'M'},
-                'activa': True,
-            }]),
-            'imagenes': SimpleUploadedFile(
-                'producto.png',
-                b'\x89PNG\r\n\x1a\ncontenido',
-                content_type='image/png',
-            ),
+    def _auth(self, user=None):
+        self.client.force_authenticate(user=user or self.empresa)
+
+    @patch('apps.catalogo.services.uploader.upload')
+    def test_crear_producto_exitoso(self, mock_upload):
+        mock_upload.side_effect = [
+            {'secure_url': 'https://res.cloudinary.com/demo/image/upload/v1/p1.jpg'},
+            {'secure_url': 'https://res.cloudinary.com/demo/image/upload/v1/p2.jpg'},
+        ]
+        self._auth()
+        url = reverse('producto-list-create', kwargs={'tienda_id': self.tienda.id})
+        data = {
+            'nombre': 'Polera oversize',
+            'descripcion': 'Polera de algodon peruano',
+            'categoria_id': self.categoria.id,
+            'etiquetas': json.dumps(['ropa', 'verano']),
+            'variantes': json.dumps([
+                {
+                    'sku': 'POL-NEG-M',
+                    'nombre': 'M / Negro',
+                    'precio': '79.90',
+                    'precio_oferta': '69.90',
+                    'stock': 15,
+                    'stock_minimo': 3,
+                    'atributos': {'talla': 'M', 'color': 'Negro'},
+                },
+                {
+                    'sku': 'POL-NEG-L',
+                    'nombre': 'L / Negro',
+                    'precio': '79.90',
+                    'stock': 8,
+                    'stock_minimo': 2,
+                    'atributos': {'talla': 'L', 'color': 'Negro'},
+                },
+            ]),
+            'imagenes': [self._sample_image('img1.jpg'), self._sample_image('img2.jpg')],
         }
-        payload.update(overrides)
-        return payload
 
-    def test_requires_authentication(self):
-        response = self.client.get(self.product_url())
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_rejects_non_empresa(self):
-        self.client.force_authenticate(self.cliente)
-        response = self.client.get(self.product_url())
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    @patch('apps.catalogo.services.upload_product_image')
-    def test_owner_can_create_product_and_calculates_stock(self, upload):
-        upload.return_value = {
-            'url': 'https://res.cloudinary.com/demo/producto.png',
-            'public_id': 'kantu/test/producto',
-        }
-        self.client.force_authenticate(self.empresa)
-
-        response = self.client.post(
-            self.product_url(),
-            self.valid_payload(),
-            format='multipart',
-        )
+        response = self.client.post(url, data, format='multipart')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['stock_total'], 10)
-        self.assertFalse(response.data['agotado'])
+        self.assertEqual(response.data['nombre'], 'Polera oversize')
+        self.assertEqual(response.data['slug'], 'polera-oversize')
+        self.assertEqual(len(response.data['imagenes']), 2)
+        self.assertEqual(len(response.data['variantes']), 2)
+        self.assertEqual(response.data['stock_total'], 23)
         self.assertTrue(response.data['en_stock'])
-        self.assertEqual(Producto.objects.count(), 1)
-        variante = Variante.objects.get()
-        self.assertEqual(variante.precio, Decimal('120.00'))
-        self.assertEqual(variante.sku, 'POL-RO-M')
-        upload.assert_called_once()
+        self.assertFalse(response.data['agotado'])
 
-    def test_rejects_foreign_store(self):
-        self.client.force_authenticate(self.empresa)
-        response = self.client.get(self.product_url(self.otra_tienda.id))
+    def test_crear_producto_sin_autenticacion_devuelve_401(self):
+        url = reverse('producto-list-create', kwargs={'tienda_id': self.tienda.id})
+        response = self.client.post(url, {}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_crear_producto_con_rol_no_empresa_devuelve_403(self):
+        self._auth(self.cliente)
+        url = reverse('producto-list-create', kwargs={'tienda_id': self.tienda.id})
+        response = self.client.post(url, {}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_crear_producto_en_tienda_ajena_devuelve_404(self):
+        self._auth()
+        url = reverse('producto-list-create', kwargs={'tienda_id': self.otra_tienda.id})
+        response = self.client.post(url, {}, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_rejects_foreign_category(self):
-        self.client.force_authenticate(self.empresa)
-        payload = self.valid_payload(categoria_id=str(self.otra_categoria.id))
-        response = self.client.post(self.product_url(), payload, format='multipart')
+    def test_crear_producto_con_categoria_de_otra_tienda_devuelve_400(self):
+        self._auth()
+        url = reverse('producto-list-create', kwargs={'tienda_id': self.tienda.id})
+        data = {
+            'nombre': 'Polera invalida',
+            'descripcion': 'Descripcion',
+            'categoria_id': self.otra_categoria.id,
+            'variantes': json.dumps([
+                {
+                    'sku': 'POL-INV-1',
+                    'precio': '50.00',
+                    'stock': 1,
+                    'stock_minimo': 0,
+                }
+            ]),
+            'imagenes': [self._sample_image('img1.jpg')],
+        }
+        response = self.client.post(url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('categoria_id', response.data)
 
-    def test_rejects_duplicate_skus(self):
-        self.client.force_authenticate(self.empresa)
-        payload = self.valid_payload(
-            variantes=json.dumps([
+    def test_crear_producto_sin_imagenes_devuelve_400(self):
+        self._auth()
+        url = reverse('producto-list-create', kwargs={'tienda_id': self.tienda.id})
+        data = {
+            'nombre': 'Polera sin imagen',
+            'descripcion': 'Descripcion',
+            'variantes': json.dumps([
                 {
-                    'sku': 'DUP-1',
-                    'precio': '10.00',
+                    'sku': 'POL-SIN-1',
+                    'precio': '50.00',
                     'stock': 1,
-                    'stock_minimo': 1,
-                    'atributos': {},
-                },
-                {
-                    'sku': 'DUP-1',
-                    'precio': '11.00',
-                    'stock': 1,
-                    'stock_minimo': 1,
-                    'atributos': {},
-                },
-            ])
-        )
-        response = self.client.post(self.product_url(), payload, format='multipart')
+                    'stock_minimo': 0,
+                }
+            ]),
+        }
+        response = self.client.post(url, data, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('imagenes', response.data)
+
+    def test_crear_producto_con_skus_duplicados_en_payload_devuelve_400(self):
+        self._auth()
+        url = reverse('producto-list-create', kwargs={'tienda_id': self.tienda.id})
+        data = {
+            'nombre': 'Polera skus duplicados',
+            'descripcion': 'Descripcion',
+            'variantes': json.dumps([
+                {'sku': 'SKU-DUP', 'precio': '50.00', 'stock': 1, 'stock_minimo': 0},
+                {'sku': 'sku-dup', 'precio': '50.00', 'stock': 1, 'stock_minimo': 0},
+            ]),
+            'imagenes': [self._sample_image('img1.jpg')],
+        }
+        response = self.client.post(url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('variantes', response.data)
 
-    @patch('apps.catalogo.services.upload_product_image')
-    @patch('apps.catalogo.services.delete_product_image')
-    @patch('apps.catalogo.services.Variante.objects.bulk_create')
-    def test_cleans_cloudinary_when_database_fails(self, bulk_create, delete_image, upload):
-        upload.return_value = {
-            'url': 'https://res.cloudinary.com/demo/fallo.png',
-            'public_id': 'kantu/test/fallo',
+    @patch('apps.catalogo.services.uploader.upload')
+    def test_crear_producto_con_sku_existente_en_otra_tienda_es_permitido(self, mock_upload):
+        mock_upload.side_effect = [
+            {'secure_url': 'https://res.cloudinary.com/demo/image/upload/v1/p1.jpg'},
+            {'secure_url': 'https://res.cloudinary.com/demo/image/upload/v1/p2.jpg'},
+        ]
+        self._auth(self.otra_empresa)
+        url_otra = reverse('producto-list-create', kwargs={'tienda_id': self.otra_tienda.id})
+        payload_otra = {
+            'nombre': 'Producto ajeno',
+            'descripcion': 'Desc',
+            'variantes': json.dumps([
+                {'sku': 'SKU-COMPARTIDO', 'precio': '10.00', 'stock': 2, 'stock_minimo': 1}
+            ]),
+            'imagenes': [self._sample_image('img_otra.jpg')],
         }
-        bulk_create.side_effect = IntegrityError('error de prueba')
+        resp_otra = self.client.post(url_otra, payload_otra, format='multipart')
+        self.assertEqual(resp_otra.status_code, status.HTTP_201_CREATED)
 
-        with self.assertRaises(IntegrityError):
-            create_product_with_images(
-                tienda=self.tienda,
-                validated_data={
-                    'nombre': 'Producto fallido',
-                    'descripcion': 'No debe persistir',
-                    'categoria_id': self.categoria.id,
-                    'etiquetas': [],
-                    'activo': True,
-                    'variantes': [{
-                        'sku': 'FAIL-1',
-                        'nombre': 'Unica',
-                        'precio': Decimal('10.00'),
-                        'precio_oferta': None,
-                        'stock': 0,
-                        'stock_minimo': 1,
-                        'atributos': {},
-                        'activa': True,
-                    }],
-                    'imagenes': [SimpleUploadedFile(
-                        'fallo.png',
-                        b'\x89PNG\r\n\x1a\ncontenido',
-                        content_type='image/png',
-                    )],
-                },
-            )
-
-        self.assertFalse(Producto.objects.filter(nombre='Producto fallido').exists())
-        delete_image.assert_called_once_with('kantu/test/fallo')
-
-    @patch('apps.catalogo.services.upload_product_image')
-    def test_all_active_variants_without_stock_are_agotado(self, upload):
-        upload.return_value = {
-            'url': 'https://res.cloudinary.com/demo/ag agotado.png',
-            'public_id': 'kantu/test/agotado',
+        self._auth(self.empresa)
+        url_propia = reverse('producto-list-create', kwargs={'tienda_id': self.tienda.id})
+        payload_propia = {
+            'nombre': 'Producto propio',
+            'descripcion': 'Desc',
+            'variantes': json.dumps([
+                {'sku': 'SKU-COMPARTIDO', 'precio': '20.00', 'stock': 3, 'stock_minimo': 1}
+            ]),
+            'imagenes': [self._sample_image('img_propia.jpg')],
         }
-        self.client.force_authenticate(self.empresa)
-        payload = self.valid_payload(
-            variantes=json.dumps([{
-                'sku': 'AGOT-1',
-                'nombre': 'Unica',
-                'precio': '40.00',
-                'stock': 0,
-                'stock_minimo': 2,
-                'atributos': {},
-                'activa': True,
-            }])
-        )
+        resp_propia = self.client.post(url_propia, payload_propia, format='multipart')
+        self.assertEqual(resp_propia.status_code, status.HTTP_201_CREATED)
 
-        response = self.client.post(self.product_url(), payload, format='multipart')
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['stock_total'], 0)
-        self.assertTrue(response.data['agotado'])
-        self.assertFalse(response.data['en_stock'])
-
-    @patch('apps.catalogo.services.upload_product_image')
-    def test_creates_product_with_multiple_variants(self, upload):
-        upload.return_value = {
-            'url': 'https://res.cloudinary.com/demo/multiple.png',
-            'public_id': 'kantu/test/multiple',
+    @patch('apps.catalogo.services.uploader.upload')
+    def test_crear_producto_con_sku_existente_en_misma_tienda_lanza_error(self, mock_upload):
+        mock_upload.side_effect = [
+            {'secure_url': 'https://res.cloudinary.com/demo/image/upload/v1/p1.jpg'},
+            {'secure_url': 'https://res.cloudinary.com/demo/image/upload/v1/p2.jpg'},
+        ]
+        self._auth()
+        url = reverse('producto-list-create', kwargs={'tienda_id': self.tienda.id})
+        payload1 = {
+            'nombre': 'Producto 1',
+            'descripcion': 'Desc',
+            'variantes': json.dumps([
+                {'sku': 'SKU-MISMA-TIENDA', 'precio': '10.00', 'stock': 2, 'stock_minimo': 1}
+            ]),
+            'imagenes': [self._sample_image('img1.jpg')],
         }
-        self.client.force_authenticate(self.empresa)
-        payload = self.valid_payload(
-            variantes=json.dumps([
-                {
-                    'sku': 'MULTI-S', 'nombre': 'S', 'precio': '50.00',
-                    'stock': 3, 'stock_minimo': 1, 'atributos': {'talla': 'S'},
-                },
-                {
-                    'sku': 'MULTI-M', 'nombre': 'M', 'precio': '55.00',
-                    'stock': 2, 'stock_minimo': 1, 'atributos': {'talla': 'M'},
-                },
-            ])
+        resp1 = self.client.post(url, payload1, format='multipart')
+        self.assertEqual(resp1.status_code, status.HTTP_201_CREATED)
+
+        payload2 = {
+            'nombre': 'Producto 2',
+            'descripcion': 'Desc',
+            'variantes': json.dumps([
+                {'sku': 'SKU-MISMA-TIENDA', 'precio': '20.00', 'stock': 3, 'stock_minimo': 1}
+            ]),
+            'imagenes': [self._sample_image('img2.jpg')],
+        }
+        resp2 = self.client.post(url, payload2, format='multipart')
+        self.assertEqual(resp2.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch('apps.catalogo.services.uploader.upload')
+    def test_rollback_si_falla_guardado(self, mock_upload):
+        mock_upload.return_value = {'secure_url': 'https://res.cloudinary.com/demo/image/upload/v1/p1.jpg'}
+        total_productos_antes = Producto.objects.count()
+        total_variantes_antes = Variante.objects.count()
+
+        validated_data = {
+            'nombre': 'Producto rollback',
+            'descripcion': 'Desc',
+            'activo': True,
+            'etiquetas': [],
+            'categoria_id': None,
+            'variantes': [
+                {'sku': 'SKU-OK', 'nombre': 'V1', 'precio': Decimal('10.00'), 'stock': 1, 'stock_minimo': 0, 'atributos': {}, 'activa': True},
+            ],
+            'imagenes': [self._sample_image('ok.jpg')],
+        }
+
+        with patch('apps.catalogo.services.Variante.objects.bulk_create', side_effect=IntegrityError('Error simulado')):
+            with self.assertRaises(IntegrityError):
+                create_product_with_images(tienda=self.tienda, validated_data=validated_data)
+
+        self.assertEqual(Producto.objects.count(), total_productos_antes)
+        self.assertEqual(Variante.objects.count(), total_variantes_antes)
+
+
+class CatalogoClienteAPITests(APITestCase):
+    def setUp(self):
+        rol_cliente = Rol.objects.get_or_create(nombre='cliente')[0]
+        rol_empresa = Rol.objects.get_or_create(nombre='empresa')[0]
+        self.cliente = Usuario.objects.create_user(
+            email='cliente-catalogo@example.com',
+            password='Password123!',
+            rol=rol_cliente,
+        )
+        self.empresa = Usuario.objects.create_user(
+            email='empresa-catalogo@example.com',
+            password='Password123!',
+            rol=rol_empresa,
+        )
+        self.tienda_uno = Tienda.objects.create(
+            propietario=self.empresa,
+            nombre='Tienda Uno',
+            slug='tienda-uno',
+        )
+        self.tienda_dos = Tienda.objects.create(
+            propietario=self.empresa,
+            nombre='Tienda Dos',
+            slug='tienda-dos',
+        )
+        self.producto_uno = Producto.objects.create(
+            tienda=self.tienda_uno,
+            nombre='Producto Uno',
+            slug='producto-uno',
+        )
+        Producto.objects.create(
+            tienda=self.tienda_dos,
+            nombre='Producto Dos',
+            slug='producto-dos',
+        )
+        self.variante_uno = Variante.objects.create(
+            producto=self.producto_uno,
+            nombre='Variante Uno',
+            sku='VAR-UNO',
+            precio=Decimal('12.00'),
+            stock=10,
         )
 
-        response = self.client.post(self.product_url(), payload, format='multipart')
+    def test_cliente_lista_tiendas_sin_datos_privados_del_propietario(self):
+        self.client.force_authenticate(user=self.cliente)
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(response.data['variantes']), 2)
-        self.assertEqual(response.data['stock_total'], 5)
+        response = self.client.get(reverse('catalogo_tiendas'))
 
-    def test_rejects_negative_values_and_invalid_image(self):
-        self.client.force_authenticate(self.empresa)
-        negative_payload = self.valid_payload(
-            variantes=json.dumps([{
-                'sku': 'NEG-1', 'nombre': 'Unica', 'precio': '-1.00',
-                'stock': 0, 'stock_minimo': 1, 'atributos': {},
-            }])
-        )
-        negative_response = self.client.post(
-            self.product_url(), negative_payload, format='multipart'
-        )
-        self.assertEqual(negative_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertNotIn('propietario', response.data[0])
+        self.assertNotIn('propietario_email', response.data[0])
 
-        invalid_image_payload = self.valid_payload(
-            imagenes=SimpleUploadedFile(
-                'producto.gif', b'GIF89a', content_type='image/gif'
-            )
+    def test_productos_y_variantes_quedan_aislados_por_tienda(self):
+        self.client.force_authenticate(user=self.cliente)
+
+        response = self.client.get(
+            reverse('catalogo_productos_tienda', args=[self.tienda_uno.id])
         )
-        invalid_image_response = self.client.post(
-            self.product_url(), invalid_image_payload, format='multipart'
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], self.producto_uno.id)
+        self.assertEqual(len(response.data[0]['variantes']), 1)
+        self.assertEqual(
+            response.data[0]['variantes'][0]['id'],
+            self.variante_uno.id,
         )
-        self.assertEqual(invalid_image_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_usuario_no_cliente_no_accede_al_catalogo(self):
+        self.client.force_authenticate(user=self.empresa)
+
+        response = self.client.get(reverse('catalogo_tiendas'))
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

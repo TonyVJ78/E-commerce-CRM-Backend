@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -6,13 +7,15 @@ from rest_framework.response import Response
 
 from apps.tiendas.models import Tienda
 from apps.usuarios.audit import ACCION_CREAR, registrar_auditoria
-from apps.usuarios.permissions import IsEmpresa
+from apps.usuarios.permissions import IsClienteUser, IsEmpresa
 
-from .models import Categoria, Producto
+from .models import Categoria, Producto, Variante
 from .serializers import (
     CategoriaSerializer,
+    ProductoCatalogoSerializer,
     ProductoCreateSerializer,
     ProductoSerializer,
+    TiendaCatalogoSerializer,
 )
 from .services import (
     CloudinaryConfigurationError,
@@ -92,3 +95,31 @@ class ProductoDetailView(OwnedStoreMixin, generics.RetrieveAPIView):
         return Producto.objects.filter(
             tienda=self.get_tienda(),
         ).prefetch_related('variantes')
+
+
+# =========================================================================
+# Vistas de Catálogo Público para Clientes (CU-11)
+# =========================================================================
+
+class TiendaCatalogoListView(generics.ListAPIView):
+    """GET /api/catalogo/tiendas/ — Listar tiendas para el catálogo del Cliente."""
+
+    serializer_class = TiendaCatalogoSerializer
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    queryset = Tienda.objects.all()
+
+
+class ProductoTiendaListView(generics.ListAPIView):
+    """GET /api/catalogo/tiendas/<tienda_id>/productos/ — Catálogo de una tienda."""
+
+    serializer_class = ProductoCatalogoSerializer
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+
+    def get_queryset(self):
+        tienda_id = self.kwargs['tienda_id']
+        get_object_or_404(Tienda, pk=tienda_id)
+
+        variantes_activas = Variante.objects.filter(activa=True)
+        return Producto.objects.filter(tienda_id=tienda_id, activo=True).prefetch_related(
+            Prefetch('variantes', queryset=variantes_activas)
+        )

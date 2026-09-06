@@ -12,4 +12,6 @@ urlpatterns = [
     path('api/', include('apps.usuarios.urls_accesos')),
     path('api/tiendas/', include('apps.tiendas.urls')),
     path('api/tiendas/', include('apps.catalogo.urls')),
+    path('api/catalogo/', include('apps.catalogo.urls_cliente')),
+    path('api/pedidos/', include('apps.pedidos.urls')),
 ]
