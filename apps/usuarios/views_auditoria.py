@@ -9,12 +9,13 @@ Ambos endpoints están paginados y admiten filtros por querystring.
 """
 
 import django_filters
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, permissions
 from rest_framework.pagination import PageNumberPagination
 
 from .models import BitacoraAcceso, LogAuditoria
-from .permissions import IsAdministrador
+from .permissions import TienePermiso
 from .serializers import BitacoraAccesoSerializer, LogAuditoriaSerializer
 
 
@@ -25,14 +26,21 @@ class AuditoriaPagination(PageNumberPagination):
 
 
 class BitacoraAccesoFilter(django_filters.FilterSet):
-    usuario = django_filters.CharFilter(field_name='usuario__email', lookup_expr='icontains')
+    usuario = django_filters.CharFilter(method='filtrar_usuario')
     ip = django_filters.CharFilter(field_name='ip', lookup_expr='icontains')
+    exitoso = django_filters.BooleanFilter(field_name='exitoso')
     fecha_desde = django_filters.DateFilter(field_name='fecha', lookup_expr='date__gte')
     fecha_hasta = django_filters.DateFilter(field_name='fecha', lookup_expr='date__lte')
 
     class Meta:
         model = BitacoraAcceso
-        fields = ['usuario', 'ip', 'fecha_desde', 'fecha_hasta']
+        fields = ['usuario', 'ip', 'exitoso', 'fecha_desde', 'fecha_hasta']
+
+    def filtrar_usuario(self, queryset, name, value):
+        """Busca por email del usuario registrado o por el email del intento."""
+        return queryset.filter(
+            Q(usuario__email__icontains=value) | Q(email_intento__icontains=value)
+        )
 
 
 class LogAuditoriaFilter(django_filters.FilterSet):
@@ -50,7 +58,7 @@ class LogAuditoriaFilter(django_filters.FilterSet):
 class BitacoraAccesoListView(generics.ListAPIView):
     """GET /api/auditoria/bitacora/ — Bitácora de inicios de sesión."""
     serializer_class = BitacoraAccesoSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdministrador]
+    permission_classes = [permissions.IsAuthenticated, TienePermiso('ver_bitacora')]
     pagination_class = AuditoriaPagination
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = BitacoraAccesoFilter
@@ -62,7 +70,7 @@ class BitacoraAccesoListView(generics.ListAPIView):
 class LogAuditoriaListView(generics.ListAPIView):
     """GET /api/auditoria/logs/ — Log de cambios en la base de datos y cierres de sesión."""
     serializer_class = LogAuditoriaSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdministrador]
+    permission_classes = [permissions.IsAuthenticated, TienePermiso('ver_bitacora')]
     pagination_class = AuditoriaPagination
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = LogAuditoriaFilter
