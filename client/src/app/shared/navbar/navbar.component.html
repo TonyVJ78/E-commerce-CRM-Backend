@@ -66,6 +66,9 @@
   </div>
 </nav>
 
+<div class="navbar-backdrop" *ngIf="menuOpen" (click)="menuOpen = false"></div>
+
+
 <!-- ========================================================================= -->
 <!-- SLIDE-OVER DRAWER DEL CARRITO DE COMPRAS -->
 <!-- ========================================================================= -->
@@ -162,12 +165,17 @@
         <span class="grand-total-amount">Bs {{ cartData.total_global }}</span>
       </div>
 
+      <div class="checkout-error-alert" *ngIf="checkoutError" style="margin-bottom: 0.75rem; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 0.82rem;">
+        ⚠️ {{ checkoutError }}
+      </div>
+
       <div class="cart-footer-buttons">
-        <button class="btn btn-outline btn-sm btn-clear" (click)="vaciar()">
+        <button class="btn btn-outline btn-sm btn-clear" [disabled]="isCheckingOut" (click)="vaciar()">
           Vaciar
         </button>
-        <button class="btn btn-primary btn-checkout" (click)="procederCheckout()">
-          Confirmar y Pagar (Checkout) →
+        <button class="btn btn-primary btn-checkout" [disabled]="isCheckingOut" (click)="procederCheckout()">
+          <span *ngIf="isCheckingOut">Procesando compra...</span>
+          <span *ngIf="!isCheckingOut">Confirmar y Pagar (Checkout) →</span>
         </button>
       </div>
     </div>

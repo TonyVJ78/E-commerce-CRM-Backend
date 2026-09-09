@@ -87,4 +87,14 @@ export class CarritoService {
       })
     );
   }
+
+  checkout(): Observable<any> {
+    return this.http.post(`${this.apiUrl}/checkout/`, {}).pipe(
+      tap(() => {
+        this.cartCountSubject.next(0);
+        this.cartDataSubject.next(null);
+      })
+    );
+  }
 }
+

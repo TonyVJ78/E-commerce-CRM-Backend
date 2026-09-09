@@ -715,8 +715,12 @@
 }
 
 .table-responsive-wrapper {
+  width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
 }
+
 
 .products-table {
   width: 100%;
@@ -1000,14 +1004,91 @@
 
 /* Responsivo */
 @media (max-width: 768px) {
+  .catalog-page {
+    padding: 1.25rem 0.85rem 3rem;
+  }
+
   .catalog-header {
     flex-direction: column;
     align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+  }
+
+  .catalog-header h2 {
+    font-size: 1.6rem;
   }
 
   .header-actions {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .tienda-selector-wrapper {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .form-select-tienda {
+    flex: 1;
+  }
+
+  .btn-create-product {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .catalog-stats-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .catalog-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .toolbar-left {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .search-box-wrapper,
+  .filter-category-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .modal-backdrop-custom {
+    padding: 0.5rem;
+  }
+
+  .modal-dialog-custom {
+    max-height: 94vh;
+    border-radius: 14px;
+  }
+
+  .modal-header-custom {
+    padding: 1rem 1.25rem;
+  }
+
+  .modal-body-content {
+    padding: 1rem 1.25rem;
+  }
+
+  .modal-footer-custom {
+    padding: 1rem 1.25rem;
+    flex-direction: column-reverse;
+  }
+
+  .btn-modal-cancel,
+  .btn-modal-submit {
+    width: 100%;
+    justify-content: center;
   }
 
   .form-fields-grid {
@@ -1026,5 +1107,21 @@
   .pagination-footer {
     flex-direction: column;
     gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .catalog-stats-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .products-table th,
+  .products-table td {
+    padding: 0.75rem 0.65rem;
+    font-size: 0.8rem;
+  }
+
+  .stat-card-clean {
+    padding: 0.85rem;
   }
 }

@@ -59,6 +59,9 @@ export class NavbarComponent implements OnInit {
     }
   }
 
+  isCheckingOut = false;
+  checkoutError: string | null = null;
+
   eliminar(itemId: number): void {
     this.carritoService.eliminarItem(itemId).subscribe();
   }
@@ -70,15 +73,29 @@ export class NavbarComponent implements OnInit {
   }
 
   procederCheckout(): void {
-    this.checkoutSuccess = true;
-    setTimeout(() => {
-      this.carritoService.vaciarCarrito().subscribe();
-      setTimeout(() => {
-        this.cartOpen = false;
-        this.checkoutSuccess = false;
-      }, 2500);
-    }, 1200);
+    if (this.isCheckingOut) return;
+    this.isCheckingOut = true;
+    this.checkoutError = null;
+
+    this.carritoService.checkout().subscribe({
+      next: () => {
+        this.isCheckingOut = false;
+        this.checkoutSuccess = true;
+        this.checkoutError = null;
+        setTimeout(() => {
+          this.cartOpen = false;
+          this.checkoutSuccess = false;
+        }, 2800);
+      },
+      error: (err) => {
+        this.isCheckingOut = false;
+        const msg = err.error?.error || err.error?.detail || 'Error al procesar la compra. Verifica la disponibilidad del producto.';
+        this.checkoutError = msg;
+        alert(msg);
+      }
+    });
   }
+
 
   logout(): void {
     this.cartOpen = false;

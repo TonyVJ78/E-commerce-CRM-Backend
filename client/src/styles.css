@@ -51,6 +51,8 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 body {
@@ -59,7 +61,10 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
+  overflow-x: hidden;
+  width: 100%;
 }
+
 
 /* --- Auth Container (login, registro, recuperar) --- */
 .auth-container {
@@ -398,6 +403,13 @@ body {
   margin: 0 auto;
   padding: 2rem 1.5rem;
   animation: fadeUp 0.4s ease-out;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .page-container {
+    padding: 1.25rem 0.85rem;
+  }
 }
 
 /* --- Badge (usado en perfil y tienda cards) --- */
@@ -413,8 +425,8 @@ body {
 /* --- Responsive --- */
 @media (max-width: 480px) {
   .auth-card {
-    padding: 1.75rem;
-    margin: 0 0.5rem;
+    padding: 1.5rem 1rem;
+    margin: 0 0.25rem;
   }
 
   .form-row {
@@ -425,6 +437,7 @@ body {
     font-size: 1.5rem;
   }
 }
+
 
 /* =============================================================================
    Componentes y Utilidades UI Compartidas
@@ -557,6 +570,19 @@ body {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+@media (max-width: 768px) {
+  .four-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 580px) {
+  .two-columns,
+  .four-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -566,6 +592,13 @@ body {
 .field-wide {
   grid-column: span 2;
 }
+
+@media (max-width: 580px) {
+  .field-wide {
+    grid-column: span 1;
+  }
+}
+
 
 .field label {
   color: var(--text-primary);
@@ -618,13 +651,18 @@ body {
 }
 
 /* --- Tablas y Paginación --- */
-.tabla-wrap {
+.tabla-wrap,
+.table-responsive-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+  width: 100%;
+  max-width: 100%;
 }
+
 
 .tabla {
   width: 100%;

@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -5,13 +6,14 @@ from rest_framework.views import APIView
 
 from apps.usuarios.permissions import IsClienteUser
 
-from .models import Carrito, ItemCarrito
+from .models import Carrito, ItemCarrito, Pedido, ItemPedido
 from .serializers import (
     AgregarItemCarritoSerializer,
     ItemCarritoCreadoSerializer,
     ItemCarritoDetalleSerializer,
     CarritoDetalleSerializer,
 )
+
 
 
 class AgregarItemCarritoView(APIView):
@@ -78,4 +80,84 @@ class ItemCarritoDetailView(APIView):
         item = get_object_or_404(ItemCarrito, pk=item_id, carrito__cliente=request.user)
         item.delete()
         return Response({'mensaje': 'Item eliminado del carrito.'}, status=status.HTTP_200_OK)
+
+
+class CheckoutView(APIView):
+    """POST /api/pedidos/carrito/checkout/ — Procesa la compra de los carritos del cliente,
+    generando Pedido e ItemPedido por cada tienda, activando los triggers de PostgreSQL
+    que descuentan el stock y calculan totales.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+
+    def post(self, request):
+        carritos = Carrito.objects.filter(
+            cliente=request.user
+        ).prefetch_related('items__variante')
+
+        items_encontrados = False
+        for c in carritos:
+            if c.items.exists():
+                items_encontrados = True
+                break
+
+        if not items_encontrados:
+            return Response(
+                {'error': 'El carrito de compras está vacío.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pedidos_creados = []
+        try:
+            with transaction.atomic():
+                for carrito in carritos:
+                    items = list(carrito.items.select_related('variante').all())
+                    if not items:
+                        continue
+
+                    # Crear pedido (los campos subtotal y total serán recalculados por el trigger de BD)
+                    pedido = Pedido.objects.create(
+                        cliente=request.user,
+                        tienda=carrito.tienda,
+                        estado_actual='completado',
+                        subtotal=0,
+                        total=0,
+                    )
+
+                    for item in items:
+                        # Al insertar en item_pedido se dispara trg_actualizar_stock_item_pedido
+                        # que descuenta variante.stock y verifica disponibilidad.
+                        ItemPedido.objects.create(
+                            tienda=carrito.tienda,
+                            pedido=pedido,
+                            variante=item.variante,
+                            cantidad=item.cantidad,
+                            precio_unitario=item.variante.precio,
+                        )
+
+                    # Vaciar items de este carrito
+                    carrito.items.all().delete()
+                    pedidos_creados.append(pedido.id)
+
+        except Exception as exc:
+            err_msg = str(exc)
+            if 'Stock insuficiente' in err_msg:
+                # Extraer mensaje conciso de la excepción lanzada por el trigger
+                clean_msg = [line.strip() for line in err_msg.split('\n') if 'Stock insuficiente' in line]
+                return Response(
+                    {'error': clean_msg[0] if clean_msg else err_msg},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return Response(
+                {'error': f'Error al procesar la compra: {err_msg}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                'mensaje': 'Compra realizada con éxito. Tu pedido ha sido procesado.',
+                'pedidos': pedidos_creados,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
 

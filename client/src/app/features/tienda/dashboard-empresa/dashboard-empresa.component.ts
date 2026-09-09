@@ -11,8 +11,8 @@ import Chart from 'chart.js/auto';
   styles: [`
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+      gap: 1.25rem;
       margin-bottom: 2rem;
     }
     .metric-card {
@@ -84,7 +84,28 @@ import Chart from 'chart.js/auto';
       color: #111827;
       margin-bottom: 1.5rem;
     }
+
+    @media (max-width: 640px) {
+      .metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
+        margin-bottom: 1.25rem;
+      }
+      .metric-card {
+        padding: 1.15rem;
+      }
+      .chart-container {
+        padding: 1rem;
+        height: 280px;
+        margin-top: 1.25rem;
+      }
+      .chart-container h3 {
+        font-size: 1.05rem;
+        margin-bottom: 1rem;
+      }
+    }
   `]
+
 })
 export class DashboardEmpresaComponent implements OnInit {
   metrics: DashboardMetrics | null = null;
