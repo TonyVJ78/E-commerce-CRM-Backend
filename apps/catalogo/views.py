@@ -1,6 +1,8 @@
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
+
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -87,7 +89,7 @@ class ProductoListCreateView(OwnedStoreMixin, generics.ListCreateAPIView):
         return Response(output.data, status=status.HTTP_201_CREATED)
 
 
-class ProductoDetailView(OwnedStoreMixin, generics.RetrieveAPIView):
+class ProductoDetailView(OwnedStoreMixin, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProductoSerializer
     lookup_url_kwarg = 'producto_id'
 
@@ -96,24 +98,29 @@ class ProductoDetailView(OwnedStoreMixin, generics.RetrieveAPIView):
             tienda=self.get_tienda(),
         ).prefetch_related('variantes')
 
+    def perform_destroy(self, instance):
+        """Borrado lógico (soft-delete) para mantener integridad con pedidos históricos."""
+        instance.activo = False
+        instance.save(update_fields=['activo'])
+
 
 # =========================================================================
-# Vistas de Catálogo Público para Clientes (CU-11)
+# Vistas de Catálogo Público para Clientes y Visitantes (CU-11)
 # =========================================================================
 
 class TiendaCatalogoListView(generics.ListAPIView):
-    """GET /api/catalogo/tiendas/ — Listar tiendas para el catálogo del Cliente."""
+    """GET /api/catalogo/tiendas/ — Listar tiendas para el catálogo público."""
 
     serializer_class = TiendaCatalogoSerializer
-    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
-    queryset = Tienda.objects.all()
+    permission_classes = [permissions.AllowAny]
+    queryset = Tienda.objects.filter(activa=True)
 
 
 class ProductoTiendaListView(generics.ListAPIView):
     """GET /api/catalogo/tiendas/<tienda_id>/productos/ — Catálogo de una tienda."""
 
     serializer_class = ProductoCatalogoSerializer
-    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         tienda_id = self.kwargs['tienda_id']
@@ -123,3 +130,54 @@ class ProductoTiendaListView(generics.ListAPIView):
         return Producto.objects.filter(tienda_id=tienda_id, activo=True).prefetch_related(
             Prefetch('variantes', queryset=variantes_activas)
         )
+
+
+class ProductoCatalogoGeneralListView(generics.ListAPIView):
+    """GET /api/catalogo/productos/ — Catálogo general de todas las tiendas con filtros."""
+
+    serializer_class = ProductoCatalogoSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        variantes_activas = Variante.objects.filter(activa=True)
+        queryset = Producto.objects.filter(
+            activo=True,
+            tienda__activa=True,
+        ).select_related('tienda', 'categoria').prefetch_related(
+            Prefetch('variantes', queryset=variantes_activas)
+        )
+
+        tienda_id = self.request.query_params.get('tienda')
+        if tienda_id:
+            queryset = queryset.filter(tienda_id=tienda_id)
+
+        categoria_id = self.request.query_params.get('categoria')
+        if categoria_id:
+            queryset = queryset.filter(categoria_id=categoria_id)
+
+        q = self.request.query_params.get('q')
+        if q:
+            queryset = queryset.filter(
+                models.Q(nombre__icontains=q) |
+                models.Q(descripcion__icontains=q) |
+                models.Q(categoria__nombre__icontains=q) |
+                models.Q(tienda__nombre__icontains=q)
+            )
+
+        return queryset.order_by('-id')
+
+
+class CategoriaCatalogoListView(generics.ListAPIView):
+    """GET /api/catalogo/categorias/ — Listar categorías activas para filtrado."""
+
+    serializer_class = CategoriaSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        tienda_id = self.request.query_params.get('tienda')
+        qs = Categoria.objects.all()
+        if tienda_id:
+            qs = qs.filter(tienda_id=tienda_id)
+        return qs.order_by('nombre')
+
+

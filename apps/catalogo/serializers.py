@@ -144,18 +144,26 @@ class CategoriaSerializer(serializers.ModelSerializer):
 
 
 class ProductoSerializer(serializers.ModelSerializer):
-    categoria_id = serializers.IntegerField(read_only=True)
+    categoria_id = serializers.PrimaryKeyRelatedField(
+        queryset=Categoria.objects.all(),
+        source='categoria',
+        required=False,
+        allow_null=True
+    )
     variantes = VarianteOutputSerializer(many=True, read_only=True)
     stock_total = serializers.SerializerMethodField()
     agotado = serializers.SerializerMethodField()
     en_stock = serializers.SerializerMethodField()
+    precio = serializers.SerializerMethodField()
+    stock = serializers.SerializerMethodField()
+    imagen_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Producto
         fields = [
             'id', 'tienda', 'categoria_id', 'nombre', 'slug', 'descripcion',
-            'etiquetas', 'imagenes', 'activo', 'creado', 'actualizado',
-            'variantes', 'stock_total', 'agotado', 'en_stock',
+            'etiquetas', 'imagenes', 'imagen_url', 'activo', 'creado', 'actualizado',
+            'variantes', 'stock_total', 'agotado', 'en_stock', 'precio', 'stock',
         ]
 
     def _active_variants(self, obj):
@@ -169,6 +177,54 @@ class ProductoSerializer(serializers.ModelSerializer):
 
     def get_en_stock(self, obj):
         return not self.get_agotado(obj)
+
+    def get_precio(self, obj):
+        v = obj.variantes.first()
+        return str(v.precio) if v else "0.00"
+
+    def get_stock(self, obj):
+        v = obj.variantes.first()
+        return v.stock if v else 0
+
+    def get_imagen_url(self, obj):
+        if obj.imagenes and len(obj.imagenes) > 0:
+            first = obj.imagenes[0]
+            if isinstance(first, dict):
+                return first.get('url', '')
+            return str(first)
+        return ''
+
+    def update(self, instance, validated_data):
+        precio = self.initial_data.get('precio')
+        stock = self.initial_data.get('stock')
+        categoria_val = self.initial_data.get('categoria')
+
+        if categoria_val:
+            if isinstance(categoria_val, int):
+                instance.categoria_id = categoria_val
+            elif isinstance(categoria_val, str) and categoria_val.strip():
+                cat_obj, _ = Categoria.objects.get_or_create(
+                    tienda=instance.tienda,
+                    nombre=categoria_val.strip()
+                )
+                instance.categoria = cat_obj
+
+        imagen_url = self.initial_data.get('imagen_url')
+        if imagen_url:
+            instance.imagenes = [{'url': imagen_url, 'public_id': 'pc-upload'}]
+
+        instance = super().update(instance, validated_data)
+
+        if precio is not None or stock is not None:
+            variante = instance.variantes.first()
+            if variante:
+                if precio is not None:
+                    variante.precio = precio
+                if stock is not None:
+                    variante.stock = stock
+                variante.save()
+
+        return instance
 
 
 # =========================================================================
@@ -193,13 +249,20 @@ class TiendaCatalogoSerializer(serializers.ModelSerializer):
 class VarianteCatalogoSerializer(serializers.ModelSerializer):
     """Datos de una variante para visualización en el catálogo público."""
 
+    nombre_variante = serializers.CharField(source='nombre', read_only=True)
+    precio_adicional = serializers.CharField(source='precio', read_only=True)
+    sku_variante = serializers.CharField(source='sku', read_only=True)
+
     class Meta:
         model = Variante
         fields = [
             'id',
             'nombre',
+            'nombre_variante',
             'sku',
+            'sku_variante',
             'precio',
+            'precio_adicional',
             'precio_oferta',
             'stock',
             'activa',
@@ -208,9 +271,16 @@ class VarianteCatalogoSerializer(serializers.ModelSerializer):
 
 
 class ProductoCatalogoSerializer(serializers.ModelSerializer):
-    """Producto con las variantes activas precargadas."""
+    """Producto con variantes, tienda, categoría e imágenes enriquecidas."""
 
     variantes = VarianteCatalogoSerializer(many=True, read_only=True)
+    tienda_id = serializers.IntegerField(source='tienda.id', read_only=True)
+    tienda_nombre = serializers.CharField(source='tienda.nombre', read_only=True)
+    tienda_slug = serializers.CharField(source='tienda.slug', read_only=True)
+    categoria_id = serializers.IntegerField(source='categoria.id', read_only=True, default=None)
+    categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True, default='')
+    precio_base = serializers.SerializerMethodField()
+    imagen_principal = serializers.SerializerMethodField()
 
     class Meta:
         model = Producto
@@ -220,5 +290,27 @@ class ProductoCatalogoSerializer(serializers.ModelSerializer):
             'slug',
             'descripcion',
             'imagenes',
+            'imagen_principal',
+            'tienda_id',
+            'tienda_nombre',
+            'tienda_slug',
+            'categoria_id',
+            'categoria_nombre',
+            'precio_base',
             'variantes',
         ]
+
+    def get_precio_base(self, obj):
+        variantes = [v for v in obj.variantes.all() if v.activa]
+        if variantes:
+            return str(min(v.precio for v in variantes))
+        return "0.00"
+
+    def get_imagen_principal(self, obj):
+        if obj.imagenes and len(obj.imagenes) > 0:
+            first = obj.imagenes[0]
+            if isinstance(first, dict):
+                return first.get('url', '')
+            return str(first)
+        return ''
+

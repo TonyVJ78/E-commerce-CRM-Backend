@@ -98,3 +98,79 @@ class ItemCarritoCreadoSerializer(serializers.ModelSerializer):
             'producto_id',
             'cantidad',
         ]
+
+
+class ItemCarritoDetalleSerializer(serializers.ModelSerializer):
+    """Detalle completo del ítem del carrito para el frontend."""
+
+    variante_id = serializers.IntegerField(source='variante.id', read_only=True)
+    variante_nombre = serializers.CharField(source='variante.nombre', read_only=True)
+    variante_sku = serializers.CharField(source='variante.sku', read_only=True)
+    precio_unitario = serializers.DecimalField(source='variante.precio', max_digits=10, decimal_places=2, read_only=True)
+    subtotal = serializers.SerializerMethodField()
+    producto_id = serializers.IntegerField(source='variante.producto.id', read_only=True)
+    producto_nombre = serializers.CharField(source='variante.producto.nombre', read_only=True)
+    producto_imagen = serializers.SerializerMethodField()
+    tienda_id = serializers.IntegerField(source='tienda.id', read_only=True)
+    tienda_nombre = serializers.CharField(source='tienda.nombre', read_only=True)
+    stock_disponible = serializers.IntegerField(source='variante.stock', read_only=True)
+
+    class Meta:
+        model = ItemCarrito
+        fields = [
+            'id',
+            'carrito_id',
+            'tienda_id',
+            'tienda_nombre',
+            'producto_id',
+            'producto_nombre',
+            'producto_imagen',
+            'variante_id',
+            'variante_nombre',
+            'variante_sku',
+            'precio_unitario',
+            'cantidad',
+            'subtotal',
+            'stock_disponible',
+        ]
+
+    def get_subtotal(self, obj):
+        return str(obj.cantidad * obj.variante.precio)
+
+    def get_producto_imagen(self, obj):
+        imgs = obj.variante.producto.imagenes
+        if imgs and len(imgs) > 0:
+            first = imgs[0]
+            if isinstance(first, dict):
+                return first.get('url', '')
+            return str(first)
+        return ''
+
+
+class CarritoDetalleSerializer(serializers.ModelSerializer):
+    """Representación de un carrito con sus ítems y total."""
+
+    items = ItemCarritoDetalleSerializer(many=True, read_only=True)
+    tienda_nombre = serializers.CharField(source='tienda.nombre', read_only=True)
+    total = serializers.SerializerMethodField()
+    cantidad_items = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Carrito
+        fields = [
+            'id',
+            'tienda_id',
+            'tienda_nombre',
+            'fecha_creacion',
+            'items',
+            'cantidad_items',
+            'total',
+        ]
+
+    def get_total(self, obj):
+        total = sum(item.cantidad * item.variante.precio for item in obj.items.all())
+        return str(total)
+
+    def get_cantidad_items(self, obj):
+        return sum(item.cantidad for item in obj.items.all())
+

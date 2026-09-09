@@ -17,7 +17,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | django-cors-headers | 4.7.0 | Manejo de CORS para permitir peticiones del frontend |
 | django-environ | 0.12.0 | Lectura de variables de entorno desde `.env` |
 | django-filter | 24.3 | Filtros declarativos por querystring para los endpoints de bitácora/auditoría (CU07) |
-| psycopg2-binary | 2.9.10 | Driver de PostgreSQL para Python |
+| psycopg[binary] | 3.3.5 | Driver de PostgreSQL para Python (reemplaza a psycopg2-binary; wheels para Python 3.12-3.14) |
 | Gunicorn | 23.0.0 | Servidor WSGI para producción (no usado en dev, incluido para futura referencia) |
 
 ## Frontend
@@ -51,6 +51,8 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | Herramienta | Versión | Descripción |
 |-------------|---------|-------------|
 | PostgreSQL | 16 (Alpine) | Base de datos relacional principal |
+| Neon (PostgreSQL serverless) | — | Base de datos en la nube usada por el entorno desplegado |
+| Triggers PL/pgSQL | — | 6 triggers de negocio: stock, total de pedido, historial de estados, validación de carrito, timestamp de producto y auditoría de tienda |
 
 ## Autenticación
 

@@ -3,7 +3,9 @@ import time
 import urllib.error
 import urllib.request
 
-BASE_URL = "http://localhost:8000/api"
+import os
+# El puerto se puede ajustar con la variable de entorno KANTU_API_URL
+BASE_URL = os.environ.get("KANTU_API_URL", "http://localhost:8000/api")
 UNIQUE_ID = int(time.time())
 
 def make_request(url, method="GET", data=None, headers=None):
