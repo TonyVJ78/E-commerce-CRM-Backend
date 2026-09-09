@@ -52,7 +52,18 @@ export class LoginComponent {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err.error?.error || 'Error al iniciar sesión. Verifica tus credenciales.';
+        const apiError = err.error?.error;
+        if (typeof apiError === 'string') {
+          this.errorMessage = apiError;
+        } else if (apiError?.message && typeof apiError.message === 'string') {
+          this.errorMessage = apiError.message;
+        } else if (typeof err.error?.detail === 'string') {
+          this.errorMessage = err.error.detail;
+        } else if (typeof err.error?.message === 'string') {
+          this.errorMessage = err.error.message;
+        } else {
+          this.errorMessage = 'Error al iniciar sesión. Verifica tus credenciales.';
+        }
       }
     });
   }
