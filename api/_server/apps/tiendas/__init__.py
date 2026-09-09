@@ -1,1 +1,0 @@
-# tiendas app
