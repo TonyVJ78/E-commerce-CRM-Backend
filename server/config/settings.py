@@ -30,9 +30,9 @@ if os.path.isfile(env_file):
     environ.Env.read_env(env_file)
 
 
-SECRET_KEY = env('SECRET_KEY')
-DEBUG = env('DEBUG')
-ALLOWED_HOSTS = env('ALLOWED_HOSTS')
+SECRET_KEY = env('SECRET_KEY', default='kantu-market-django-prod-secret-key-2026-secure')
+DEBUG = env('DEBUG', default=True)
+ALLOWED_HOSTS = env('ALLOWED_HOSTS', default=['*'])
 
 # =============================================================================
 # INSTALLED APPS

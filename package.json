@@ -1,0 +1,10 @@
+{
+  "name": "kantu-market",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kantu Market - Fullstack E-Commerce & CRM",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "install:client": "cd client && npm install"
+  }
+}
