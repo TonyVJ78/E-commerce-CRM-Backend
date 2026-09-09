@@ -32,6 +32,20 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | RxJS | 7.x | Programación reactiva para HTTP y estados |
 | Inter (Google Fonts) | — | Tipografía principal de la interfaz |
 
+## App móvil
+
+| Herramienta | Versión | Descripción |
+|-------------|---------|-------------|
+| Flutter | 3.47.2 | SDK de la app móvil multiplataforma |
+| Dart | 3.13.2 | Lenguaje de la app móvil |
+| provider | 6.1.2 | Gestión de estado (ChangeNotifier) de los servicios de la app |
+| sqflite | 2.4.1 | Base de datos SQLite local para el modo autónomo offline |
+| shared_preferences | 2.3.5 | Persistencia de sesión y configuración del backend (claves `km_*`) |
+| http | 1.3.0 | Cliente HTTP contra la API REST de Django |
+| image_picker | 1.1.2 | Selección de la imagen del producto desde galería o cámara (CU-08) |
+| intl | 0.20.2 | Formato de fechas y números en es-BO |
+| Inter (fuente empaquetada) | — | Tipografía principal, incluida como asset local |
+
 ## Base de datos
 
 | Herramienta | Versión | Descripción |
