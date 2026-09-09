@@ -5,7 +5,8 @@
       "root": "client"
     },
     "backend": {
-      "root": "server"
+      "root": "server",
+      "entrypoint": "config/wsgi.py"
     }
   },
   "rewrites": [
