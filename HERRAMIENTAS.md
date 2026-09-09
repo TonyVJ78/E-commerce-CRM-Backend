@@ -1,4 +1,4 @@
-# 🛠️ HERRAMIENTAS.md — Kantu Market
+# HERRAMIENTAS.md — Kantu Market
 
 Registro de todas las herramientas, lenguajes, frameworks, librerías y servicios utilizados en el proyecto.
 

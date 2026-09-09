@@ -1,132 +1,70 @@
-# 🛍️ Kantu Market
+# Kantu Market
 
-Plataforma SaaS multitenant que permite a empresas bolivianas crear y administrar su propia tienda online, con módulo de CRM y motor de recomendaciones por IA.
+Plataforma SaaS multitenant para gestion de comercio electronico en Bolivia, con catalogo publico general, carrito de compras multi-tienda, gestion de inventario por empresa y administracion centralizada.
 
-## 🏗️ Arquitectura
+## Arquitectura del Proyecto
 
-```
+```text
 kantu-market/
-├── client/          → Frontend Angular 19
-├── server/          → Backend Django 5.1 + DRF
+├── client/          - Frontend Angular 19
+├── server/          - Backend Django 5.1 REST Framework
 ├── docker-compose.yml
 ├── .env.example
-├── HERRAMIENTAS.md
+├── vercel.json
 └── README.md
 ```
 
-## 🚀 Inicio Rápido
+## Requisitos Previos
 
-### Requisitos previos
+- Docker (v20+)
+- Docker Compose (v2+)
 
-- [Docker](https://www.docker.com/) (v20+)
-- [Docker Compose](https://docs.docker.com/compose/) (v2+)
+## Puesta en Marcha con Docker Compose
 
-### 1. Clonar y configurar variables de entorno
+1. Configurar variables de entorno:
+   Copiar `.env.example` a `.env` si se requiere personalizar credenciales:
+   ```bash
+   cp .env.example .env
+   ```
 
-```bash
-git clone <repo-url>
-cd kantu-market
-cp .env.example .env
-# Editar .env si se desea cambiar valores por defecto
-```
+2. Iniciar servicios:
+   ```bash
+   docker compose up --build
+   ```
 
-### 2. Levantar con Docker Compose
+3. Puertos y accesos:
+   - Frontend (Angular): http://localhost:4200
+   - Backend API (Django): http://localhost:8000/api/
+   - Panel Administrador Django: http://localhost:8000/admin/
 
-```bash
-docker-compose up --build
-```
+## Credenciales de Prueba
 
-Esto levanta 3 servicios:
+Todas las cuentas de prueba utilizan la contrasenia: `Password123!`
 
-| Servicio | URL | Descripción |
-|----------|-----|-------------|
-| `db` | `localhost:5432` | PostgreSQL 16 |
-| `server` | `http://localhost:8000` | Django REST API |
-| `client` | `http://localhost:4200` | Angular Dev Server |
+| Rol | Correo | Acceso / Caso de uso |
+|---|---|---|
+| Administrador | admin@kantu.bo | Panel de control, auditoria y accesos |
+| Empresa | empresa1@kantu.bo | Tienda 'Textiles Los Andes', gestion de productos e imagenes |
+| Empresa | empresa2@kantu.bo | Tienda 'Sabores de Bolivia' |
+| Cliente | cliente1@kantu.bo | Catalogo general y carrito de compras |
+| Cliente | cliente2@kantu.bo | Catalogo general y carrito de compras |
 
-### 3. Acceder a la aplicación
+## Endpoints Principales de la API
 
-- **Frontend**: [http://localhost:4200](http://localhost:4200)
-- **API**: [http://localhost:8000/api/](http://localhost:8000/api/)
-- **Admin Django**: [http://localhost:8000/admin/](http://localhost:8000/admin/)
+| Metodo | Endpoint | Descripcion | Autenticacion |
+|---|---|---|---|
+| POST | /api/auth/registro/ | Registro de nuevos usuarios | No |
+| POST | /api/auth/login/ | Inicio de sesion y emision de tokens JWT | No |
+| POST | /api/auth/logout/ | Cierre de sesion e invalidacion de token | Si |
+| GET | /api/catalogo/productos/ | Catalogo publico con filtros por tienda, categoria y busqueda | No |
+| GET | /api/catalogo/categorias/ | Categorias activas para navegacion | No |
+| GET | /api/pedidos/carrito/ | Consulta de carritos activos por tienda | Si (Cliente) |
+| POST | /api/pedidos/carrito/items/ | Agregar producto al carrito | Si (Cliente) |
+| PATCH | /api/pedidos/carrito/items/{id}/ | Actualizar cantidad de producto | Si (Cliente) |
+| DELETE | /api/pedidos/carrito/items/{id}/ | Eliminar producto del carrito | Si (Cliente) |
+| GET | /api/tiendas/{id}/productos/ | Gestion de inventario de la tienda | Si (Empresa) |
+| PATCH | /api/tiendas/{id}/productos/{id}/ | Modificar datos, stock, precio e imagen | Si (Empresa) |
 
-> Las migraciones y datos semilla (roles: administrador, empresa, cliente) se ejecutan automáticamente al iniciar el contenedor `server`.
+## Licencia
 
-### 4. Crear superusuario (opcional)
-
-```bash
-docker-compose exec server python manage.py createsuperuser
-```
-
-## 📋 Sprint 0 — Casos de uso implementados
-
-1. ✅ Registrar usuario (email, contraseña, rol)
-2. ✅ Iniciar sesión (JWT)
-3. ✅ Cerrar sesión (blacklist de refresh token)
-4. ✅ Ver y editar perfil de usuario
-5. ✅ Recuperar contraseña (email con token)
-6. ✅ Registrar nueva tienda (asociada al usuario autenticado)
-7. ✅ Consultar bitácora y auditoría (CU07 — solo rol administrador)
-
-## 🔌 Endpoints API
-
-| Método | Endpoint | Descripción | Auth |
-|--------|----------|-------------|------|
-| `POST` | `/api/auth/registro/` | Registrar usuario | ❌ |
-| `POST` | `/api/auth/login/` | Obtener JWT tokens | ❌ |
-| `POST` | `/api/auth/logout/` | Invalidar refresh token | ✅ |
-| `POST` | `/api/auth/token/refresh/` | Renovar access token | ❌ |
-| `GET` | `/api/auth/perfil/` | Ver perfil | ✅ |
-| `PATCH` | `/api/auth/perfil/` | Editar perfil | ✅ |
-| `POST` | `/api/auth/password-reset/` | Solicitar recuperación | ❌ |
-| `POST` | `/api/auth/password-reset-confirm/` | Confirmar nueva contraseña | ❌ |
-| `GET` | `/api/tiendas/` | Listar tiendas del usuario | ✅ |
-| `POST` | `/api/tiendas/` | Crear nueva tienda | ✅ |
-| `GET` | `/api/auditoria/bitacora/` | Bitácora de inicios de sesión (solo administrador) | ✅ |
-| `GET` | `/api/auditoria/logs/` | Log de cambios en BD y cierres de sesión (solo administrador) | ✅ |
-
-### CU07 — Bitácora
-
-Dos endpoints paginados (`page`, `page_size`, máx. 200), accesibles solo para el rol `administrador`:
-
-- **`GET /api/auditoria/bitacora/`** — registros de `bitacora_acceso` (cada login exitoso).
-  Filtros: `usuario` (email, contiene), `ip`, `fecha_desde`, `fecha_hasta` (`YYYY-MM-DD`), `ordering=-fecha`.
-- **`GET /api/auditoria/logs/`** — registros de `log_auditoria`.
-  Se llena automáticamente vía `AuditoriaCreateMixin` (creación de tienda → `accion=CREAR`) y en el logout (`accion=CERRAR_SESION`, `tabla_afectada=sesion`).
-  Filtros: `usuario`, `tabla`, `accion`, `fecha_desde`, `fecha_hasta`.
-
-Para auditar un nuevo endpoint de escritura, heredar de `apps.usuarios.audit.AuditoriaCreateMixin` (ver `apps/tiendas/views.py`).
-
-## 📧 Recuperación de contraseña
-
-En desarrollo, los correos se imprimen en la **consola de Django** (backend de consola). Para ver el enlace de recuperación:
-
-```bash
-docker-compose logs -f server
-```
-
-Para configurar SMTP real, editar `.env`:
-```env
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_HOST_USER=tu-email@gmail.com
-EMAIL_HOST_PASSWORD=tu-app-password
-```
-
-## 🗄️ Modelos de base de datos (Sprint 0)
-
-- **Rol** — `administrador`, `empresa`, `cliente`
-- **Usuario** — Extiende AbstractUser, email como login
-- **BitacoraAcceso** — Registro de cada login exitoso
-- **Tienda** — Tienda del tenant, asociada al propietario
-
-## 🎨 Identidad Visual
-
-Paleta inspirada en los colores patrios de Bolivia:
-- 🔴 **Rojo** `#C8102E` — Color primario, botones principales, alertas
-- 🟡 **Amarillo** `#F4D03F` — Acentos, gradientes, detalles
-- 🟢 **Verde** `#27AE60` — Estados de éxito, badges activos
-
-## 📄 Licencia
-
-Proyecto académico — Todos los derechos reservados.
+Proyecto academico. Todos los derechos reservados.
