@@ -3,9 +3,16 @@ from django.contrib import admin
 from .models import BitacoraAcceso, LogAuditoria, Permiso, Rol, RolPermiso, Usuario
 
 
+class RolPermisoInline(admin.TabularInline):
+    model = RolPermiso
+    extra = 1
+    autocomplete_fields = ['permiso']
+
+
 @admin.register(Rol)
 class RolAdmin(admin.ModelAdmin):
     list_display = ['id', 'nombre']
+    inlines = [RolPermisoInline]
 
 
 @admin.register(Permiso)
@@ -29,9 +36,9 @@ class UsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(BitacoraAcceso)
 class BitacoraAccesoAdmin(admin.ModelAdmin):
-    list_display = ['id', 'usuario', 'fecha', 'ip', 'dispositivo']
-    list_filter = ['fecha']
-    search_fields = ['usuario__email', 'ip']
+    list_display = ['id', 'usuario', 'email_intento', 'exitoso', 'motivo', 'fecha', 'ip', 'dispositivo']
+    list_filter = ['exitoso', 'fecha']
+    search_fields = ['usuario__email', 'email_intento', 'ip']
 
 
 @admin.register(LogAuditoria)

@@ -83,11 +83,28 @@ class Usuario(AbstractUser):
 
 
 class BitacoraAcceso(models.Model):
-    """Registro de cada inicio de sesión exitoso."""
+    """Registro de cada intento de inicio de sesión (exitoso o fallido)."""
     usuario = models.ForeignKey(
         Usuario,
         on_delete=models.CASCADE,
         related_name='bitacora_accesos',
+        null=True,
+        blank=True,
+        help_text='NULL si el intento fue con un email que no existe.',
+    )
+    email_intento = models.EmailField(
+        'email del intento',
+        blank=True,
+        default='',
+        help_text='Email tal como se envió en el intento de login.',
+    )
+    exitoso = models.BooleanField('inicio de sesión exitoso', default=True)
+    motivo = models.CharField(
+        'motivo del rechazo',
+        max_length=100,
+        blank=True,
+        default='',
+        help_text='Solo se completa cuando exitoso=False.',
     )
     fecha = models.DateTimeField(auto_now_add=True)
     ip = models.GenericIPAddressField()
@@ -98,9 +115,16 @@ class BitacoraAcceso(models.Model):
         verbose_name = 'Bitácora de acceso'
         verbose_name_plural = 'Bitácoras de acceso'
         ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['-fecha'], name='bitacora_fecha_idx'),
+            models.Index(fields=['usuario', '-fecha'], name='bitacora_usuario_fecha_idx'),
+            models.Index(fields=['exitoso', '-fecha'], name='bitacora_exitoso_fecha_idx'),
+        ]
 
     def __str__(self):
-        return f'{self.usuario.email} - {self.fecha}'
+        quien = self.usuario.email if self.usuario else (self.email_intento or 'desconocido')
+        estado = 'OK' if self.exitoso else 'FALLIDO'
+        return f'{quien} - {estado} - {self.fecha}'
 
 
 class Permiso(models.Model):
@@ -161,6 +185,11 @@ class LogAuditoria(models.Model):
         verbose_name = 'Log de Auditoría'
         verbose_name_plural = 'Logs de Auditoría'
         ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['-fecha'], name='logaud_fecha_idx'),
+            models.Index(fields=['tabla_afectada', 'accion'], name='logaud_tabla_accion_idx'),
+            models.Index(fields=['usuario', '-fecha'], name='logaud_usuario_fecha_idx'),
+        ]
 
     def __str__(self):
         return f'{self.accion} en {self.tabla_afectada} (#{self.registro_id}) - {self.fecha}'

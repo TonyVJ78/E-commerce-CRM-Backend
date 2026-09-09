@@ -66,6 +66,7 @@ docker-compose exec server python manage.py createsuperuser
 4. ✅ Ver y editar perfil de usuario
 5. ✅ Recuperar contraseña (email con token)
 6. ✅ Registrar nueva tienda (asociada al usuario autenticado)
+7. ✅ Consultar bitácora y auditoría (CU07 — solo rol administrador)
 
 ## 🔌 Endpoints API
 
@@ -81,6 +82,20 @@ docker-compose exec server python manage.py createsuperuser
 | `POST` | `/api/auth/password-reset-confirm/` | Confirmar nueva contraseña | ❌ |
 | `GET` | `/api/tiendas/` | Listar tiendas del usuario | ✅ |
 | `POST` | `/api/tiendas/` | Crear nueva tienda | ✅ |
+| `GET` | `/api/auditoria/bitacora/` | Bitácora de inicios de sesión (solo administrador) | ✅ |
+| `GET` | `/api/auditoria/logs/` | Log de cambios en BD y cierres de sesión (solo administrador) | ✅ |
+
+### CU07 — Bitácora
+
+Dos endpoints paginados (`page`, `page_size`, máx. 200), accesibles solo para el rol `administrador`:
+
+- **`GET /api/auditoria/bitacora/`** — registros de `bitacora_acceso` (cada login exitoso).
+  Filtros: `usuario` (email, contiene), `ip`, `fecha_desde`, `fecha_hasta` (`YYYY-MM-DD`), `ordering=-fecha`.
+- **`GET /api/auditoria/logs/`** — registros de `log_auditoria`.
+  Se llena automáticamente vía `AuditoriaCreateMixin` (creación de tienda → `accion=CREAR`) y en el logout (`accion=CERRAR_SESION`, `tabla_afectada=sesion`).
+  Filtros: `usuario`, `tabla`, `accion`, `fecha_desde`, `fecha_hasta`.
+
+Para auditar un nuevo endpoint de escritura, heredar de `apps.usuarios.audit.AuditoriaCreateMixin` (ver `apps/tiendas/views.py`).
 
 ## 📧 Recuperación de contraseña
 

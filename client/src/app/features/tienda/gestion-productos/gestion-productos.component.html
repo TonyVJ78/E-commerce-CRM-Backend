@@ -1,0 +1,318 @@
+<div class="catalog-page">
+  <!-- Cabecera de Página -->
+  <header class="catalog-header">
+    <div class="header-info">
+      <div class="eyebrow-tag">
+        <span class="pulse-dot"></span>
+        <span>Módulo de Empresa</span>
+      </div>
+      <h2>Gestión de Catálogo</h2>
+      <p class="catalog-subtitle">Administra los productos, precios, inventario e imágenes de tu catálogo comercial.</p>
+    </div>
+
+    <div class="header-actions">
+      <div *ngIf="tiendas.length > 1" class="tienda-selector-wrapper">
+        <label for="tiendaSelect" class="selector-label">Tienda:</label>
+        <select id="tiendaSelect" class="form-select-tienda" [value]="tiendaSeleccionadaId" (change)="cambiarTienda($any($event.target).value)">
+          <option *ngFor="let t of tiendas" [value]="t.id">{{ t.nombre }}</option>
+        </select>
+      </div>
+
+      <a *ngIf="tiendaSeleccionadaId" [routerLink]="['/tiendas', tiendaSeleccionadaId, 'productos', 'nuevo']" class="btn-create-product">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Nuevo Producto</span>
+      </a>
+
+      <a routerLink="/tiendas" class="btn-volver">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span>Volver a Tiendas</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Barra de Notificaciones y Métricas Rápidas -->
+  <div class="metrics-bar">
+    <div class="metric-pill">
+      <span class="metric-number">{{ productos.length }}</span>
+      <span class="metric-label">Productos registrados</span>
+    </div>
+    <div class="metric-pill">
+      <span class="metric-number in-stock-count">{{ totalPaginas }}</span>
+      <span class="metric-label">Páginas de catálogo</span>
+    </div>
+  </div>
+
+  <div *ngIf="mensajeExito" class="custom-alert alert-success">
+    <span class="alert-icon">✓</span>
+    <p>{{ mensajeExito }}</p>
+    <button type="button" class="alert-close" (click)="mensajeExito = ''">✕</button>
+  </div>
+
+  <div *ngIf="mensajeError" class="custom-alert alert-danger">
+    <span class="alert-icon">⚠️</span>
+    <p>{{ mensajeError }}</p>
+    <button type="button" class="alert-close" (click)="mensajeError = ''">✕</button>
+  </div>
+
+  <!-- MODAL DE EDICIÓN DE PRODUCTO (CU09) -->
+  <div *ngIf="productoEnEdicion" class="modal-backdrop-custom" (click)="cancelarEdicion()">
+    <div class="modal-dialog-custom" (click)="$event.stopPropagation()">
+      <div class="modal-header-custom">
+        <div class="modal-title-group">
+          <div class="modal-chip">Edición de Producto</div>
+          <h3>Modificar Producto</h3>
+          <p class="modal-sub">Actualiza los detalles, stock, precio e imagen para el catálogo público.</p>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="cancelarEdicion()" aria-label="Cerrar modal">
+          ✕
+        </button>
+      </div>
+
+      <form [formGroup]="editForm" (ngSubmit)="guardarEdicion()" class="modal-form">
+        <div class="modal-body-content">
+          <!-- Carga de Imagen desde PC (Requerimiento Clave) -->
+          <div class="form-section-image">
+            <div class="section-label">
+              <span>Fotografía del Producto</span>
+              <span class="badge-pc">Cargar desde PC</span>
+            </div>
+
+            <!-- Zona de Carga / Drag & Drop -->
+            <div *ngIf="!imagenPreview"
+                 class="dropzone-area"
+                 [class.drag-active]="dragOver"
+                 (dragover)="onDragOver($event)"
+                 (dragleave)="onDragLeave($event)"
+                 (drop)="onDrop($event)"
+                 (click)="fileInput.click()">
+              <div class="dropzone-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <div class="dropzone-text">
+                <p class="dropzone-main">Haz clic para subir desde tu PC o arrastra la foto aquí</p>
+                <p class="dropzone-hint">Formatos soportados: JPG, PNG, WebP (Optimizado al instante)</p>
+              </div>
+              <button type="button" class="btn-select-file" (click)="$event.stopPropagation(); fileInput.click()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                <span>Examinar archivos en PC</span>
+              </button>
+            </div>
+
+            <!-- Vista Previa de la Imagen Seleccionada -->
+            <div *ngIf="imagenPreview" class="image-preview-panel">
+              <div class="preview-img-box">
+                <img [src]="imagenPreview" alt="Vista previa de producto" class="preview-image" />
+                <span class="preview-tag">Vista previa en vivo</span>
+              </div>
+              <div class="preview-details">
+                <p class="preview-heading">Imagen asignada al producto</p>
+                <p class="preview-sub">Esta foto se mostrará a todos los clientes en la tienda y catálogo.</p>
+                <div class="preview-buttons">
+                  <button type="button" class="btn-change-image" (click)="fileInput.click()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span>Cambiar imagen</span>
+                  </button>
+                  <button type="button" class="btn-remove-image" (click)="quitarImagen()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    <span>Quitar foto</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Input invisible de archivos nativo -->
+            <input #fileInput type="file" (change)="onFileSelected($event)" accept="image/png, image/jpeg, image/webp" style="display: none;" />
+          </div>
+
+          <!-- Campos del Formulario de Producto -->
+          <div class="form-fields-grid">
+            <div class="field-item full-width">
+              <label class="field-label">Nombre del Producto <span class="required">*</span></label>
+              <input type="text" class="field-input" formControlName="nombre" placeholder="Ej. Poncho de Lana de Alpaca Premium">
+            </div>
+
+            <div class="field-item">
+              <label class="field-label">Precio Unitario (Bs.) <span class="required">*</span></label>
+              <div class="price-input-wrapper">
+                <span class="price-prefix">Bs.</span>
+                <input type="number" step="0.01" min="0.01" class="field-input price-input" formControlName="precio" placeholder="0.00">
+              </div>
+            </div>
+
+            <div class="field-item">
+              <label class="field-label">Stock en Inventario <span class="required">*</span></label>
+              <input type="number" min="0" step="1" class="field-input" formControlName="stock" placeholder="0">
+            </div>
+
+            <div class="field-item full-width">
+              <label class="field-label">Categoría</label>
+              <input type="text" class="field-input" formControlName="categoria" placeholder="Escribe o selecciona una categoría..." list="listaCategorias">
+              <datalist id="listaCategorias">
+                <option *ngFor="let cat of categoriasDisponibles" [value]="cat"></option>
+              </datalist>
+            </div>
+
+            <div class="field-item full-width">
+              <label class="field-label">Descripción del Producto</label>
+              <textarea class="field-input field-textarea" rows="3" formControlName="descripcion" placeholder="Describe los atributos, materiales, procedencia o cuidados..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de Acción del Modal -->
+        <div class="modal-footer-actions">
+          <button type="button" class="btn-modal-cancel" (click)="cancelarEdicion()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn-modal-save" [disabled]="cargando || editForm.invalid || procesandoImagen">
+            <span *ngIf="cargando || procesandoImagen" class="btn-spinner"></span>
+            <span>{{ cargando ? 'Guardando...' : (procesandoImagen ? 'Procesando imagen...' : 'Guardar Cambios') }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TABLA DE PRODUCTOS CON MINIATURA DE IMAGEN (CU09) -->
+  <div class="catalog-card">
+    <div class="catalog-card-header">
+      <div class="header-title-box">
+        <h3>Inventario de Productos</h3>
+        <span class="page-indicator" *ngIf="productos.length > 0">Página {{ paginaActual }} de {{ totalPaginas }}</span>
+      </div>
+    </div>
+
+    <div class="table-responsive-wrapper">
+      <div *ngIf="cargando && !productos.length" class="empty-state-box">
+        <div class="loading-spinner"></div>
+        <p>Cargando productos de la tienda...</p>
+      </div>
+
+      <div *ngIf="!cargando && productos.length === 0" class="empty-state-box">
+        <div class="empty-icon">📦</div>
+        <h4>No tienes productos registrados</h4>
+        <p>Comienza agregando tu primer producto para empezar a vender.</p>
+        <a *ngIf="tiendaSeleccionadaId" [routerLink]="['/tiendas', tiendaSeleccionadaId, 'productos', 'nuevo']" class="btn-create-first">
+          + Crear Primer Producto
+        </a>
+      </div>
+
+      <table *ngIf="productos.length > 0" class="products-table">
+        <thead>
+          <tr>
+            <th class="col-thumb">Imagen</th>
+            <th>Producto</th>
+            <th>Tienda</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Categoría</th>
+            <th class="col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of productosVisibles" class="product-row">
+            <!-- Miniatura de Imagen de Producto -->
+            <td class="col-thumb">
+              <div class="product-thumb-frame">
+                <img *ngIf="p.imagen_url" [src]="p.imagen_url" [alt]="p.nombre" class="product-thumbnail" (error)="p.imagen_url = ''" />
+                <div *ngIf="!p.imagen_url" class="thumbnail-placeholder">
+                  <span>🛍️</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Nombre e ID -->
+            <td class="col-name">
+              <span class="product-title">{{ p.nombre }}</span>
+              <span class="product-sku">ID: #{{ p.id }}</span>
+            </td>
+
+            <!-- Tienda -->
+            <td>
+              <span class="store-tag">{{ p.tienda_nombre || 'Tienda ' + p.tienda }}</span>
+            </td>
+
+            <!-- Precio -->
+            <td class="col-price">
+              <span class="price-value">{{ p.precio | currency:'Bs. ' }}</span>
+            </td>
+
+            <!-- Stock con Status Pill -->
+            <td>
+              <span class="stock-status-pill"
+                    [class.status-out]="p.stock === 0"
+                    [class.status-low]="(p.stock || 0) > 0 && (p.stock || 0) <= 5"
+                    [class.status-ok]="(p.stock || 0) > 5">
+                <span class="status-bullet"></span>
+                <span>{{ p.stock === 0 ? 'Agotado' : (p.stock + ' unidades') }}</span>
+              </span>
+            </td>
+
+            <!-- Categoría -->
+            <td>
+              <span class="cat-pill">{{ p.categoria || 'General' }}</span>
+            </td>
+
+            <!-- Acciones: Editar y Eliminar -->
+            <td class="col-actions">
+              <div class="action-buttons-group">
+                <button type="button" class="btn-action-edit" (click)="iniciarEdicion(p)" title="Editar producto e imagen">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                  <span>Editar</span>
+                </button>
+                <button type="button" class="btn-action-delete" (click)="eliminar(p)" title="Eliminar producto">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Eliminar</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    <div class="pagination-footer" *ngIf="productos.length > productosPorPagina">
+      <button class="btn-page-nav" type="button" (click)="cambiarPagina(paginaActual - 1)" [disabled]="paginaActual === 1">
+        ← Anterior
+      </button>
+
+      <div class="page-numbers-list">
+        <button *ngFor="let pag of paginas" class="btn-page-number" type="button"
+                [class.active-page]="pag === paginaActual" (click)="cambiarPagina(pag)">
+          {{ pag }}
+        </button>
+      </div>
+
+      <button class="btn-page-nav" type="button" (click)="cambiarPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas">
+        Siguiente →
+      </button>
+    </div>
+  </div>
+</div>

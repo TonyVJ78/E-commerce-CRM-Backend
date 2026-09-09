@@ -1,0 +1,15 @@
+# Kantu Market — .dockerignore raíz
+.git
+.gitignore
+.vscode
+.idea
+__pycache__
+*.pyc
+client/node_modules
+client/.angular
+client/dist
+client/.vscode
+server/__pycache__
+server/*/__pycache__
+server/*/*/__pycache__
+*.md

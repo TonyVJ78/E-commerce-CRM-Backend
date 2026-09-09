@@ -1,0 +1,145 @@
+<div class="page-container auditoria">
+  <header class="auditoria-header">
+    <div>
+      <h1>Bitácora y Auditoría</h1>
+      <p class="subtitle">Historial de accesos y registro de cambios en la plataforma.</p>
+    </div>
+    <a routerLink="/dashboard" class="btn btn-secondary btn-sm">← Volver al panel</a>
+  </header>
+
+  <div class="tabs">
+    <button
+      class="tab"
+      [class.active]="pestania === 'accesos'"
+      (click)="cambiarPestania('accesos')">
+      Accesos
+    </button>
+    <button
+      class="tab"
+      [class.active]="pestania === 'cambios'"
+      (click)="cambiarPestania('cambios')">
+      Cambios
+    </button>
+  </div>
+
+  <form class="filtros" (ngSubmit)="aplicarFiltros()">
+    <div class="filtro-campo">
+      <label>Usuario (email)</label>
+      <input type="text" [(ngModel)]="filtroUsuario" name="usuario" placeholder="contiene…" />
+    </div>
+
+    <div class="filtro-campo" *ngIf="pestania === 'accesos'">
+      <label>IP</label>
+      <input type="text" [(ngModel)]="filtroIp" name="ip" placeholder="contiene…" />
+    </div>
+
+    <div class="filtro-campo" *ngIf="pestania === 'accesos'">
+      <label>Estado</label>
+      <select [(ngModel)]="filtroExitoso" name="exitoso">
+        <option value="">Todos</option>
+        <option value="true">Exitosos</option>
+        <option value="false">Fallidos</option>
+      </select>
+    </div>
+
+    <div class="filtro-campo" *ngIf="pestania === 'cambios'">
+      <label>Tabla</label>
+      <input type="text" [(ngModel)]="filtroTabla" name="tabla" placeholder="tienda, sesion…" />
+    </div>
+
+    <div class="filtro-campo" *ngIf="pestania === 'cambios'">
+      <label>Acción</label>
+      <select [(ngModel)]="filtroAccion" name="accion">
+        <option value="">Todas</option>
+        <option *ngFor="let a of acciones" [value]="a">{{ etiquetaAccion(a) }}</option>
+      </select>
+    </div>
+
+    <div class="filtro-campo">
+      <label>Desde</label>
+      <input type="date" [(ngModel)]="filtroFechaDesde" name="fecha_desde" />
+    </div>
+
+    <div class="filtro-campo">
+      <label>Hasta</label>
+      <input type="date" [(ngModel)]="filtroFechaHasta" name="fecha_hasta" />
+    </div>
+
+    <div class="filtro-acciones">
+      <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="limpiarFiltros()">Limpiar</button>
+    </div>
+  </form>
+
+  <div class="error-banner" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <div class="tabla-wrap" *ngIf="!errorMessage">
+    <div class="cargando" *ngIf="loading">Cargando…</div>
+
+    <!-- Pestaña Accesos -->
+    <table class="tabla" *ngIf="!loading && pestania === 'accesos'">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Estado</th>
+          <th>Usuario</th>
+          <th>IP</th>
+          <th>Dispositivo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let a of accesos" [class.fila-fallida]="!a.exitoso">
+          <td>{{ a.fecha | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+          <td>
+            <span class="badge" [class.badge-ok]="a.exitoso" [class.badge-error]="!a.exitoso">
+              {{ a.exitoso ? 'Exitoso' : 'Fallido' }}
+            </span>
+            <span class="motivo" *ngIf="!a.exitoso && a.motivo">{{ a.motivo }}</span>
+          </td>
+          <td>
+            <span class="nombre">{{ a.usuario_nombre || a.email_intento || '—' }}</span>
+            <span class="email">{{ a.usuario_email || a.email_intento }}</span>
+          </td>
+          <td>{{ a.ip }}</td>
+          <td class="dispositivo" [title]="a.dispositivo">{{ a.dispositivo || '—' }}</td>
+        </tr>
+        <tr *ngIf="accesos.length === 0">
+          <td colspan="5" class="vacio">No hay registros de acceso con esos filtros.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Pestaña Cambios -->
+    <table class="tabla" *ngIf="!loading && pestania === 'cambios'">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Usuario</th>
+          <th>Acción</th>
+          <th>Tabla</th>
+          <th>Registro</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let c of cambios">
+          <td>{{ c.fecha | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+          <td>{{ c.usuario_email || '—' }}</td>
+          <td>{{ etiquetaAccion(c.accion) }}</td>
+          <td>{{ c.tabla_afectada }}</td>
+          <td>#{{ c.registro_id }}</td>
+        </tr>
+        <tr *ngIf="cambios.length === 0">
+          <td colspan="5" class="vacio">No hay cambios registrados con esos filtros.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="paginacion" *ngIf="!errorMessage && total > 0">
+    <span class="resumen">{{ total }} registro(s) · página {{ pagina }} de {{ totalPaginas }}</span>
+    <div class="paginacion-botones">
+      <button class="btn btn-secondary btn-sm" [disabled]="pagina <= 1 || loading" (click)="paginaAnterior()">‹ Anterior</button>
+      <button class="btn btn-secondary btn-sm" [disabled]="pagina >= totalPaginas || loading" (click)="paginaSiguiente()">Siguiente ›</button>
+    </div>
+  </div>
+</div>

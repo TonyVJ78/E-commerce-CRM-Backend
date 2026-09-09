@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard, empresaGuard } from './core/guards/auth.guard';
+import { authGuard, guestGuard, empresaGuard, adminGuard, clienteGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -31,7 +31,7 @@ export const routes: Routes = [
   },
   {
     path: 'inicio',
-    canActivate: [authGuard],
+    canActivate: [clienteGuard],
     loadComponent: () =>
       import('./features/home/home-cliente.component').then(m => m.HomeClienteComponent)
   },
@@ -40,6 +40,18 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/admin/dashboard-admin.component').then(m => m.DashboardAdminComponent)
+  },
+  {
+    path: 'auditoria',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./features/admin/auditoria/auditoria.component').then(m => m.AuditoriaComponent)
+  },
+  {
+    path: 'accesos',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./features/admin/accesos/accesos.component').then(m => m.AccesosComponent)
   },
   {
     path: 'perfil',
@@ -51,7 +63,25 @@ export const routes: Routes = [
     path: 'tiendas',
     canActivate: [empresaGuard],
     loadComponent: () =>
-      import('./features/tienda/create-tienda/create-tienda.component').then(m => m.CreateTiendaComponent)
+       import('./features/tienda/create-tienda/create-tienda.component').then(m => m.CreateTiendaComponent)
+  },
+  {
+    path: 'tiendas/productos',
+    canActivate: [empresaGuard],
+    loadComponent: () =>
+      import('./features/tienda/gestion-productos/gestion-productos.component').then(m => m.GestionProductosComponent)
+  },
+  {
+    path: 'tiendas/:tiendaId/productos/nuevo',
+    canActivate: [empresaGuard],
+    loadComponent: () =>
+      import('./features/producto/create-producto/create-producto.component').then(m => m.CreateProductoComponent)
+  },
+  {
+    path: 'panel-vendedor',
+    canActivate: [empresaGuard],
+    loadComponent: () =>
+      import('./features/tienda/dashboard-empresa/dashboard-empresa.component').then(m => m.DashboardEmpresaComponent)
   },
   {
     path: '**',

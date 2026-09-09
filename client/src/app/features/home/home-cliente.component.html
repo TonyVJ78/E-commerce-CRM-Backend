@@ -1,0 +1,184 @@
+<div class="home-page">
+  <!-- Hero Banner -->
+  <header class="home-hero">
+    <div class="hero-content">
+      <span class="hero-badge">🇧🇴 Mercado Digital Boliviano</span>
+      <h1>Explora lo mejor de nuestras tiendas</h1>
+      <p class="hero-subtext">
+        Textiles de alpaca, gastronomía tradicional, tecnología y artesanías auténticas directo de productores bolivianos.
+      </p>
+
+      <!-- Barra de Búsqueda Principal -->
+      <div class="search-bar-wrapper">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Busca por producto, café, aguayo, cerámica..."
+          [(ngModel)]="terminoBusqueda"
+          (keyup.enter)="aplicarFiltros()"
+        />
+        <button class="btn-search" (click)="aplicarFiltros()">Buscar</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- Notificaciones Toast -->
+    <div class="alert alert-success" *ngIf="mensajeExito">
+      <span>✓</span> {{ mensajeExito }}
+    </div>
+    <div class="alert alert-error" *ngIf="mensajeError">
+      <span>⚠</span> {{ mensajeError }}
+    </div>
+
+    <!-- Barra de Filtros: Tiendas y Categorías -->
+    <section class="filters-section">
+      <!-- Selector de Tiendas -->
+      <div class="filter-row store-filters">
+        <span class="filter-label">🏬 Tienda:</span>
+        <div class="chips-container">
+          <button
+            type="button"
+            class="chip-btn"
+            [class.active]="tiendaSeleccionadaId === null"
+            (click)="filtrarPorTienda(null)"
+          >
+            Todas las tiendas
+          </button>
+          <button
+            type="button"
+            class="chip-btn"
+            *ngFor="let tienda of tiendas"
+            [class.active]="tiendaSeleccionadaId === tienda.id"
+            (click)="filtrarPorTienda(tienda.id)"
+          >
+            {{ tienda.nombre }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Selector de Categorías -->
+      <div class="filter-row category-filters" *ngIf="categorias.length > 0">
+        <span class="filter-label">🏷️ Categoría:</span>
+        <div class="chips-container scrollable-chips">
+          <button
+            type="button"
+            class="chip-btn"
+            [class.active]="categoriaSeleccionadaId === null"
+            (click)="filtrarPorCategoria(null)"
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            class="chip-btn"
+            *ngFor="let cat of categorias"
+            [class.active]="categoriaSeleccionadaId === cat.id"
+            (click)="filtrarPorCategoria(cat.id)"
+          >
+            {{ cat.nombre }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen de Filtros Activos -->
+      <div class="active-filters-bar" *ngIf="categoriaSeleccionadaId || tiendaSeleccionadaId || terminoBusqueda">
+        <span class="active-count">Mostrando resultados filtrados ({{ productos.length }} productos)</span>
+        <button type="button" class="btn-clear-filters" (click)="limpiarFiltros()">
+          ✕ Limpiar filtros
+        </button>
+      </div>
+    </section>
+
+    <!-- Estado de Carga -->
+    <div class="loading-state" *ngIf="cargando">
+      <div class="spinner"></div>
+      <p>Cargando productos de las tiendas...</p>
+    </div>
+
+    <!-- Estado Vacío -->
+    <div class="empty-state" *ngIf="!cargando && productos.length === 0">
+      <div class="empty-emoji">📦</div>
+      <h3>No se encontraron productos</h3>
+      <p>Intenta cambiar o limpiar los filtros de búsqueda y categoría.</p>
+      <button class="btn btn-primary btn-sm" (click)="limpiarFiltros()">Ver todos los productos</button>
+    </div>
+
+    <!-- Cuadrícula de Productos General -->
+    <section class="products-grid" *ngIf="!cargando && productos.length > 0">
+      <article class="product-card" *ngFor="let producto of productos">
+        <!-- Imagen y Badges -->
+        <div class="card-media">
+          <img
+            [src]="obtenerImagenProducto(producto)"
+            [alt]="producto.nombre"
+            class="product-image"
+            loading="lazy"
+          />
+          <span class="badge-store" *ngIf="producto.tienda_nombre">
+            {{ producto.tienda_nombre }}
+          </span>
+          <span class="badge-category" *ngIf="producto.categoria_nombre">
+            {{ producto.categoria_nombre }}
+          </span>
+        </div>
+
+        <!-- Contenido de la Tarjeta -->
+        <div class="card-body">
+          <h3 class="product-title" [title]="producto.nombre">{{ producto.nombre }}</h3>
+          <p class="product-desc" *ngIf="producto.descripcion">{{ producto.descripcion }}</p>
+
+          <!-- Selector de Variantes (si tiene más de una) -->
+          <div class="variants-selector" *ngIf="producto.variantes && producto.variantes.length > 1">
+            <label class="variant-label">Opciones:</label>
+            <div class="variant-options">
+              <button
+                type="button"
+                class="variant-btn"
+                *ngFor="let v of producto.variantes"
+                [class.selected]="obtenerVarianteActual(producto)?.id === v.id"
+                (click)="seleccionarVariante(producto.id, v)"
+              >
+                {{ v.nombre_variante || v.nombre }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Precio y Disponibilidad -->
+          <div class="card-pricing">
+            <div class="price-box">
+              <span class="price-currency">Bs</span>
+              <span class="price-amount">{{ obtenerVarianteActual(producto)?.precio || producto.precio_base || '0.00' }}</span>
+            </div>
+
+            <div class="stock-status" [class.out-of-stock]="(obtenerVarianteActual(producto)?.stock || 0) <= 0">
+              <span class="stock-dot"></span>
+              <span *ngIf="(obtenerVarianteActual(producto)?.stock || 0) > 0">
+                {{ obtenerVarianteActual(producto)?.stock }} en stock
+              </span>
+              <span *ngIf="(obtenerVarianteActual(producto)?.stock || 0) <= 0">
+                Agotado
+              </span>
+            </div>
+          </div>
+
+          <!-- Botón Agregar al Carrito -->
+          <button
+            type="button"
+            class="btn-add-cart"
+            [disabled]="agregandoVarianteId !== null || (obtenerVarianteActual(producto)?.stock || 0) <= 0"
+            (click)="agregarAlCarrito(producto)"
+          >
+            <span *ngIf="agregandoVarianteId === obtenerVarianteActual(producto)?.id">
+              Agregando...
+            </span>
+            <span *ngIf="agregandoVarianteId !== obtenerVarianteActual(producto)?.id">
+              🛒 Agregar al Carrito
+            </span>
+          </button>
+        </div>
+      </article>
+    </section>
+  </div>
+</div>

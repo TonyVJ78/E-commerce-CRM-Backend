@@ -3,6 +3,8 @@ Vistas del módulo de Usuarios.
 Sprint 0: Registro, Login, Logout, Perfil, Recuperar contraseña.
 """
 
+import logging
+
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -14,6 +16,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .audit import (
+    ACCION_ACTUALIZAR,
+    ACCION_CERRAR_SESION,
+    ACCION_CREAR,
+    registrar_auditoria,
+)
 from .models import BitacoraAcceso
 from .serializers import (
     LoginSerializer,
@@ -25,6 +33,8 @@ from .serializers import (
 
 Usuario = get_user_model()
 
+logger = logging.getLogger(__name__)
+
 
 def get_client_ip(request):
     """Extrae la IP del cliente de la petición HTTP."""
@@ -32,6 +42,24 @@ def get_client_ip(request):
     if x_forwarded_for:
         return x_forwarded_for.split(',')[0].strip()
     return request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+
+def registrar_acceso(request, *, email, exitoso, usuario=None, motivo=''):
+    """Registra una fila en `bitacora_acceso` para un intento de login.
+
+    Se llama tanto en el éxito como en cada rechazo. Nunca rompe la petición.
+    """
+    try:
+        BitacoraAcceso.objects.create(
+            usuario=usuario,
+            email_intento=(email or '')[:254],
+            exitoso=exitoso,
+            motivo=motivo[:100],
+            ip=get_client_ip(request),
+            dispositivo=request.META.get('HTTP_USER_AGENT', '')[:255],
+        )
+    except Exception:
+        logging.getLogger(__name__).exception('No se pudo registrar el acceso en bitácora')
 
 
 class RegistroView(generics.CreateAPIView):
@@ -43,6 +71,16 @@ class RegistroView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         usuario = serializer.save()
+        registrar_auditoria(
+            request,
+            ACCION_CREAR,
+            tabla=Usuario._meta.db_table,
+            registro_id=usuario.pk,
+            datos_nuevos={
+                'email': usuario.email,
+                'rol': usuario.rol.nombre if usuario.rol else None,
+            },
+        )
         return Response(
             {
                 'mensaje': 'Usuario registrado exitosamente.',
@@ -69,12 +107,29 @@ class LoginView(APIView):
         usuario = authenticate(request, email=email, password=password)
 
         if usuario is None:
+            # `authenticate` falla tanto por contraseña incorrecta como por
+            # email inexistente; resolvemos el usuario (si existe) para la bitácora.
+            usuario_existente = Usuario.objects.filter(email__iexact=email).first()
+            registrar_acceso(
+                request,
+                email=email,
+                exitoso=False,
+                usuario=usuario_existente,
+                motivo='Credenciales inválidas',
+            )
             return Response(
                 {'error': 'Credenciales inválidas.'},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
         if not usuario.activo:
+            registrar_acceso(
+                request,
+                email=email,
+                exitoso=False,
+                usuario=usuario,
+                motivo='Cuenta desactivada',
+            )
             return Response(
                 {'error': 'Esta cuenta está desactivada.'},
                 status=status.HTTP_403_FORBIDDEN,
@@ -83,12 +138,8 @@ class LoginView(APIView):
         # Generar tokens JWT
         refresh = RefreshToken.for_user(usuario)
 
-        # Registrar en bitácora de acceso
-        BitacoraAcceso.objects.create(
-            usuario=usuario,
-            ip=get_client_ip(request),
-            dispositivo=request.META.get('HTTP_USER_AGENT', '')[:255],
-        )
+        # Registrar el acceso exitoso en la bitácora
+        registrar_acceso(request, email=email, exitoso=True, usuario=usuario)
 
         return Response({
             'access': str(refresh.access_token),
@@ -117,15 +168,23 @@ class LogoutView(APIView):
                 )
             token = RefreshToken(refresh_token)
             token.blacklist()
-            return Response(
-                {'mensaje': 'Sesión cerrada exitosamente.'},
-                status=status.HTTP_200_OK,
-            )
         except Exception:
+            logger.warning('Logout con refresh token inválido para el usuario %s', request.user.pk)
             return Response(
                 {'error': 'Token inválido.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        registrar_auditoria(
+            request,
+            ACCION_CERRAR_SESION,
+            tabla='sesion',
+            registro_id=request.user.id,
+        )
+        return Response(
+            {'mensaje': 'Sesión cerrada exitosamente.'},
+            status=status.HTTP_200_OK,
+        )
 
 
 class PerfilView(generics.RetrieveUpdateAPIView):
@@ -140,11 +199,6 @@ class PerfilView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-import logging
-
-logger = logging.getLogger(__name__)
-
-
 class PasswordResetRequestView(APIView):
     """POST /api/auth/password-reset/ — Solicitar email de recuperación."""
     permission_classes = [permissions.AllowAny]
@@ -156,7 +210,7 @@ class PasswordResetRequestView(APIView):
 
         # Siempre responder 200 para no revelar si el email existe
         try:
-            usuario = Usuario.objects.get(email=email)
+            usuario = Usuario.objects.get(email__iexact=email)
             uid = urlsafe_base64_encode(force_bytes(usuario.pk))
             token = default_token_generator.make_token(usuario)
             reset_url = f"{settings.FRONTEND_URL}/recuperar-password/{uid}/{token}"
@@ -199,7 +253,19 @@ class PasswordResetConfirmView(APIView):
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        usuario = serializer.save()
+        # El actor es anónimo (se identifica por el token del email), por eso
+        # `usuario` queda NULL en el log; `registro_id` indica a quién se le cambió.
+        registrar_auditoria(
+            request,
+            ACCION_ACTUALIZAR,
+            tabla=Usuario._meta.db_table,
+            registro_id=usuario.pk,
+            datos_nuevos={
+                'evento': 'restablecimiento de contraseña',
+                'email': usuario.email,
+            },
+        )
         return Response(
             {'mensaje': 'Contraseña restablecida exitosamente.'},
             status=status.HTTP_200_OK,

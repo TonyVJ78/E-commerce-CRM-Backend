@@ -1,0 +1,155 @@
+<div class="product-page" *ngIf="!loadingTienda; else loadingTemplate">
+  <header class="product-header">
+    <div>
+      <a routerLink="/tiendas" class="back-link">← Volver a mis tiendas</a>
+      <p class="eyebrow">CATÁLOGO / NUEVO PRODUCTO</p>
+      <h1>Registrar producto</h1>
+      <p class="intro">Agrega una pieza al catálogo de <strong>{{ tienda?.nombre }}</strong>.</p>
+    </div>
+    <div class="store-mark">{{ tienda?.nombre?.charAt(0) || 'K' }}</div>
+  </header>
+
+  <div class="success-banner" *ngIf="message">
+    <span>✓</span> {{ message }}
+    <a routerLink="/tiendas">Volver a tiendas</a>
+  </div>
+  <div class="error-banner" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="product-form">
+    <section class="form-card identity-card">
+      <div class="card-heading">
+        <span class="step-number">01</span>
+        <div>
+          <p class="section-kicker">Identidad</p>
+          <h2>Cuéntanos sobre tu producto</h2>
+        </div>
+      </div>
+
+      <div class="form-grid two-columns">
+        <div class="field field-wide">
+          <label for="product-name">Nombre del producto <span>*</span></label>
+          <input id="product-name" type="text" formControlName="nombre" placeholder="Ej. Polera Kantu" />
+          <small class="field-error" *ngIf="productForm.get('nombre')?.touched && productForm.get('nombre')?.invalid">
+            El nombre es obligatorio.
+          </small>
+        </div>
+        <div class="field">
+          <label for="product-category">Categoría <em>opcional</em></label>
+          <select id="product-category" formControlName="categoria_id">
+            <option [ngValue]="null">Sin categoría</option>
+            <option *ngFor="let categoria of categorias" [ngValue]="categoria.id">{{ categoria.nombre }}</option>
+          </select>
+        </div>
+        <div class="field field-wide">
+          <label for="product-description">Descripción <span>*</span></label>
+          <textarea id="product-description" formControlName="descripcion" rows="4"
+            placeholder="Cuenta qué hace especial a este producto..."></textarea>
+          <small class="field-error" *ngIf="productForm.get('descripcion')?.touched && productForm.get('descripcion')?.invalid">
+            La descripción es obligatoria.
+          </small>
+        </div>
+        <div class="field">
+          <label for="product-tags">Etiquetas <em>separadas por coma</em></label>
+          <input id="product-tags" type="text" formControlName="etiquetas" placeholder="artesanal, ropa" />
+        </div>
+      </div>
+
+      <label class="toggle-row">
+        <input type="checkbox" formControlName="activo" />
+        <span class="toggle-control"></span>
+        <span><strong>Producto activo</strong><small>Será visible cuando se publique el catálogo.</small></span>
+      </label>
+    </section>
+
+    <section class="form-card image-card">
+      <div class="card-heading">
+        <span class="step-number">02</span>
+        <div>
+          <p class="section-kicker">Primera impresión</p>
+          <h2>Fotografías del producto</h2>
+        </div>
+      </div>
+      <label class="upload-zone" for="product-images">
+        <span class="upload-icon">↥</span>
+        <strong>Arrastra tus fotos o haz clic para elegir</strong>
+        <small>JPEG, PNG o WebP · máximo 5 MB por imagen</small>
+        <input id="product-images" type="file" accept="image/jpeg,image/png,image/webp" multiple
+          (change)="onFileSelected($event)" />
+      </label>
+      <div class="preview-grid" *ngIf="previewUrls.length">
+        <figure *ngFor="let preview of previewUrls; let i = index">
+          <img [src]="preview" alt="Vista previa del producto" />
+          <button type="button" class="remove-image" (click)="removeFile(i)" aria-label="Eliminar imagen">×</button>
+        </figure>
+      </div>
+    </section>
+
+    <section class="form-card variant-card">
+      <div class="card-heading">
+        <span class="step-number">03</span>
+        <div>
+          <p class="section-kicker">Inventario y precio</p>
+          <h2>¿Tu producto tiene opciones?</h2>
+        </div>
+      </div>
+
+      <label class="options-switch">
+        <input type="checkbox" formControlName="tieneOpciones" (change)="onOptionsChange()" />
+        <span class="switch-track"><span></span></span>
+        <span><strong>{{ hasOptions ? 'Sí, tiene variantes' : 'No, es un producto único' }}</strong>
+          <small>{{ hasOptions ? 'Define precio y stock para cada combinación.' : 'Se creará una variante llamada Unica.' }}</small></span>
+      </label>
+
+      <div class="simple-variant" *ngIf="!hasOptions">
+        <div class="variant-label"><span>ÚNICA</span><small>Variante automática</small></div>
+        <div class="form-grid four-columns">
+          <div class="field"><label for="simple-sku">Código / SKU <span>*</span></label><input id="simple-sku" formControlName="codigo" placeholder="PROD-001" (input)="checkDuplicateSkus()" /></div>
+          <div class="field"><label for="simple-price">Precio <span>*</span></label><input id="simple-price" type="number" min="0" step="0.01" formControlName="precio" placeholder="0.00" /></div>
+          <div class="field"><label for="simple-offer">Precio oferta <em>opcional</em></label><input id="simple-offer" type="number" min="0" step="0.01" formControlName="precio_oferta" placeholder="0.00" /></div>
+          <div class="field"><label for="simple-stock">Stock inicial <span>*</span></label><input id="simple-stock" type="number" min="0" step="1" formControlName="stock" /></div>
+          <div class="field"><label for="simple-min-stock">Stock mínimo <span>*</span></label><input id="simple-min-stock" type="number" min="0" step="1" formControlName="stock_minimo" /></div>
+        </div>
+      </div>
+
+      <div class="variants-list" *ngIf="hasOptions" formArrayName="variantes">
+        <article class="variant-panel" *ngFor="let variant of variants.controls; let i = index" [formGroupName]="i">
+          <div class="variant-panel-header">
+            <div><span class="variant-index">{{ (i + 1).toString().padStart(2, '0') }}</span><strong>Variante {{ i + 1 }}</strong></div>
+            <div class="variant-actions"><span class="stock-pill" [class.stock-ok]="variantStatus(i) === 'En stock'" [class.stock-low]="variantStatus(i) === 'Bajo stock'">{{ variantStatus(i) }}</span><button type="button" class="text-button danger" (click)="removeVariant(i)" [disabled]="variants.length === 1">Eliminar</button></div>
+          </div>
+          <div class="form-grid four-columns">
+            <div class="field"><label>Nombre <span>*</span></label><input formControlName="nombre" placeholder="Rojo / M" /></div>
+            <div class="field"><label>SKU <span>*</span></label><input formControlName="sku" placeholder="POL-RO-M" (input)="checkDuplicateSkus()" /></div>
+            <div class="field"><label>Precio <span>*</span></label><input type="number" min="0" step="0.01" formControlName="precio" placeholder="0.00" /></div>
+            <div class="field"><label>Oferta <em>opcional</em></label><input type="number" min="0" step="0.01" formControlName="precio_oferta" placeholder="0.00" /></div>
+            <div class="field"><label>Stock <span>*</span></label><input type="number" min="0" step="1" formControlName="stock" /></div>
+            <div class="field"><label>Stock mínimo <span>*</span></label><input type="number" min="0" step="1" formControlName="stock_minimo" /></div>
+            <label class="variant-active"><input type="checkbox" formControlName="activa" /> Variante activa</label>
+          </div>
+          <div class="attributes-block" formArrayName="atributos">
+            <div class="attributes-heading"><strong>Atributos</strong><button type="button" class="text-button" (click)="addAttribute(i)">+ Añadir atributo</button></div>
+            <div class="attribute-row" *ngFor="let attribute of variantAttributes(i).controls; let j = index" [formGroupName]="j">
+              <input formControlName="clave" placeholder="clave (ej. color)" />
+              <input formControlName="valor" placeholder="valor (ej. Rojo)" />
+              <button type="button" class="remove-attribute" (click)="removeAttribute(i, j)" aria-label="Eliminar atributo">×</button>
+            </div>
+          </div>
+        </article>
+        <button type="button" class="add-variant" (click)="addVariant()">+ Agregar otra variante</button>
+        <p class="duplicate-warning" *ngIf="duplicateSku">Hay SKU repetidos. Cada variante debe tener un código único.</p>
+      </div>
+    </section>
+
+    <div class="form-footer">
+      <a routerLink="/tiendas" class="cancel-link">Cancelar</a>
+      <button type="submit" class="submit-button" [disabled]="loading || productForm.invalid || selectedFiles.length === 0 || duplicateSku">
+        <span *ngIf="!loading">Registrar producto</span>
+        <span *ngIf="loading" class="button-loading"><span class="spinner"></span> Guardando...</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<ng-template #loadingTemplate>
+  <div class="loading-state"><span class="spinner dark-spinner"></span><p>Cargando tienda...</p></div>
+</ng-template>

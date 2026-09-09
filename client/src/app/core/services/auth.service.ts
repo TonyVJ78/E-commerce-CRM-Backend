@@ -3,46 +3,39 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import {
+  Usuario,
+  LoginResponse,
+  RegistroData,
+  PerfilUpdateData,
+  UserRole
+} from '../models/auth.model';
 
-export interface Usuario {
-  id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  rol: string | null;
-}
-
-export interface LoginResponse {
-  access: string;
-  refresh: string;
-  usuario: Usuario;
-}
-
-export interface RegistroData {
-  email: string;
-  password: string;
-  password_confirm: string;
-  first_name?: string;
-  last_name?: string;
-  rol_id?: number;
-}
+export type { Usuario, LoginResponse, RegistroData, PerfilUpdateData, UserRole };
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = `${environment.apiUrl}/auth`;
-  private currentUserSubject = new BehaviorSubject<Usuario | null>(null);
-  public currentUser$ = this.currentUserSubject.asObservable();
+  private readonly apiUrl = `${environment.apiUrl}/auth`;
+  private readonly currentUserSubject = new BehaviorSubject<Usuario | null>(null);
+  public readonly currentUser$ = this.currentUserSubject.asObservable();
 
-  constructor(private http: HttpClient, private router: Router) {
+  constructor(
+    private readonly http: HttpClient,
+    private readonly router: Router
+  ) {
     this.loadUserFromStorage();
   }
 
   private loadUserFromStorage(): void {
     const userData = localStorage.getItem('km_user');
     if (userData) {
-      this.currentUserSubject.next(JSON.parse(userData));
+      try {
+        this.currentUserSubject.next(JSON.parse(userData));
+      } catch {
+        localStorage.removeItem('km_user');
+      }
     }
   }
 
@@ -108,7 +101,7 @@ export class AuthService {
     return this.http.get(`${this.apiUrl}/perfil/`);
   }
 
-  updatePerfil(data: { first_name: string; last_name: string }): Observable<any> {
+  updatePerfil(data: PerfilUpdateData): Observable<any> {
     return this.http.patch(`${this.apiUrl}/perfil/`, data).pipe(
       tap((updatedUser: any) => {
         const current = this.currentUser;
@@ -125,9 +118,17 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/password-reset/`, { email });
   }
 
-  confirmPasswordReset(uid: string, token: string, new_password: string, new_password_confirm: string): Observable<any> {
+  confirmPasswordReset(
+    uid: string,
+    token: string,
+    new_password: string,
+    new_password_confirm: string
+  ): Observable<any> {
     return this.http.post(`${this.apiUrl}/password-reset-confirm/`, {
-      uid, token, new_password, new_password_confirm
+      uid,
+      token,
+      new_password,
+      new_password_confirm
     });
   }
 }

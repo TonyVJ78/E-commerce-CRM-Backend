@@ -1,0 +1,202 @@
+<div class="page-container accesos">
+  <header class="accesos-header">
+    <div>
+      <h1>Roles y permisos</h1>
+      <p class="subtitle">Administra los roles del sistema, sus permisos y el rol de cada usuario.</p>
+    </div>
+    <a routerLink="/dashboard" class="btn btn-secondary btn-sm">← Volver al panel</a>
+  </header>
+
+  <div class="tabs">
+    <button class="tab" [class.active]="pestania === 'roles'" (click)="cambiarPestania('roles')">
+      Roles y permisos
+    </button>
+    <button class="tab" [class.active]="pestania === 'usuarios'" (click)="cambiarPestania('usuarios')">
+      Usuarios
+    </button>
+  </div>
+
+  <div class="error-banner" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="ok-banner" *ngIf="mensaje && !errorMessage">{{ mensaje }}</div>
+
+  <!-- ================= ROLES ================= -->
+  <div class="roles-layout" *ngIf="pestania === 'roles'">
+    <aside class="roles-lista">
+      <div class="crear-rol">
+        <input
+          type="text"
+          [(ngModel)]="nuevoRolNombre"
+          name="nuevoRol"
+          placeholder="Nombre del nuevo rol"
+          (keyup.enter)="crearRol()" />
+        <button class="btn btn-primary btn-sm" [disabled]="creandoRol || !nuevoRolNombre.trim()" (click)="crearRol()">
+          Crear
+        </button>
+      </div>
+
+      <div class="cargando" *ngIf="loading">Cargando…</div>
+
+      <ul class="lista" *ngIf="!loading">
+        <li
+          *ngFor="let rol of roles"
+          [class.sel]="rolSeleccionado?.id === rol.id"
+          (click)="seleccionarRol(rol)">
+          <ng-container *ngIf="editandoRolId !== rol.id; else editRol">
+            <div class="rol-info">
+              <span class="rol-nombre">
+                {{ rol.nombre }}
+                <span class="chip sistema" *ngIf="rol.es_semilla">sistema</span>
+              </span>
+              <span class="rol-meta">
+                {{ rol.permisos.length }} permiso(s) · {{ rol.usuarios_count }} usuario(s)
+              </span>
+            </div>
+            <div class="rol-acciones" *ngIf="!rol.es_semilla">
+              <button class="icono" title="Renombrar" (click)="$event.stopPropagation(); empezarEdicion(rol)">✎</button>
+              <button class="icono danger" title="Eliminar" (click)="$event.stopPropagation(); eliminarRol(rol)">🗑</button>
+            </div>
+          </ng-container>
+          <ng-template #editRol>
+            <div class="edit-rol" (click)="$event.stopPropagation()">
+              <input type="text" [(ngModel)]="editNombre" name="editNombre" (keyup.enter)="guardarNombre(rol)" />
+              <button class="btn btn-primary btn-sm" (click)="guardarNombre(rol)">✓</button>
+              <button class="btn btn-secondary btn-sm" (click)="cancelarEdicion()">✕</button>
+            </div>
+          </ng-template>
+        </li>
+      </ul>
+    </aside>
+
+    <section class="permisos-panel" *ngIf="rolSeleccionado; else sinRol">
+      <h2>Permisos de «{{ rolSeleccionado.nombre }}»</h2>
+      <p class="hint" *ngIf="matriz.length === 0">No hay permisos en el catálogo.</p>
+
+      <div class="matriz-wrap" *ngIf="matriz.length > 0">
+        <table class="matriz">
+          <thead>
+            <tr>
+              <th class="col-modulo">Módulo</th>
+              <th *ngFor="let a of acciones">{{ etiquetaAccion[a] }}</th>
+              <th class="col-todo">Todo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fila of matriz">
+              <td class="col-modulo">
+                <span class="mod-nombre">{{ fila.etiqueta }}</span>
+                <code class="mod-codigo">{{ fila.modulo }}</code>
+              </td>
+              <td *ngFor="let a of acciones" class="celda">
+                <input
+                  *ngIf="fila.celdas[a] as permiso; else sinCelda"
+                  type="checkbox"
+                  [attr.aria-label]="permiso.nombre"
+                  [checked]="permisosMarcados.has(permiso.id)"
+                  (change)="togglePermiso(permiso.id)" />
+                <ng-template #sinCelda><span class="na">—</span></ng-template>
+              </td>
+              <td class="celda">
+                <input
+                  type="checkbox"
+                  title="Marcar/desmarcar toda la fila"
+                  [checked]="moduloCompleto(fila)"
+                  (change)="toggleModulo(fila)" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <button
+        class="btn btn-primary"
+        [disabled]="guardandoPermisos"
+        (click)="guardarPermisos()">
+        {{ guardandoPermisos ? 'Guardando…' : 'Guardar permisos' }}
+      </button>
+    </section>
+
+    <ng-template #sinRol>
+      <section class="permisos-panel vacio-panel">
+        <p>Selecciona un rol de la lista para ver y editar sus permisos.</p>
+      </section>
+    </ng-template>
+  </div>
+
+  <!-- ================= USUARIOS ================= -->
+  <div *ngIf="pestania === 'usuarios'">
+    <form class="filtros" (ngSubmit)="aplicarFiltrosUsuarios()">
+      <div class="filtro-campo">
+        <label>Buscar</label>
+        <input type="text" [(ngModel)]="filtroBuscar" name="buscar" placeholder="email o nombre…" />
+      </div>
+      <div class="filtro-campo">
+        <label>Rol</label>
+        <select [(ngModel)]="filtroRol" name="rol">
+          <option value="">Todos</option>
+          <option *ngFor="let rol of roles" [value]="rol.nombre">{{ rol.nombre }}</option>
+        </select>
+      </div>
+      <div class="filtro-campo">
+        <label>Estado</label>
+        <select [(ngModel)]="filtroActivo" name="activo">
+          <option value="">Todos</option>
+          <option value="true">Activos</option>
+          <option value="false">Inactivos</option>
+        </select>
+      </div>
+      <div class="filtro-acciones">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <button type="button" class="btn btn-secondary btn-sm" (click)="limpiarFiltrosUsuarios()">Limpiar</button>
+      </div>
+    </form>
+
+    <div class="tabla-wrap">
+      <div class="cargando" *ngIf="loading">Cargando…</div>
+      <table class="tabla" *ngIf="!loading">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Activo</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of usuarios">
+            <td>
+              <span class="nombre">{{ (u.first_name + ' ' + u.last_name).trim() || u.email }}</span>
+              <span class="email">{{ u.email }}</span>
+            </td>
+            <td>
+              <select #selRol [value]="u.rol?.id ?? ''">
+                <option *ngFor="let rol of roles" [value]="rol.id">{{ rol.nombre }}</option>
+              </select>
+            </td>
+            <td>
+              <input #chkActivo type="checkbox" [checked]="u.activo" />
+            </td>
+            <td>
+              <button
+                class="btn btn-secondary btn-sm"
+                [disabled]="filaGuardando === u.id"
+                (click)="guardarUsuario(u, +selRol.value, chkActivo.checked)">
+                {{ filaGuardando === u.id ? 'Guardando…' : 'Guardar' }}
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="usuarios.length === 0">
+            <td colspan="4" class="vacio">No hay usuarios con esos filtros.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="paginacion" *ngIf="total > 0">
+      <span class="resumen">{{ total }} usuario(s) · página {{ pagina }} de {{ totalPaginas }}</span>
+      <div class="paginacion-botones">
+        <button class="btn btn-secondary btn-sm" [disabled]="pagina <= 1 || loading" (click)="paginaAnterior()">‹ Anterior</button>
+        <button class="btn btn-secondary btn-sm" [disabled]="pagina >= totalPaginas || loading" (click)="paginaSiguiente()">Siguiente ›</button>
+      </div>
+    </div>
+  </div>
+</div>

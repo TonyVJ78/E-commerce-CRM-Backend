@@ -1,9 +1,14 @@
 <div class="page-container">
   <div class="section-header">
     <h2>Mis Tiendas</h2>
-    <button class="btn btn-primary" (click)="toggleForm()">
-      {{ showForm ? 'Cancelar' : '+ Nueva Tienda' }}
-    </button>
+    <div class="section-actions">
+      <a routerLink="/tiendas/productos" class="btn btn-secondary">
+        📦 Administrar Productos
+      </a>
+      <button class="btn btn-primary" (click)="toggleForm()">
+        {{ showForm ? 'Cancelar' : '+ Nueva Tienda' }}
+      </button>
+    </div>
   </div>
 
   <div class="success-banner" *ngIf="message">{{ message }}</div>
@@ -70,6 +75,9 @@
         <p class="tienda-slug">/{{ tienda.slug }}</p>
         <p class="tienda-desc" *ngIf="tienda.descripcion">{{ tienda.descripcion }}</p>
         <p class="tienda-date">Creada el {{ tienda.fecha_creacion | date:'mediumDate' }}</p>
+        <a class="product-action" [routerLink]="['/tiendas', tienda.id, 'productos', 'nuevo']">
+          Registrar producto <span>→</span>
+        </a>
       </div>
     </div>
   </div>

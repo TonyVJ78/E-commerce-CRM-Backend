@@ -25,7 +25,7 @@ class CarritoAdmin(admin.ModelAdmin):
 class ItemCarritoAdmin(admin.ModelAdmin):
     list_display = ['id', 'tienda', 'carrito', 'variante', 'cantidad']
     list_filter = ['tienda']
-    search_fields = ['carrito__cliente__email', 'variante__nombre_variante']
+    search_fields = ['carrito__cliente__email', 'variante__nombre']
 
 
 @admin.register(MetodoPago)
@@ -45,7 +45,7 @@ class PedidoAdmin(admin.ModelAdmin):
 class ItemPedidoAdmin(admin.ModelAdmin):
     list_display = ['id', 'tienda', 'pedido', 'variante', 'cantidad', 'precio_unitario']
     list_filter = ['tienda']
-    search_fields = ['pedido__id', 'variante__nombre_variante']
+    search_fields = ['pedido__id', 'variante__nombre']
 
 
 @admin.register(HistorialEstadoPedido)

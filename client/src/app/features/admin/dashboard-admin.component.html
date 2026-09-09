@@ -1,0 +1,32 @@
+<div class="page-container">
+  <div class="admin-card">
+    <div class="admin-badge">🛡️ Panel de Administración</div>
+    <h1>Panel de Control — Kantu Market</h1>
+    <p class="admin-text">
+      Bienvenido al módulo administrativo global de la plataforma multitenant.
+    </p>
+
+    <div class="info-grid">
+      <div class="info-item">
+        <h4>Bitácora y Auditoría</h4>
+        <p>Historial de accesos (login) y registro de cambios en la plataforma. <a routerLink="/auditoria">Abrir bitácora</a>.</p>
+      </div>
+      <div class="info-item">
+        <h4>Roles y permisos</h4>
+        <p>Gestiona los roles del sistema, los permisos de cada rol y el rol asignado a cada usuario. <a routerLink="/accesos">Abrir accesos</a>.</p>
+      </div>
+      <div class="info-item">
+        <span class="info-icon">⚙️</span>
+        <h4>Panel Django Admin</h4>
+        <p>Acceso administrativo completo a la base de datos disponible en <a href="http://localhost:8000/admin/" target="_blank">/admin/</a>.</p>
+      </div>
+    </div>
+
+    <div class="quick-actions">
+      <a routerLink="/auditoria" class="btn btn-primary">Ver Bitácora</a>
+      <a routerLink="/accesos" class="btn btn-primary">Roles y permisos</a>
+      <a routerLink="/perfil" class="btn btn-secondary">Mi Perfil</a>
+      <a href="http://localhost:8000/admin/" target="_blank" class="btn btn-secondary">Django Admin ↗</a>
+    </div>
+  </div>
+</div>

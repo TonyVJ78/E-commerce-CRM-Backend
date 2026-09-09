@@ -5,24 +5,55 @@
       <span class="brand-text">Kantu Market</span>
     </a>
 
-    <button class="menu-toggle" (click)="toggleMenu()" [class.active]="menuOpen" aria-label="Menu principal">
-      <span></span>
-      <span></span>
-      <span></span>
-    </button>
+    <div class="navbar-actions-mobile">
+      <!-- Botón de carrito móvil (solo para rol cliente) -->
+      <button
+        *ngIf="authService.isAuthenticated && (authService.currentUser$ | async)?.rol === 'cliente'"
+        class="cart-trigger-btn"
+        (click)="toggleCart()"
+        aria-label="Abrir carrito"
+      >
+        <span class="cart-icon">🛒</span>
+        <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">{{ count }}</span>
+      </button>
+
+      <button class="menu-toggle" (click)="toggleMenu()" [class.active]="menuOpen" aria-label="Menu principal">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
 
     <div class="navbar-menu" [class.open]="menuOpen">
       <ng-container *ngIf="authService.isAuthenticated; else guestLinks">
         <!-- Enlaces según rol -->
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'" routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Inicio</a>
+        <a *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'" routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catálogo</a>
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/dashboard" routerLinkActive="active" (click)="menuOpen = false">Dashboard</a>
+        <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/auditoria" routerLinkActive="active" (click)="menuOpen = false">Bitácora</a>
+        <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/accesos" routerLinkActive="active" (click)="menuOpen = false">Accesos</a>
+        <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/panel-vendedor" routerLinkActive="active" (click)="menuOpen = false">Panel Vendedor</a>
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/tiendas" routerLinkActive="active" (click)="menuOpen = false">Mis Tiendas</a>
+        <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/tiendas/productos" routerLinkActive="active" (click)="menuOpen = false">Gestionar Productos</a>
         
         <a routerLink="/perfil" routerLinkActive="active" (click)="menuOpen = false">Mi Perfil</a>
+
+        <!-- Botón de carrito desktop (solo para rol cliente) -->
+        <button
+          *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'"
+          class="cart-trigger-btn desktop-only"
+          (click)="toggleCart()"
+          title="Ver Carrito de Compras"
+        >
+          <span class="cart-icon">🛒</span>
+          <span class="cart-label">Carrito</span>
+          <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">{{ count }}</span>
+        </button>
         
         <div class="navbar-user">
           <span class="user-email">{{ (authService.currentUser$ | async)?.email }}</span>
-          <span class="user-role-badge">{{ (authService.currentUser$ | async)?.rol }}</span>
+          <span class="user-role-badge" [attr.data-role]="(authService.currentUser$ | async)?.rol">
+            {{ (authService.currentUser$ | async)?.rol }}
+          </span>
           <button class="btn btn-outline btn-sm" (click)="logout()">Cerrar Sesión</button>
         </div>
       </ng-container>
@@ -34,3 +65,111 @@
     </div>
   </div>
 </nav>
+
+<!-- ========================================================================= -->
+<!-- SLIDE-OVER DRAWER DEL CARRITO DE COMPRAS -->
+<!-- ========================================================================= -->
+<div class="cart-backdrop" *ngIf="cartOpen" (click)="closeCart()"></div>
+
+<aside class="cart-drawer" [class.open]="cartOpen">
+  <div class="cart-drawer-header">
+    <div class="cart-header-title">
+      <span class="header-cart-icon">🛒</span>
+      <h3>Mi Carrito de Compras</h3>
+    </div>
+    <button class="btn-close-drawer" (click)="closeCart()" aria-label="Cerrar carrito">✕</button>
+  </div>
+
+  <div class="cart-drawer-body">
+    <!-- Mensaje de éxito de Checkout -->
+    <div class="checkout-alert-success" *ngIf="checkoutSuccess">
+      <span class="success-icon">🎉</span>
+      <h4>¡Pedido realizado con éxito!</h4>
+      <p>Tu orden ha sido registrada. La tienda comenzará a procesarla.</p>
+    </div>
+
+    <!-- Contenido del Carrito -->
+    <ng-container *ngIf="carritoService.cartData$ | async as cartData; else cargandoCart">
+      <!-- Carrito Vacío -->
+      <div class="cart-empty-state" *ngIf="!checkoutSuccess && (!cartData.carritos || cartData.carritos.length === 0 || cartData.total_items === 0)">
+        <div class="empty-icon">🛍️</div>
+        <h4>Tu carrito está vacío</h4>
+        <p>Aún no has agregado productos. Explora nuestras tiendas y descubre lo mejor de Bolivia.</p>
+        <button class="btn btn-primary btn-sm" (click)="closeCart()" routerLink="/inicio">Explorar Catálogo</button>
+      </div>
+
+      <!-- Listado de Carritos por Tienda -->
+      <div class="cart-stores-list" *ngIf="!checkoutSuccess && cartData.total_items > 0">
+        <div class="cart-store-group" *ngFor="let tiendaCart of cartData.carritos">
+          <div class="cart-store-header" *ngIf="tiendaCart.items.length > 0">
+            <span class="store-pin">🏬</span>
+            <strong>{{ tiendaCart.tienda_nombre }}</strong>
+            <span class="store-subtotal">Subtotal: Bs {{ tiendaCart.total }}</span>
+          </div>
+
+          <div class="cart-items-list">
+            <div class="cart-item-card" *ngFor="let item of tiendaCart.items">
+              <img
+                class="cart-item-img"
+                [src]="item.producto_imagen || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=150&q=80'"
+                [alt]="item.producto_nombre"
+              />
+
+              <div class="cart-item-info">
+                <h5 class="item-name">{{ item.producto_nombre }}</h5>
+                <p class="item-variant" *ngIf="item.variante_nombre">
+                  Variante: <span>{{ item.variante_nombre }}</span>
+                </p>
+                <div class="item-price">Bs {{ item.precio_unitario }} c/u</div>
+
+                <div class="item-actions-row">
+                  <div class="quantity-picker">
+                    <button type="button" class="btn-qty" (click)="decrementar(item)" title="Disminuir">−</button>
+                    <span class="qty-display">{{ item.cantidad }}</span>
+                    <button type="button" class="btn-qty" (click)="incrementar(item)" title="Aumentar">+</button>
+                  </div>
+
+                  <div class="item-subtotal">Bs {{ item.subtotal }}</div>
+
+                  <button type="button" class="btn-remove-item" (click)="eliminar(item.id)" title="Eliminar del carrito">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-template #cargandoCart>
+      <div class="cart-loading">
+        <div class="spinner"></div>
+        <p>Cargando tu carrito...</p>
+      </div>
+    </ng-template>
+  </div>
+
+  <!-- Footer del Carrito con Totales y Checkout -->
+  <div class="cart-drawer-footer" *ngIf="(carritoService.cartData$ | async) as cartData">
+    <div class="cart-totals-section" *ngIf="cartData.total_items > 0 && !checkoutSuccess">
+      <div class="total-row">
+        <span>Artículos:</span>
+        <strong>{{ cartData.total_items }}</strong>
+      </div>
+      <div class="total-row grand-total">
+        <span>Total a pagar:</span>
+        <span class="grand-total-amount">Bs {{ cartData.total_global }}</span>
+      </div>
+
+      <div class="cart-footer-buttons">
+        <button class="btn btn-outline btn-sm btn-clear" (click)="vaciar()">
+          Vaciar
+        </button>
+        <button class="btn btn-primary btn-checkout" (click)="procederCheckout()">
+          Confirmar y Pagar (Checkout) →
+        </button>
+      </div>
+    </div>
+  </div>
+</aside>

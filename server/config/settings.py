@@ -18,7 +18,17 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ['*']),
 )
-environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
+
+# Cargar variables de entorno: busca primero en BASE_DIR y luego en la raíz del proyecto
+env_file = os.path.join(BASE_DIR, '.env')
+if not os.path.isfile(env_file):
+    parent_env = os.path.join(BASE_DIR.parent, '.env')
+    if os.path.isfile(parent_env):
+        env_file = parent_env
+
+if os.path.isfile(env_file):
+    environ.Env.read_env(env_file)
+
 
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
@@ -37,6 +47,7 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'django_filters',
     'corsheaders',
     # Local apps (en orden de dependencia)
     'apps.usuarios',
@@ -93,8 +104,15 @@ DATABASES = {
         'PASSWORD': env('DB_PASSWORD', default='postgres'),
         'HOST': env('DB_HOST', default='db'),
         'PORT': env('DB_PORT', default='5432'),
+        'CONN_MAX_AGE': 600,
+        'CONN_HEALTH_CHECKS': True,
+        'OPTIONS': {
+            'sslmode': env('DB_SSLMODE', default='prefer'),
+            'channel_binding': env('DB_CHANNEL_BINDING', default='prefer'),
+        },
     }
 }
+
 
 # =============================================================================
 # CUSTOM USER MODEL
@@ -125,6 +143,10 @@ USE_TZ = True
 # =============================================================================
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -176,3 +198,10 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@kantumarket.com'
 
 # URL base del frontend para links de recuperación de contraseña
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:4200')
+
+# =============================================================================
+# CLOUDINARY
+# =============================================================================
+CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME', default='')
+CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY', default='')
+CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET', default='')

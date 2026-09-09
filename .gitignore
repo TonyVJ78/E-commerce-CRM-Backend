@@ -9,6 +9,9 @@ dist/
 build/
 *.egg
 .env
+.env.*
+!.env.example
+
 
 # Django
 db.sqlite3

@@ -1,114 +1,202 @@
-import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { AuthService } from '../../core/services/auth.service';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import {
+  ProductoCatalogo,
+  TiendaCatalogo,
+  VarianteCatalogo,
+  CategoriaCatalogo
+} from '../../core/models';
+import { CatalogoService } from '../../core/services/catalogo.service';
+import { CarritoService } from '../../core/services/carrito.service';
 
 @Component({
   selector: 'app-home-cliente',
   standalone: true,
-  imports: [CommonModule, RouterLink],
-  template: `
-    <div class="page-container">
-      <div class="hero-card">
-        <div class="hero-badge">🇧🇴 Mercado Digital Boliviano</div>
-        <h1>¡Bienvenido a Kantu Market!</h1>
-        <p class="hero-text">
-          Explora productos auténticos de emprendedores y empresas bolivianas.
-        </p>
-
-        <div class="status-box">
-          <div class="status-icon">🛍️</div>
-          <div>
-            <h3>Catálogo de Productos en Preparación</h3>
-            <p>
-              El catálogo interactivo de tiendas y productos estará disponible próximamente en el Sprint 2.
-              Aquí podrás descubrir artesanías, textiles, gastronomía y tecnología local.
-            </p>
-          </div>
-        </div>
-
-        <div class="quick-actions">
-          <a routerLink="/perfil" class="btn btn-primary">Ver Mi Perfil</a>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .hero-card {
-      background: var(--surface);
-      border-radius: var(--radius-xl);
-      padding: 3rem 2.5rem;
-      box-shadow: var(--shadow-md);
-      border: 1px solid var(--border);
-      text-align: center;
-      max-width: 750px;
-      margin: 2rem auto;
-      animation: fadeUp 0.4s ease-out;
-    }
-
-    .hero-badge {
-      display: inline-block;
-      background: rgba(39, 174, 96, 0.1);
-      color: var(--success);
-      font-size: 0.85rem;
-      font-weight: 700;
-      padding: 0.35rem 1rem;
-      border-radius: 20px;
-      margin-bottom: 1.25rem;
-    }
-
-    h1 {
-      font-size: 2.2rem;
-      font-weight: 800;
-      margin-bottom: 0.75rem;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .hero-text {
-      font-size: 1.1rem;
-      color: var(--text-secondary);
-      margin-bottom: 2rem;
-    }
-
-    .status-box {
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-      text-align: left;
-      background: rgba(244, 208, 63, 0.12);
-      border: 1px solid rgba(244, 208, 63, 0.4);
-      border-radius: var(--radius-md);
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-    }
-
-    .status-icon {
-      font-size: 2.5rem;
-    }
-
-    .status-box h3 {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      margin-bottom: 0.25rem;
-    }
-
-    .status-box p {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      line-height: 1.5;
-    }
-
-    .quick-actions {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-    }
-  `]
+  imports: [CommonModule, FormsModule],
+  templateUrl: './home-cliente.component.html',
+  styleUrls: ['./home-cliente.component.css']
 })
-export class HomeClienteComponent {
-  constructor(public authService: AuthService) {}
+export class HomeClienteComponent implements OnInit {
+  productos: ProductoCatalogo[] = [];
+  categorias: CategoriaCatalogo[] = [];
+  tiendas: TiendaCatalogo[] = [];
+
+  // Filtros activos
+  categoriaSeleccionadaId: number | null = null;
+  tiendaSeleccionadaId: number | null = null;
+  terminoBusqueda = '';
+
+  // Estados de carga
+  cargando = false;
+  agregandoVarianteId: number | null = null;
+  varianteSeleccionadaPorProducto: { [productoId: number]: VarianteCatalogo } = {};
+
+  // Notificaciones
+  mensajeExito = '';
+  mensajeError = '';
+
+  constructor(
+    private readonly catalogoService: CatalogoService,
+    private readonly carritoService: CarritoService
+  ) {}
+
+  ngOnInit(): void {
+    this.cargarFiltrosYCatalogoGeneral();
+  }
+
+  cargarFiltrosYCatalogoGeneral(): void {
+    this.cargando = true;
+    this.limpiarMensajes();
+
+    // 1. Cargar categorías disponibles
+    this.catalogoService.listarCategorias().subscribe({
+      next: (cats) => {
+        this.categorias = cats;
+      },
+      error: () => {}
+    });
+
+    // 2. Cargar tiendas disponibles
+    this.catalogoService.listarTiendas().subscribe({
+      next: (tiendas) => {
+        this.tiendas = tiendas;
+      },
+      error: () => {}
+    });
+
+    // 3. Cargar todos los productos en general al inicio
+    this.aplicarFiltros();
+  }
+
+  aplicarFiltros(): void {
+    this.cargando = true;
+    this.limpiarMensajes();
+
+    const filtros: { categoria?: number; tienda?: number; q?: string } = {};
+    if (this.categoriaSeleccionadaId) {
+      filtros.categoria = this.categoriaSeleccionadaId;
+    }
+    if (this.tiendaSeleccionadaId) {
+      filtros.tienda = this.tiendaSeleccionadaId;
+    }
+    if (this.terminoBusqueda.trim()) {
+      filtros.q = this.terminoBusqueda.trim();
+    }
+
+    this.catalogoService.listarTodosLosProductos(filtros).subscribe({
+      next: (prods) => {
+        this.productos = prods;
+        // Inicializar la variante por defecto de cada producto
+        for (const p of prods) {
+          if (p.variantes && p.variantes.length > 0) {
+            this.varianteSeleccionadaPorProducto[p.id] = p.variantes[0];
+          }
+        }
+        this.cargando = false;
+      },
+      error: (error: HttpErrorResponse) => {
+        this.cargando = false;
+        this.mensajeError = this.obtenerMensajeError(error);
+      }
+    });
+  }
+
+  filtrarPorCategoria(catId: number | null): void {
+    this.categoriaSeleccionadaId = catId;
+    this.aplicarFiltros();
+  }
+
+  filtrarPorTienda(tiendaId: number | null): void {
+    this.tiendaSeleccionadaId = tiendaId;
+    this.aplicarFiltros();
+  }
+
+  seleccionarVariante(productoId: number, variante: VarianteCatalogo): void {
+    this.varianteSeleccionadaPorProducto[productoId] = variante;
+  }
+
+  obtenerVarianteActual(producto: ProductoCatalogo): VarianteCatalogo | null {
+    if (this.varianteSeleccionadaPorProducto[producto.id]) {
+      return this.varianteSeleccionadaPorProducto[producto.id];
+    }
+    return producto.variantes && producto.variantes.length > 0 ? producto.variantes[0] : null;
+  }
+
+  obtenerImagenProducto(producto: ProductoCatalogo): string {
+    if (producto.imagen_principal) {
+      return producto.imagen_principal;
+    }
+    if (producto.imagenes && producto.imagenes.length > 0) {
+      const first = producto.imagenes[0];
+      if (typeof first === 'object' && first.url) {
+        return first.url;
+      }
+      return String(first);
+    }
+    return 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80';
+  }
+
+  agregarAlCarrito(producto: ProductoCatalogo): void {
+    const variante = this.obtenerVarianteActual(producto);
+    if (!variante) {
+      this.mensajeError = 'Este producto no tiene variantes disponibles.';
+      return;
+    }
+
+    if (variante.stock <= 0) {
+      this.mensajeError = 'La variante seleccionada no cuenta con stock disponible.';
+      return;
+    }
+
+    const tiendaId = producto.tienda_id;
+    if (!tiendaId) {
+      this.mensajeError = 'No se pudo identificar la tienda del producto.';
+      return;
+    }
+
+    this.limpiarMensajes();
+    this.agregandoVarianteId = variante.id;
+
+    this.carritoService.agregarItem({
+      tienda_id: tiendaId,
+      variante_id: variante.id
+    }).subscribe({
+      next: () => {
+        this.agregandoVarianteId = null;
+        this.mensajeExito = `¡Agregado al carrito! ${producto.nombre} (${variante.nombre_variante || variante.nombre})`;
+        setTimeout(() => this.limpiarMensajes(), 4000);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.agregandoVarianteId = null;
+        this.mensajeError = this.obtenerMensajeError(error);
+      }
+    });
+  }
+
+  limpiarFiltros(): void {
+    this.categoriaSeleccionadaId = null;
+    this.tiendaSeleccionadaId = null;
+    this.terminoBusqueda = '';
+    this.aplicarFiltros();
+  }
+
+  private limpiarMensajes(): void {
+    this.mensajeExito = '';
+    this.mensajeError = '';
+  }
+
+  private obtenerMensajeError(error: HttpErrorResponse): string {
+    const resp = error.error;
+    if (typeof resp === 'string' && resp) return resp;
+    if (resp?.detail) return resp.detail;
+    if (resp && typeof resp === 'object') {
+      const key = Object.keys(resp)[0];
+      const val = resp[key];
+      if (Array.isArray(val) && val.length) return String(val[0]);
+      if (val) return String(val);
+    }
+    return 'Ocurrió un error al procesar la solicitud.';
+  }
 }
