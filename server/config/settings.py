@@ -176,10 +176,14 @@ SIMPLE_JWT = {
 # =============================================================================
 # CORS
 # =============================================================================
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+_cors_list = env.list('CORS_ALLOWED_ORIGINS', default=[
     'http://localhost:4200',
     'http://127.0.0.1:4200',
 ])
+if '*' in _cors_list:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = _cors_list
 CORS_ALLOW_CREDENTIALS = True
 
 # =============================================================================

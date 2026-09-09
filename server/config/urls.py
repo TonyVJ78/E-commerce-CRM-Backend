@@ -16,18 +16,23 @@ def health_check(request):
         "version": "1.0.0"
     })
 
+api_patterns = [
+    path('auth/', include('apps.usuarios.urls')),
+    path('auditoria/', include('apps.usuarios.urls_auditoria')),
+    path('', include('apps.usuarios.urls_accesos')),
+    path('tiendas/', include('apps.tiendas.urls')),
+    path('catalogo/', include('apps.catalogo.urls_cliente')),
+    path('pedidos/', include('apps.pedidos.urls')),
+]
+
 urlpatterns = [
     path('', health_check, name='root_health'),
+    path('health/', health_check, name='health'),
     path('admin/', admin.site.urls),
-    path('api/auth/', include('apps.usuarios.urls')),
-    path('api/auditoria/', include('apps.usuarios.urls_auditoria')),
-    path('api/', include('apps.usuarios.urls_accesos')),
-    path('api/tiendas/', include('apps.tiendas.urls')),
-    path('api/tiendas/', include('apps.catalogo.urls')),
-    path('api/catalogo/', include('apps.catalogo.urls_cliente')),
-    path('api/pedidos/', include('apps.pedidos.urls')),
+    # Matches both /api/... and direct /... in case of Vercel serverless path rewrite
+    path('api/', include(api_patterns)),
+    path('', include(api_patterns)),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
