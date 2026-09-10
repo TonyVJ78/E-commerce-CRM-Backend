@@ -174,25 +174,26 @@ class MisPedidosView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        pedidos = Pedido.objects.filter(cliente=request.user).order_by('-fecha_creacion')[:20]
+        pedidos = Pedido.objects.filter(cliente=request.user).order_by('-fecha')[:20]
         data = []
         for p in pedidos:
             items = []
             for it in p.items.select_related('variante__producto').all():
+                subtot = float(it.cantidad) * float(it.precio_unitario)
                 items.append({
                     'id': it.id,
                     'producto_nombre': it.variante.producto.nombre if it.variante and it.variante.producto else 'Producto',
                     'variante_nombre': it.variante.nombre if it.variante else 'Unica',
                     'cantidad': it.cantidad,
                     'precio_unitario': str(it.precio_unitario),
-                    'subtotal': str(it.subtotal),
+                    'subtotal': f"{subtot:.2f}",
                 })
             data.append({
                 'id': p.id,
                 'tienda_nombre': p.tienda.nombre if p.tienda else 'Tienda',
                 'estado': p.estado_actual,
                 'total': str(p.total),
-                'fecha': p.fecha_creacion.isoformat() if p.fecha_creacion else None,
+                'fecha': p.fecha.isoformat() if p.fecha else None,
                 'items': items,
             })
         return Response({'pedidos': data}, status=status.HTTP_200_OK)
