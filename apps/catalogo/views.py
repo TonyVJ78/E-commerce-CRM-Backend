@@ -155,6 +155,13 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
         if categoria_id:
             queryset = queryset.filter(categoria_id=categoria_id)
 
+        # Las categorías pertenecen a una tienda, así que "Accesorios" existe
+        # tantas veces como tiendas la usen. En el catálogo general filtrar por
+        # id mostraría sólo las de una tienda; por nombre se agrupan todas.
+        categoria_nombre = self.request.query_params.get('categoria_nombre')
+        if categoria_nombre:
+            queryset = queryset.filter(categoria__nombre__iexact=categoria_nombre.strip())
+
         q = self.request.query_params.get('q')
         if q:
             queryset = queryset.filter(
@@ -175,9 +182,19 @@ class CategoriaCatalogoListView(generics.ListAPIView):
 
     def get_queryset(self):
         tienda_id = self.request.query_params.get('tienda')
-        qs = Categoria.objects.all()
         if tienda_id:
-            qs = qs.filter(tienda_id=tienda_id)
-        return qs.order_by('nombre')
+            return Categoria.objects.filter(tienda_id=tienda_id).order_by('nombre')
+
+        # Sin tienda el listado es el del catálogo general, donde un mismo
+        # nombre aparece una vez por tienda que lo usa. Se devuelve una sola
+        # entrada por nombre para que el filtro no salga con repetidos; para
+        # filtrar productos con ella hay que usar `categoria_nombre`, no el id.
+        ids = (
+            Categoria.objects
+            .values('nombre')
+            .annotate(primer_id=models.Min('id'))
+            .values_list('primer_id', flat=True)
+        )
+        return Categoria.objects.filter(id__in=list(ids)).order_by('nombre')
 
 
