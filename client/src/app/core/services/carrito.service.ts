@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   AgregarItemCarritoRequest,
@@ -11,6 +11,18 @@ import {
   CarritoDetalle,
   ItemCarritoDetalle,
 } from '../models/carrito.model';
+
+export interface ItemCompradoInfo {
+  variante_id: number;
+  producto_id: number;
+  cantidad: number;
+}
+
+export interface CheckoutResponse {
+  mensaje: string;
+  pedidos: number[];
+  items_comprados?: ItemCompradoInfo[];
+}
 
 export type {
   AgregarItemCarritoRequest,
@@ -31,6 +43,9 @@ export class CarritoService {
 
   private readonly cartDataSubject = new BehaviorSubject<CarritoResponse | null>(null);
   public readonly cartData$ = this.cartDataSubject.asObservable();
+
+  private readonly checkoutCompletedSubject = new Subject<CheckoutResponse>();
+  public readonly checkoutCompleted$ = this.checkoutCompletedSubject.asObservable();
 
   constructor(private readonly http: HttpClient) {
     // Si hay token de usuario, intentar precargar conteo del carrito
@@ -88,11 +103,12 @@ export class CarritoService {
     );
   }
 
-  checkout(): Observable<any> {
-    return this.http.post(`${this.apiUrl}/checkout/`, {}).pipe(
-      tap(() => {
+  checkout(): Observable<CheckoutResponse> {
+    return this.http.post<CheckoutResponse>(`${this.apiUrl}/checkout/`, {}).pipe(
+      tap((res) => {
         this.cartCountSubject.next(0);
         this.cartDataSubject.next(null);
+        this.checkoutCompletedSubject.next(res);
       })
     );
   }

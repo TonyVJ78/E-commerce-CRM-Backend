@@ -6,9 +6,9 @@
     </a>
 
     <div class="navbar-actions-mobile">
-      <!-- Botón de carrito móvil (solo para rol cliente) -->
+      <!-- Botón de carrito móvil -->
       <button
-        *ngIf="authService.isAuthenticated && (authService.currentUser$ | async)?.rol === 'cliente'"
+        *ngIf="authService.isAuthenticated"
         class="cart-trigger-btn"
         (click)="toggleCart()"
         aria-label="Abrir carrito"
@@ -26,8 +26,10 @@
 
     <div class="navbar-menu" [class.open]="menuOpen">
       <ng-container *ngIf="authService.isAuthenticated; else guestLinks">
+        <!-- Catálogo accesible para todos los usuarios autenticados -->
+        <a routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catálogo</a>
+
         <!-- Enlaces según rol -->
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'" routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catálogo</a>
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/dashboard" routerLinkActive="active" (click)="menuOpen = false">Dashboard</a>
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/auditoria" routerLinkActive="active" (click)="menuOpen = false">Bitácora</a>
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/accesos" routerLinkActive="active" (click)="menuOpen = false">Accesos</a>
@@ -37,9 +39,9 @@
         
         <a routerLink="/perfil" routerLinkActive="active" (click)="menuOpen = false">Mi Perfil</a>
 
-        <!-- Botón de carrito desktop (solo para rol cliente) -->
+        <!-- Botón de carrito desktop -->
         <button
-          *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'"
+          *ngIf="authService.isAuthenticated"
           class="cart-trigger-btn desktop-only"
           (click)="toggleCart()"
           title="Ver Carrito de Compras"

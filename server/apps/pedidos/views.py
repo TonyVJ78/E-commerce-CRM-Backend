@@ -19,7 +19,7 @@ from .serializers import (
 class AgregarItemCarritoView(APIView):
     """POST /api/pedidos/carrito/items/ — Agregar una variante al carrito."""
 
-    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         serializer = AgregarItemCarritoSerializer(data=request.data)
@@ -34,9 +34,10 @@ class CarritoDetalleView(APIView):
     DELETE /api/pedidos/carrito/ — Vaciar el carrito.
     """
 
-    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+
         carritos = Carrito.objects.filter(
             cliente=request.user
         ).prefetch_related('items__variante__producto', 'items__tienda')
@@ -61,7 +62,7 @@ class ItemCarritoDetailView(APIView):
     DELETE /api/pedidos/carrito/items/<int:item_id>/ — Eliminar ítem del carrito.
     """
 
-    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, item_id):
         item = get_object_or_404(ItemCarrito, pk=item_id, carrito__cliente=request.user)
@@ -87,7 +88,7 @@ class CheckoutView(APIView):
     generando Pedido e ItemPedido por cada tienda, activando los triggers de PostgreSQL
     que descuentan el stock y calculan totales.
     """
-    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         carritos = Carrito.objects.filter(
@@ -107,6 +108,7 @@ class CheckoutView(APIView):
             )
 
         pedidos_creados = []
+        items_comprados = []
         try:
             with transaction.atomic():
                 for carrito in carritos:
@@ -133,6 +135,11 @@ class CheckoutView(APIView):
                             cantidad=item.cantidad,
                             precio_unitario=item.variante.precio,
                         )
+                        items_comprados.append({
+                            'variante_id': item.variante_id,
+                            'producto_id': item.variante.producto_id,
+                            'cantidad': item.cantidad,
+                        })
 
                     # Vaciar items de este carrito
                     carrito.items.all().delete()
@@ -156,8 +163,38 @@ class CheckoutView(APIView):
             {
                 'mensaje': 'Compra realizada con éxito. Tu pedido ha sido procesado.',
                 'pedidos': pedidos_creados,
+                'items_comprados': items_comprados,
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class MisPedidosView(APIView):
+    """GET /api/pedidos/mis-pedidos/ — Listar los pedidos del usuario autenticado."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        pedidos = Pedido.objects.filter(cliente=request.user).order_by('-fecha_creacion')[:20]
+        data = []
+        for p in pedidos:
+            items = []
+            for it in p.items.select_related('variante__producto').all():
+                items.append({
+                    'id': it.id,
+                    'producto_nombre': it.variante.producto.nombre if it.variante and it.variante.producto else 'Producto',
+                    'variante_nombre': it.variante.nombre if it.variante else 'Unica',
+                    'cantidad': it.cantidad,
+                    'precio_unitario': str(it.precio_unitario),
+                    'subtotal': str(it.subtotal),
+                })
+            data.append({
+                'id': p.id,
+                'tienda_nombre': p.tienda.nombre if p.tienda else 'Tienda',
+                'estado': p.estado_actual,
+                'total': str(p.total),
+                'fecha': p.fecha_creacion.isoformat() if p.fecha_creacion else None,
+                'items': items,
+            })
+        return Response({'pedidos': data}, status=status.HTTP_200_OK)
 
 

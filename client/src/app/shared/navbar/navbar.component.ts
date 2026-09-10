@@ -23,9 +23,9 @@ export class NavbarComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Si el usuario es cliente, cargar carrito inicial
+    // Cargar carrito inicial para cualquier usuario autenticado
     this.authService.currentUser$.subscribe(user => {
-      if (user && user.rol === 'cliente') {
+      if (user) {
         this.carritoService.cargarCarritoSilencioso();
       }
     });

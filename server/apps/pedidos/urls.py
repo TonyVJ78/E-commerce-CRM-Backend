@@ -22,6 +22,11 @@ urlpatterns = [
         views.CheckoutView.as_view(),
         name='carrito_checkout',
     ),
+    path(
+        'mis-pedidos/',
+        views.MisPedidosView.as_view(),
+        name='mis_pedidos',
+    ),
 ]
 
 

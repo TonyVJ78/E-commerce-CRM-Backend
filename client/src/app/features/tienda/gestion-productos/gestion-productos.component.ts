@@ -1,9 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { ProductoService } from '../../../core/services/producto.service';
 import { TiendaService } from '../../../core/services/tienda.service';
+import { CarritoService } from '../../../core/services/carrito.service';
 import { Producto, Tienda } from '../../../core/models';
 
 @Component({
@@ -13,7 +15,7 @@ import { Producto, Tienda } from '../../../core/models';
   templateUrl: './gestion-productos.component.html',
   styleUrls: ['./gestion-productos.component.css']
 })
-export class GestionProductosComponent implements OnInit {
+export class GestionProductosComponent implements OnInit, OnDestroy {
   productos: Producto[] = [];
   tiendas: Tienda[] = [];
   tiendaSeleccionadaId: number | null = null;
@@ -31,10 +33,13 @@ export class GestionProductosComponent implements OnInit {
   paginaActual = 1;
   readonly productosPorPagina = 8;
 
+  private readonly subs = new Subscription();
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly productoService: ProductoService,
-    private readonly tiendaService: TiendaService
+    private readonly tiendaService: TiendaService,
+    private readonly carritoService: CarritoService
   ) {
     this.editForm = this.fb.group({
       nombre: ['', [Validators.required, Validators.maxLength(200)]],
@@ -48,6 +53,18 @@ export class GestionProductosComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargarDatos();
+
+    this.subs.add(
+      this.carritoService.checkoutCompleted$.subscribe(() => {
+        if (this.tiendaSeleccionadaId) {
+          this.cargarProductosDeTienda(this.tiendaSeleccionadaId);
+        }
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subs.unsubscribe();
   }
 
   cargarDatos(): void {
