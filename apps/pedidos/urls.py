@@ -17,5 +17,21 @@ urlpatterns = [
         views.ItemCarritoDetailView.as_view(),
         name='item_carrito_detalle',
     ),
+    path(
+        'carrito/checkout/',
+        views.CheckoutView.as_view(),
+        name='carrito_checkout',
+    ),
+    path(
+        'carrito/pago-intento/',
+        views.IniciarPagoStripeView.as_view(),
+        name='carrito_pago_intento',
+    ),
+    path(
+        'mis-pedidos/',
+        views.MisPedidosView.as_view(),
+        name='mis_pedidos',
+    ),
 ]
+
 

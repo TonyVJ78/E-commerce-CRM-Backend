@@ -19,6 +19,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | django-filter | 24.3 | Filtros declarativos por querystring para los endpoints de bitácora/auditoría (CU07) |
 | psycopg[binary] | 3.3.5 | Driver de PostgreSQL para Python (reemplaza a psycopg2-binary; wheels para Python 3.12-3.14) |
 | Gunicorn | 23.0.0 | Servidor WSGI para producción (no usado en dev, incluido para futura referencia) |
+| stripe | 15.6.0 | SDK de Stripe para crear y confirmar `PaymentIntent` en el checkout con tarjeta (CU-19) |
 
 ## Frontend
 
@@ -31,6 +32,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | TypeScript | 5.6.x | Lenguaje tipado que compila a JavaScript |
 | RxJS | 7.x | Programación reactiva para HTTP y estados |
 | Inter (Google Fonts) | — | Tipografía principal de la interfaz |
+| @stripe/stripe-js | 9.16.0 | Stripe.js: monta el Payment Element embebido en el carrito y confirma el pago (CU-19) |
 
 ## App móvil
 
@@ -43,6 +45,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | shared_preferences | 2.3.5 | Persistencia de sesión y configuración del backend (claves `km_*`) |
 | http | 1.3.0 | Cliente HTTP contra la API REST de Django |
 | image_picker | 1.1.2 | Selección de la imagen del producto desde galería o cámara (CU-08) |
+| flutter_stripe | 11.5.0 | SDK de Stripe para Flutter: `CardField` embebido y confirmación del pago con tarjeta (CU-19) |
 | intl | 0.20.2 | Formato de fechas y números en es-BO |
 | Inter (fuente empaquetada) | — | Tipografía principal, incluida como asset local |
 

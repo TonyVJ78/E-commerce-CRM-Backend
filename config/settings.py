@@ -209,3 +209,13 @@ FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:4200')
 CLOUDINARY_CLOUD_NAME = env('CLOUDINARY_CLOUD_NAME', default='')
 CLOUDINARY_API_KEY = env('CLOUDINARY_API_KEY', default='')
 CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET', default='')
+
+# =============================================================================
+# STRIPE (CU-19 — checkout con pasarela de pagos)
+# =============================================================================
+STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
+STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
+# Stripe no admite el boliviano (BOB) como moneda de cobro: el carrito se
+# muestra y guarda siempre en Bs, pero el PaymentIntent se crea en USD
+# convertido con este tipo de cambio. Cotización oficial BCB, ajustable por .env.
+STRIPE_USD_BOB_RATE = env.float('STRIPE_USD_BOB_RATE', default=10.99)
