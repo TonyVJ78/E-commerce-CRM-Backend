@@ -3,21 +3,47 @@ Vistas del módulo de Tiendas.
 Sprint 0 & CU10: Crear y listar tiendas del usuario autenticado, dashboard del vendedor.
 """
 
+import logging
 from datetime import timedelta
+
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import F, Sum
 from django.db.models.functions import TruncDate
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import generics, permissions
+from django.utils.text import slugify
+from rest_framework import generics, permissions, status
+from rest_framework.exceptions import APIException
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalogo.models import Producto, Variante
+from apps.catalogo.services import CloudinaryConfigurationError, CloudinaryUploadError
 from apps.pedidos.models import ItemPedido, Pedido
-from apps.usuarios.audit import AuditoriaCreateMixin
+from apps.usuarios.audit import AuditoriaCreateMixin, AuditoriaUpdateMixin
 from apps.usuarios.permissions import IsEmpresaUser
 
 from .models import Tienda
-from .serializers import TiendaSerializer
+from .serializers import TiendaIdentidadSerializer, TiendaSerializer
+
+
+logger = logging.getLogger(__name__)
+
+
+class ControlledErrorMixin:
+    """Conserva errores DRF esperados y oculta detalles de fallos inesperados."""
+
+    def handle_exception(self, exc):
+        if isinstance(exc, (APIException, Http404, PermissionDenied)):
+            return super().handle_exception(exc)
+        logger.exception('Error inesperado en el endpoint de identidad de marca')
+        return Response(
+            {'detail': 'No se pudo procesar la identidad de marca.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 class TiendaListCreateView(AuditoriaCreateMixin, generics.ListCreateAPIView):
@@ -34,6 +60,63 @@ class TiendaListCreateView(AuditoriaCreateMixin, generics.ListCreateAPIView):
 
     def get_auditoria_extra_save_kwargs(self):
         return {'propietario': self.request.user}
+
+
+class TiendaIdentidadView(
+    ControlledErrorMixin,
+    AuditoriaUpdateMixin,
+    generics.RetrieveUpdateAPIView,
+):
+    """GET/PATCH de identidad, siempre resuelto dentro del tenant autenticado."""
+
+    serializer_class = TiendaIdentidadSerializer
+    permission_classes = [permissions.IsAuthenticated, IsEmpresaUser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    http_method_names = ['get', 'patch', 'head', 'options']
+    audit_tabla = 'tienda'
+
+    def get_queryset(self):
+        return Tienda.objects.filter(propietario=self.request.user)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except (CloudinaryConfigurationError, CloudinaryUploadError) as exc:
+            return Response(
+                {'logo': [str(exc)]},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+
+class SlugDisponibilidadView(ControlledErrorMixin, APIView):
+    """Comprueba disponibilidad sin sustituir la validación del PATCH."""
+
+    permission_classes = [permissions.IsAuthenticated, IsEmpresaUser]
+
+    def get(self, request, pk):
+        tienda = get_object_or_404(
+            Tienda,
+            pk=pk,
+            propietario=request.user,
+        )
+        slug = slugify(request.query_params.get('slug', ''))
+        if not slug:
+            return Response(
+                {'slug': ['Ingresa un slug válido.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(slug) > 100:
+            return Response(
+                {'slug': ['El slug no puede superar los 100 caracteres.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        disponible = not Tienda.objects.filter(slug=slug).exclude(pk=tienda.pk).exists()
+        return Response({'slug': slug, 'disponible': disponible})
 
 
 class DashboardVendedorView(APIView):

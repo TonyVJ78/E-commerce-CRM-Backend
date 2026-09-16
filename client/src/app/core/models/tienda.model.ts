@@ -6,10 +6,8 @@ export interface Tienda {
   slug: string;
   descripcion?: string;
   logo_url?: string;
-  banner_url?: string;
   color_primario?: string;
   activa: boolean;
-  creada?: string;
   fecha_creacion?: string;
 }
 
@@ -18,11 +16,28 @@ export interface TiendaCreate {
   slug?: string;
   descripcion?: string;
   logo_url?: string;
-  banner_url?: string;
   color_primario?: string;
 }
 
 export type CreateTiendaData = TiendaCreate;
+
+export interface TiendaIdentidad {
+  id: number;
+  nombre: string;
+  slug: string;
+  logo_url: string;
+  color_primario: string;
+}
+
+export interface TiendaIdentidadUpdate {
+  slug: string;
+  color_primario: string;
+}
+
+export interface SlugDisponibilidad {
+  slug: string;
+  disponible: boolean;
+}
 
 export interface VentaDia {
   fecha: string;

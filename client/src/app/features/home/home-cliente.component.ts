@@ -11,11 +11,13 @@ import {
 } from '../../core/models';
 import { CatalogoService } from '../../core/services/catalogo.service';
 import { CarritoService } from '../../core/services/carrito.service';
+import { RecomendacionService } from '../../core/services/recomendacion.service';
+import { RecomendacionesComponent } from './recomendaciones/recomendaciones.component';
 
 @Component({
   selector: 'app-home-cliente',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RecomendacionesComponent],
   templateUrl: './home-cliente.component.html',
   styleUrls: ['./home-cliente.component.css']
 })
@@ -37,12 +39,14 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
   // Notificaciones
   mensajeExito = '';
   mensajeError = '';
+  productoEnDetalle: ProductoCatalogo | null = null;
 
   private readonly subs = new Subscription();
 
   constructor(
     private readonly catalogoService: CatalogoService,
-    private readonly carritoService: CarritoService
+    private readonly carritoService: CarritoService,
+    private readonly recomendacionService: RecomendacionService
   ) {}
 
   ngOnInit(): void {
@@ -101,10 +105,10 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
     });
 
     // 3. Cargar todos los productos en general al inicio
-    this.aplicarFiltros();
+    this.aplicarFiltros(false);
   }
 
-  aplicarFiltros(): void {
+  aplicarFiltros(registrarBusqueda = true): void {
     this.cargando = true;
     this.limpiarMensajes();
 
@@ -117,6 +121,13 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
     }
     if (this.terminoBusqueda.trim()) {
       filtros.q = this.terminoBusqueda.trim();
+      if (registrarBusqueda && this.tiendaSeleccionadaId) {
+        this.recomendacionService.registrarInteraccion({
+          tienda_id: this.tiendaSeleccionadaId,
+          tipo_interaccion: 'SEARCH',
+          termino_busqueda: this.terminoBusqueda
+        }).subscribe({error: () => {}});
+      }
     }
 
     this.catalogoService.listarTodosLosProductos(filtros).subscribe({
@@ -199,6 +210,29 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
       return String(first);
     }
     return 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80';
+  }
+
+  abrirProducto(producto: ProductoCatalogo, registrarClick = true): void {
+    const tiendaId = producto.tienda_id;
+    if (tiendaId) {
+      if (registrarClick) {
+        this.recomendacionService.registrarInteraccion({
+          tienda_id: tiendaId,
+          producto_id: producto.id,
+          tipo_interaccion: 'CLICK'
+        }).subscribe({error: () => {}});
+      }
+      this.recomendacionService.registrarInteraccion({
+        tienda_id: tiendaId,
+        producto_id: producto.id,
+        tipo_interaccion: 'VIEW'
+      }).subscribe({error: () => {}});
+    }
+    this.productoEnDetalle = producto;
+  }
+
+  cerrarDetalle(): void {
+    this.productoEnDetalle = null;
   }
 
   agregarAlCarrito(producto: ProductoCatalogo): void {

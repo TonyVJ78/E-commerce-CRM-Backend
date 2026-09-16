@@ -1,0 +1,61 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { Observable, of } from 'rxjs';
+
+import { environment } from '../../../environments/environment';
+import { ProductoCatalogo } from '../models/catalogo.model';
+
+export type TipoInteraccionRecomendacion = 'VIEW' | 'CLICK' | 'SEARCH';
+
+export interface InteraccionRecomendacion {
+  tienda_id: number;
+  tipo_interaccion: TipoInteraccionRecomendacion;
+  producto_id?: number;
+  termino_busqueda?: string;
+}
+
+export interface InteraccionRegistrada extends InteraccionRecomendacion {
+  id: number;
+  fecha: string;
+}
+
+@Injectable({providedIn: 'root'})
+export class RecomendacionService {
+  private readonly apiUrl = `${environment.apiUrl}/recomendaciones`;
+  private readonly eventosRecientes = new Map<string, number>();
+  private readonly dedupMs = 30_000;
+
+  constructor(private readonly http: HttpClient) {}
+
+  obtenerRecomendaciones(tiendaId: number, limit = 8): Observable<ProductoCatalogo[]> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<ProductoCatalogo[]>(
+      `${this.apiUrl}/tiendas/${tiendaId}/`,
+      {params}
+    );
+  }
+
+  registrarInteraccion(
+    data: InteraccionRecomendacion
+  ): Observable<InteraccionRegistrada | null> {
+    const termino = data.termino_busqueda?.trim().toLowerCase() ?? '';
+    const key = [
+      data.tipo_interaccion,
+      data.tienda_id,
+      data.producto_id ?? '',
+      termino
+    ].join(':');
+    const now = Date.now();
+    const last = this.eventosRecientes.get(key);
+
+    if (last !== undefined && now - last < this.dedupMs) {
+      return of(null);
+    }
+
+    this.eventosRecientes.set(key, now);
+    return this.http.post<InteraccionRegistrada>(
+      `${this.apiUrl}/interacciones/`,
+      {...data, termino_busqueda: termino || undefined}
+    );
+  }
+}

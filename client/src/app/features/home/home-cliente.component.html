@@ -91,6 +91,13 @@
       </div>
     </section>
 
+    <app-recomendaciones
+      *ngIf="tiendaSeleccionadaId"
+      [tiendaId]="tiendaSeleccionadaId"
+      [limit]="8"
+      (productoSeleccionado)="abrirProducto($event, false)"
+    />
+
     <!-- Estado de Carga -->
     <div class="loading-state" *ngIf="cargando">
       <div class="spinner"></div>
@@ -107,7 +114,14 @@
 
     <!-- Cuadrícula de Productos General -->
     <section class="products-grid" *ngIf="!cargando && productos.length > 0">
-      <article class="product-card" *ngFor="let producto of productos">
+      <article
+        class="product-card"
+        *ngFor="let producto of productos"
+        role="button"
+        tabindex="0"
+        (click)="abrirProducto(producto)"
+        (keydown.enter)="abrirProducto(producto)"
+      >
         <!-- Imagen y Badges -->
         <div class="card-media">
           <img
@@ -138,7 +152,7 @@
                 class="variant-btn"
                 *ngFor="let v of producto.variantes"
                 [class.selected]="obtenerVarianteActual(producto)?.id === v.id"
-                (click)="seleccionarVariante(producto.id, v)"
+                (click)="$event.stopPropagation(); seleccionarVariante(producto.id, v)"
               >
                 {{ v.nombre_variante || v.nombre }}
               </button>
@@ -168,7 +182,7 @@
             type="button"
             class="btn-add-cart"
             [disabled]="agregandoVarianteId !== null || (obtenerVarianteActual(producto)?.stock || 0) <= 0"
-            (click)="agregarAlCarrito(producto)"
+            (click)="$event.stopPropagation(); agregarAlCarrito(producto)"
           >
             <span *ngIf="agregandoVarianteId === obtenerVarianteActual(producto)?.id">
               Agregando...
@@ -179,6 +193,22 @@
           </button>
         </div>
       </article>
+    </section>
+  </div>
+
+  <div class="product-detail-backdrop" *ngIf="productoEnDetalle as producto" (click)="cerrarDetalle()">
+    <section class="product-detail-dialog" role="dialog" aria-modal="true" [attr.aria-label]="producto.nombre" (click)="$event.stopPropagation()">
+      <button type="button" class="detail-close" (click)="cerrarDetalle()" aria-label="Cerrar detalle">×</button>
+      <img [src]="obtenerImagenProducto(producto)" [alt]="producto.nombre" />
+      <div class="detail-copy">
+        <small>{{ producto.tienda_nombre }}<span *ngIf="producto.categoria_nombre"> · {{ producto.categoria_nombre }}</span></small>
+        <h2>{{ producto.nombre }}</h2>
+        <p>{{ producto.descripcion || 'Producto disponible en el catálogo de esta tienda.' }}</p>
+        <strong>Desde Bs {{ producto.precio_base || obtenerVarianteActual(producto)?.precio || '0.00' }}</strong>
+        <button type="button" class="btn-add-cart" (click)="agregarAlCarrito(producto)">
+          Agregar al carrito
+        </button>
+      </div>
     </section>
   </div>
 </div>

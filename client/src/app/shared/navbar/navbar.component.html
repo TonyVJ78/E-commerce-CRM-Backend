@@ -35,6 +35,7 @@
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/accesos" routerLinkActive="active" (click)="menuOpen = false">Accesos</a>
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/panel-vendedor" routerLinkActive="active" (click)="menuOpen = false">Panel Vendedor</a>
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/tiendas" routerLinkActive="active" (click)="menuOpen = false">Mis Tiendas</a>
+        <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/tiendas/identidad" routerLinkActive="active" (click)="menuOpen = false">Identidad de Marca</a>
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/tiendas/productos" routerLinkActive="active" (click)="menuOpen = false">Gestionar Productos</a>
         
         <a routerLink="/perfil" routerLinkActive="active" (click)="menuOpen = false">Mi Perfil</a>

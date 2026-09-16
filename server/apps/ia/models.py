@@ -8,7 +8,14 @@ from django.db import models
 
 
 class EventoUsuario(models.Model):
-    """Eventos de navegación e interacción del usuario para entrenamiento/análisis de IA."""
+    """Señales del cliente usadas por el recomendador determinístico."""
+
+    class TipoEvento(models.TextChoices):
+        VIEW = 'VIEW', 'Vista de producto'
+        CLICK = 'CLICK', 'Clic en producto'
+        SEARCH = 'SEARCH', 'Búsqueda'
+        CART = 'CART', 'Agregado al carrito'
+
     cliente = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -28,7 +35,8 @@ class EventoUsuario(models.Model):
         blank=True,
         related_name='eventos_usuario',
     )
-    tipo_evento = models.CharField(max_length=30)
+    tipo_evento = models.CharField(max_length=30, choices=TipoEvento.choices)
+    termino_busqueda = models.CharField(max_length=150, blank=True, default='')
     fecha = models.DateTimeField(auto_now_add=True)
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -37,6 +45,20 @@ class EventoUsuario(models.Model):
         verbose_name = 'Evento de Usuario'
         verbose_name_plural = 'Eventos de Usuarios'
         ordering = ['-fecha']
+        indexes = [
+            models.Index(
+                fields=['cliente', 'tienda', '-fecha'],
+                name='evt_cli_tda_fecha_idx',
+            ),
+            models.Index(
+                fields=['cliente', 'tienda', 'tipo_evento'],
+                name='evt_cli_tda_tipo_idx',
+            ),
+            models.Index(
+                fields=['producto', '-fecha'],
+                name='evt_prod_fecha_idx',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.tipo_evento} por {self.cliente.email if self.cliente else "Anónimo"} ({self.fecha})'

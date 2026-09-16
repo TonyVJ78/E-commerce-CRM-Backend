@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.usuarios.permissions import IsClienteUser
+from apps.ia.models import EventoUsuario
+from apps.ia.services import registrar_interaccion
 
 from .models import Carrito, ItemCarrito, Pedido, ItemPedido
 from .serializers import (
@@ -19,12 +21,19 @@ from .serializers import (
 class AgregarItemCarritoView(APIView):
     """POST /api/pedidos/carrito/items/ — Agregar una variante al carrito."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
 
     def post(self, request):
         serializer = AgregarItemCarritoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        item = serializer.save(cliente=request.user)
+        with transaction.atomic():
+            item = serializer.save(cliente=request.user)
+            registrar_interaccion(
+                cliente=request.user,
+                tienda=item.tienda,
+                producto=item.variante.producto,
+                tipo_evento=EventoUsuario.TipoEvento.CART,
+            )
         response_serializer = ItemCarritoCreadoSerializer(item)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 

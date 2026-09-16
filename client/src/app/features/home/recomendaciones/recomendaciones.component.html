@@ -1,0 +1,44 @@
+<section class="recommendations" aria-labelledby="recommendations-title">
+  <div class="recommendations-heading">
+    <div>
+      <span class="eyebrow">Selección personalizada</span>
+      <h2 id="recommendations-title">Recomendados para ti</h2>
+    </div>
+    <button type="button" class="retry" *ngIf="error" (click)="cargar()">
+      Reintentar
+    </button>
+  </div>
+
+  <div class="recommendation-loading" *ngIf="cargando" aria-live="polite">
+    <span class="mini-spinner"></span>
+    Buscando productos relevantes…
+  </div>
+
+  <p class="recommendation-message error" *ngIf="!cargando && error">
+    {{ error }}
+  </p>
+
+  <p class="recommendation-message" *ngIf="!cargando && !error && productos.length === 0">
+    Aún no hay productos disponibles para recomendar en esta tienda.
+  </p>
+
+  <div class="recommendation-list" *ngIf="!cargando && !error && productos.length > 0">
+    <button
+      type="button"
+      class="recommendation-card"
+      *ngFor="let producto of productos; trackBy: trackProduct"
+      (click)="seleccionar(producto)"
+    >
+      <div class="recommendation-image">
+        <img *ngIf="imagen(producto); else imagePlaceholder" [src]="imagen(producto)" [alt]="producto.nombre" />
+        <ng-template #imagePlaceholder><span>KM</span></ng-template>
+      </div>
+      <div class="recommendation-copy">
+        <small>{{ producto.categoria_nombre || producto.tienda_nombre }}</small>
+        <strong>{{ producto.nombre }}</strong>
+        <span>Bs {{ producto.precio_base || '0.00' }}</span>
+        <em>Ver producto</em>
+      </div>
+    </button>
+  </div>
+</section>
