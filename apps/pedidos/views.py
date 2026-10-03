@@ -8,7 +8,9 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from . import estados
 from .models import Carrito, ItemCarrito, MetodoPago, Pago, Pedido, ItemPedido
+from .presentacion import envio_a_dict, historial_a_dict, item_a_dict
 from .serializers import (
     AgregarItemCarritoSerializer,
     ItemCarritoCreadoSerializer,
@@ -247,7 +249,7 @@ class CheckoutView(APIView):
                     pedido = Pedido.objects.create(
                         cliente=request.user,
                         tienda=carrito.tienda,
-                        estado_actual='completado',
+                        estado_actual=estados.PENDIENTE,
                         subtotal=0,
                         total=0,
                     )
@@ -310,32 +312,32 @@ class CheckoutView(APIView):
 
 
 class MisPedidosView(APIView):
-    """GET /api/pedidos/mis-pedidos/ — Listar los pedidos del usuario autenticado."""
+    """GET /api/pedidos/mis-pedidos/ — Pedidos del cliente, con el historial y
+    el envío que registra la empresa en CU-22."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        pedidos = Pedido.objects.filter(cliente=request.user).order_by('-fecha')[:20]
+        pedidos = (
+            Pedido.objects.filter(cliente=request.user)
+            .select_related('tienda')
+            .prefetch_related('items__variante__producto', 'historial_estados', 'envios__direccion_envio')
+            .order_by('-fecha')[:20]
+        )
         data = []
         for p in pedidos:
-            items = []
-            for it in p.items.select_related('variante__producto').all():
-                subtot = float(it.cantidad) * float(it.precio_unitario)
-                items.append({
-                    'id': it.id,
-                    'producto_nombre': it.variante.producto.nombre if it.variante and it.variante.producto else 'Producto',
-                    'variante_nombre': it.variante.nombre if it.variante else 'Unica',
-                    'cantidad': it.cantidad,
-                    'precio_unitario': str(it.precio_unitario),
-                    'subtotal': f"{subtot:.2f}",
-                })
+            envio = max(p.envios.all(), key=lambda e: e.id, default=None)
             data.append({
                 'id': p.id,
                 'tienda_nombre': p.tienda.nombre if p.tienda else 'Tienda',
-                'estado': p.estado_actual,
+                'estado': estados.normalizar(p.estado_actual),
+                'estado_etiqueta': estados.etiqueta(p.estado_actual),
                 'total': str(p.total),
                 'fecha': p.fecha.isoformat() if p.fecha else None,
-                'items': items,
+                'items': [item_a_dict(it) for it in p.items.all()],
+                'historial': [
+                    historial_a_dict(h)
+                    for h in sorted(p.historial_estados.all(), key=lambda h: (h.fecha, h.id))
+                ],
+                'envio': envio_a_dict(envio),
             })
         return Response({'pedidos': data}, status=status.HTTP_200_OK)
-
-

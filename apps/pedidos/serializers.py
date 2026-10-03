@@ -8,6 +8,7 @@ from apps.catalogo.models import Variante
 from apps.tiendas.models import Tienda
 
 from .models import Carrito, ItemCarrito
+from .presentacion import imagen_producto
 
 
 class MultiplesCarritosConflict(APIException):
@@ -138,13 +139,7 @@ class ItemCarritoDetalleSerializer(serializers.ModelSerializer):
         return str(obj.cantidad * obj.variante.precio)
 
     def get_producto_imagen(self, obj):
-        imgs = obj.variante.producto.imagenes
-        if imgs and len(imgs) > 0:
-            first = imgs[0]
-            if isinstance(first, dict):
-                return first.get('url', '')
-            return str(first)
-        return ''
+        return imagen_producto(obj.variante.producto)
 
 
 class CarritoDetalleSerializer(serializers.ModelSerializer):

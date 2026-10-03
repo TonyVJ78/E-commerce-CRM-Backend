@@ -23,6 +23,8 @@ api_patterns = [
     path('tiendas/', include('apps.tiendas.urls')),
     # Gestion de catalogo por tienda (CU-08/CU-09): categorias y productos de la empresa
     path('tiendas/', include('apps.catalogo.urls')),
+    # Gestion de pedidos recibidos por tienda (CU-22)
+    path('tiendas/', include('apps.pedidos.urls_empresa')),
     path('catalogo/', include('apps.catalogo.urls_cliente')),
     path('pedidos/', include('apps.pedidos.urls')),
 ]
