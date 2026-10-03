@@ -108,6 +108,17 @@ class ProductoDetailView(OwnedStoreMixin, generics.RetrieveUpdateDestroyAPIView)
 # Vistas de Catálogo Público para Clientes y Visitantes (CU-11)
 # =========================================================================
 
+def _productos_publicos():
+    """Productos a la venta (activos, de tiendas activas) con variantes activas."""
+    variantes_activas = Variante.objects.filter(activa=True)
+    return Producto.objects.filter(
+        activo=True,
+        tienda__activa=True,
+    ).select_related('tienda', 'categoria').prefetch_related(
+        Prefetch('variantes', queryset=variantes_activas)
+    )
+
+
 class TiendaCatalogoListView(generics.ListAPIView):
     """GET /api/catalogo/tiendas/ — Listar tiendas para el catálogo público."""
 
@@ -139,13 +150,7 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        variantes_activas = Variante.objects.filter(activa=True)
-        queryset = Producto.objects.filter(
-            activo=True,
-            tienda__activa=True,
-        ).select_related('tienda', 'categoria').prefetch_related(
-            Prefetch('variantes', queryset=variantes_activas)
-        )
+        queryset = _productos_publicos()
 
         tienda_id = self.request.query_params.get('tienda')
         if tienda_id:
@@ -185,13 +190,7 @@ class ProductoCatalogoDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        variantes_activas = Variante.objects.filter(activa=True)
-        return Producto.objects.filter(
-            activo=True,
-            tienda__activa=True,
-        ).select_related('tienda', 'categoria').prefetch_related(
-            Prefetch('variantes', queryset=variantes_activas)
-        )
+        return _productos_publicos()
 
 
 class CategoriaCatalogoListView(generics.ListAPIView):

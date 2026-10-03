@@ -16,7 +16,9 @@ from apps.catalogo.models import Categoria, Producto, Variante
 from apps.tiendas.models import Tienda
 from apps.usuarios.models import Rol, Usuario
 
-from .catalogo_busqueda import buscar_productos, normalizar, terminos_de
+from .catalogo_busqueda import (
+    buscar_productos, normalizar, productos_por_ids, resumen_para_modelo, terminos_de,
+)
 from .chatbot import _separar_sugerencias
 
 
@@ -105,6 +107,20 @@ class BusquedaCatalogoTests(BaseCatalogo):
         # La chalina cuesta 120 pero está en oferta a 99.
         _, productos = buscar_productos(categoria='textil', precio_max=100)
         self.assertEqual([p.id for p in productos], [self.chalina.id])
+
+    def test_resumen_marca_la_oferta_de_la_variante_mas_barata(self):
+        # Otra variante sin oferta, más barata de lista que la oferta (120 → 99).
+        Variante.objects.create(producto=self.chalina, sku='CH-2', precio=Decimal('110.00'), stock=1)
+        datos = resumen_para_modelo(productos_por_ids([self.chalina.id])[0])
+        self.assertEqual(datos['precio_bs'], '99.00')
+        self.assertEqual(datos['precio_antes_bs'], '120.00')
+
+        sin_oferta = resumen_para_modelo(productos_por_ids([self.cafe.id])[0])
+        self.assertNotIn('precio_antes_bs', sin_oferta)
+
+    def test_ignora_precios_invalidos(self):
+        total, _ = buscar_productos(precio_max='barato')
+        self.assertEqual(total, 3)  # chompa, chalina y café: los visibles con stock
 
     def test_ordena_por_precio(self):
         _, productos = buscar_productos(orden='precio_asc')
@@ -229,6 +245,21 @@ class ChatbotApiTests(BaseCatalogo):
     def test_error_de_la_api_responde_502(self):
         self.crear.side_effect = anthropic.APIConnectionError(request=mock.Mock())
         self.assertEqual(self._enviar('hola').status_code, 502)
+
+
+class FichaProductoTests(BaseCatalogo):
+    """GET /api/catalogo/productos/<id>/, destino de las tarjetas del chatbot."""
+
+    def test_es_publica_y_trae_variantes(self):
+        res = self.client.get(f'/api/catalogo/productos/{self.chompa.id}/')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['nombre'], 'Chompa de Alpaca')
+        self.assertEqual(len(res.data['variantes']), 1)
+
+    def test_no_muestra_productos_retirados(self):
+        for producto in (self.inactivo, self.de_tienda_cerrada):
+            res = self.client.get(f'/api/catalogo/productos/{producto.id}/')
+            self.assertEqual(res.status_code, 404)
 
 
 class SugerenciasTests(APITestCase):

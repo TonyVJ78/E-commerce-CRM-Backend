@@ -10,7 +10,7 @@ producto y tienda activos) y devuelve columnas livianas con `values()`.
 
 import re
 import unicodedata
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.db.models import Min, Prefetch, Q, Sum
 from django.db.models.functions import Coalesce
@@ -39,10 +39,13 @@ PESO_TIENDA = 1
 
 
 def normalizar(texto):
-    """Minúsculas, sin tildes y sin signos: 'Cerámica, ¡Única!' → 'ceramica unica'."""
+    """Minúsculas, sin tildes y sin signos: 'Cerámica, ¡Única!' → 'ceramica unica'.
+
+    La ñ también pasa a n ('niño' → 'nino'), igual en la consulta y en el catálogo.
+    """
     sin_tildes = unicodedata.normalize('NFKD', texto or '')
     sin_tildes = ''.join(c for c in sin_tildes if not unicodedata.combining(c))
-    return re.sub(r'[^a-z0-9ñ]+', ' ', sin_tildes.lower()).strip()
+    return re.sub(r'[^a-z0-9]+', ' ', sin_tildes.lower()).strip()
 
 
 def _raiz(palabra):
@@ -80,12 +83,14 @@ def _puntaje(fila, terminos):
 
 
 def _a_decimal(valor):
-    if valor is None or valor == '':
+    """Precio que manda el modelo como número; lo inválido se ignora como filtro."""
+    if valor is None or valor == '' or isinstance(valor, bool):
         return None
     try:
-        return Decimal(str(valor))
-    except Exception:
+        numero = Decimal(str(valor))
+    except InvalidOperation:
         return None
+    return numero if numero.is_finite() else None
 
 
 def _catalogo_base():
@@ -175,7 +180,6 @@ def productos_por_ids(ids):
 def resumen_para_modelo(producto, con_variantes=False):
     """Lo que el modelo necesita para recomendar: corto y sin URLs de imagen."""
     variantes = list(producto.variantes.all())
-    precios_lista = [v.precio for v in variantes]
     datos = {
         'id': producto.id,
         'nombre': producto.nombre,
@@ -185,9 +189,12 @@ def resumen_para_modelo(producto, con_variantes=False):
         'stock_total': producto.stock_total or 0,
         'descripcion': (producto.descripcion or '')[:LIMITE_DESCRIPCION],
     }
-    # Si el precio efectivo es menor que el de lista, hay una oferta vigente.
-    if precios_lista and min(precios_lista) > producto.precio_min:
-        datos['precio_antes_bs'] = str(min(precios_lista))
+    # Oferta vigente: la variante que da el precio mínimo lo da por su precio
+    # de oferta, y su precio de lista es el "antes".
+    for v in variantes:
+        if v.precio_oferta is not None and v.precio_oferta == producto.precio_min:
+            datos['precio_antes_bs'] = str(v.precio)
+            break
     if producto.etiquetas:
         datos['etiquetas'] = producto.etiquetas[:6]
 
@@ -209,10 +216,11 @@ def resumen_para_modelo(producto, con_variantes=False):
 def contexto_catalogo():
     """Categorías y tiendas con productos visibles, para orientar las preguntas."""
     visibles = Q(productos__activo=True, tienda__activa=True)
-    categorias = sorted({
-        nombre for nombre in
-        Categoria.objects.filter(visibles).values_list('nombre', flat=True).distinct()
-    }, key=normalizar)
+    # Cada tienda tiene sus propias categorías: el set junta los nombres repetidos.
+    categorias = sorted(
+        set(Categoria.objects.filter(visibles).values_list('nombre', flat=True)),
+        key=normalizar,
+    )
     tiendas = list(
         Tienda.objects.filter(activa=True, productos__activo=True)
         .values_list('nombre', flat=True).distinct().order_by('nombre')

@@ -35,6 +35,8 @@ from .catalogo_busqueda import (
 MAX_TOKENS = 1500
 MAX_VUELTAS_HERRAMIENTAS = 4
 MAX_SUGERENCIAS = 4
+# El prompt pide 30 caracteres; se aceptan hasta 40 para no perder una
+# sugerencia apenas larga, y lo que pasa de eso se descarta.
 MAX_LARGO_SUGERENCIA = 40
 
 ENLACE_PRODUCTO = re.compile(r'\[([^\]]+)\]\(producto:(\d+)\)')
@@ -246,7 +248,6 @@ def responder(mensajes):
     system = _system_con_catalogo()
     conversacion = list(mensajes)
 
-    respuesta = None
     for vuelta in range(MAX_VUELTAS_HERRAMIENTAS + 1):
         ultima_vuelta = vuelta == MAX_VUELTAS_HERRAMIENTAS
         respuesta = _llamar(
@@ -277,7 +278,7 @@ def responder(mensajes):
             })
         conversacion.append({'role': 'user', 'content': resultados})
 
-    texto = _texto_de(respuesta) if respuesta else ''
+    texto = _texto_de(respuesta)
     if not texto:
         texto = 'Perdón, no pude armar una respuesta. ¿Me cuentas de otra forma qué estás buscando?'
 
