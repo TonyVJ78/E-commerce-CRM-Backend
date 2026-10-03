@@ -80,12 +80,19 @@ class AgregarItemCarritoAPITests(APITestCase):
         self.assertEqual(item.variante.producto.tienda_id, self.tienda_uno.id)
         self.assertEqual(response.data['producto_id'], self.producto_uno.id)
 
-    def test_usuario_con_rol_no_cliente_recibe_403(self):
+    def test_carrito_abierto_a_todos_los_roles_autenticados(self):
+        # Decisión del equipo: las cuentas `empresa` también pueden comprar (para
+        # probar el flujo), así que el carrito solo exige estar autenticado.
         self.client.force_authenticate(user=self.empresa)
 
         response = self.client.post(self.url, self.payload(), format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_sin_sesion_recibe_401(self):
+        response = self.client.post(self.url, self.payload(), format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertFalse(ItemCarrito.objects.exists())
 
     def test_variante_de_otra_tienda_es_rechazada(self):

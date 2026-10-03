@@ -37,6 +37,41 @@ def _usd_centavos(total_bs):
     return round((total_bs / tasa) * 100)
 
 
+def _faltantes_de_stock(carritos):
+    """Mensajes de las variantes del carrito cuyo stock no alcanza."""
+    faltantes = []
+    for carrito in carritos:
+        for item in carrito.items.all():
+            if item.variante.stock < item.cantidad:
+                faltantes.append(
+                    f'{item.variante.producto.nombre} ({item.variante.nombre}): '
+                    f'disponible {item.variante.stock}, en el carrito {item.cantidad}'
+                )
+    return faltantes
+
+
+def _reembolsar(payment_intent_id):
+    """Reembolsa un pago de Stripe que no pudo convertirse en pedido.
+
+    Devuelve True si Stripe aceptó el reembolso. Solo se llama con intentos que
+    ya se comprobó que son del cliente autenticado y que no se usaron antes.
+    """
+    try:
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        stripe.Refund.create(payment_intent=payment_intent_id)
+        return True
+    except stripe.error.StripeError:
+        return False
+
+
+class _PagoYaUtilizado(Exception):
+    pass
+
+
+class _CarritoVacio(Exception):
+    pass
+
+
 
 class AgregarItemCarritoView(APIView):
     """POST /api/pedidos/carrito/items/ — Agregar una variante al carrito."""
@@ -117,12 +152,19 @@ class IniciarPagoStripeView(APIView):
     def post(self, request):
         carritos = Carrito.objects.filter(
             cliente=request.user
-        ).prefetch_related('items__variante')
+        ).prefetch_related('items__variante__producto')
 
         total_bs = _total_carrito_bs(carritos)
         if total_bs <= 0:
             return Response(
                 {'error': 'El carrito de compras está vacío.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        faltantes = _faltantes_de_stock(carritos)
+        if faltantes:
+            return Response(
+                {'error': 'No hay stock suficiente para: ' + '; '.join(faltantes) + '.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -214,13 +256,36 @@ class CheckoutView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # El intento debe ser del propio cliente: de lo contrario se podría
+            # canjear (o reembolsar) el pago de otra persona.
+            if str((intent.metadata or {}).get('cliente_id', '')) != str(request.user.id):
+                return Response(
+                    {'error': 'El pago con tarjeta no pertenece a este usuario.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if Pago.objects.filter(referencia_transaccion=payment_intent_id).exists():
+                return Response(
+                    {'error': 'Este pago con tarjeta ya se utilizó en otro pedido.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
             total_bs_actual = _total_carrito_bs(carritos)
             monto_esperado = _usd_centavos(total_bs_actual)
             # Tolerancia de 1 centavo de USD por redondeo entre el intento y el
             # recálculo del carrito.
             if abs(intent.amount - monto_esperado) > 1:
+                reembolsado = _reembolsar(payment_intent_id)
                 return Response(
-                    {'error': 'El monto pagado no coincide con el total actual del carrito.'},
+                    {
+                        'error': (
+                            'El carrito cambió después de iniciar el pago y el monto cobrado '
+                            'ya no coincide con el total. '
+                            + ('Se reembolsó el pago; vuelve a intentarlo.' if reembolsado else
+                               f'Contacta a soporte indicando el pago {payment_intent_id}.')
+                        ),
+                        'reembolsado': reembolsado,
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -240,6 +305,13 @@ class CheckoutView(APIView):
         items_comprados = []
         try:
             with transaction.atomic():
+                # Bloquea los carritos del cliente: dos checkouts simultáneos
+                # (doble clic, dos pestañas) se serializan, y el segundo ve el
+                # carrito ya vaciado o el pago ya registrado.
+                list(Carrito.objects.select_for_update().filter(cliente=request.user))
+                if es_stripe and Pago.objects.filter(referencia_transaccion=payment_intent_id).exists():
+                    raise _PagoYaUtilizado()
+
                 for carrito in carritos:
                     items = list(carrito.items.select_related('variante').all())
                     if not items:
@@ -286,19 +358,38 @@ class CheckoutView(APIView):
                     )
                     pedidos_creados.append(pedido.id)
 
+                if not pedidos_creados:
+                    raise _CarritoVacio()
+
+        except _PagoYaUtilizado:
+            return Response(
+                {'error': 'Este pago con tarjeta ya se utilizó en otro pedido.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except _CarritoVacio:
+            return Response(
+                {'error': 'El carrito de compras está vacío.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as exc:
             err_msg = str(exc)
             if 'Stock insuficiente' in err_msg:
                 # Extraer mensaje conciso de la excepción lanzada por el trigger
                 clean_msg = [line.strip() for line in err_msg.split('\n') if 'Stock insuficiente' in line]
-                return Response(
-                    {'error': clean_msg[0] if clean_msg else err_msg},
-                    status=status.HTTP_400_BAD_REQUEST,
+                err_msg = clean_msg[0] if clean_msg else err_msg
+            else:
+                err_msg = f'Error al procesar la compra: {err_msg}'
+
+            cuerpo = {'error': err_msg}
+            if es_stripe:
+                # La transacción se revirtió: no hay pedido, así que el cobro
+                # no puede quedar en pie.
+                cuerpo['reembolsado'] = _reembolsar(payment_intent_id)
+                cuerpo['error'] += (
+                    ' Se reembolsó el pago con tarjeta.' if cuerpo['reembolsado'] else
+                    f' Contacta a soporte indicando el pago {payment_intent_id}.'
                 )
-            return Response(
-                {'error': f'Error al procesar la compra: {err_msg}'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response(cuerpo, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(
             {
