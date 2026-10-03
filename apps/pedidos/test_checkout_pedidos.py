@@ -225,6 +225,7 @@ class GestionPedidosTests(BaseCompra):
         self.client.force_authenticate(self.cliente)
         visto = self.client.get('/api/pedidos/mis-pedidos/').data['pedidos'][0]
         self.assertEqual(visto['estado'], 'entregado')
+        self.assertEqual(visto['metodo_pago'], 'Efectivo')
         self.assertEqual(visto['envio']['transportista'], 'Trans')
 
     def test_enviado_sin_direccion_avisa_y_no_crea_envio(self):

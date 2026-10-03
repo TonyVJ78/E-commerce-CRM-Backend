@@ -411,18 +411,23 @@ class MisPedidosView(APIView):
         pedidos = (
             Pedido.objects.filter(cliente=request.user)
             .select_related('tienda')
-            .prefetch_related('items__variante__producto', 'historial_estados', 'envios__direccion_envio')
+            .prefetch_related(
+                'items__variante__producto', 'historial_estados', 'envios__direccion_envio',
+                'pagos__metodo_pago',
+            )
             .order_by('-fecha')[:20]
         )
         data = []
         for p in pedidos:
             envio = max(p.envios.all(), key=lambda e: e.id, default=None)
+            pago = min(p.pagos.all(), key=lambda x: x.id, default=None)
             data.append({
                 'id': p.id,
                 'tienda_nombre': p.tienda.nombre if p.tienda else 'Tienda',
                 'estado': estados.normalizar(p.estado_actual),
                 'estado_etiqueta': estados.etiqueta(p.estado_actual),
                 'total': str(p.total),
+                'metodo_pago': pago.metodo_pago.nombre if pago else '',
                 'fecha': p.fecha.isoformat() if p.fecha else None,
                 'items': [item_a_dict(it) for it in p.items.all()],
                 'historial': [
