@@ -34,6 +34,11 @@ SECRET_KEY = env('SECRET_KEY', default='kantu-market-django-prod-secret-key-2026
 DEBUG = env('DEBUG', default=True)
 ALLOWED_HOSTS = env('ALLOWED_HOSTS', default=['*'])
 
+# CU-14: se omite el proveedor si falta cualquiera de estos valores.
+AI_RECOMMENDATIONS_ENABLED = env.bool('AI_RECOMMENDATIONS_ENABLED', default=False)
+OPENAI_API_KEY = env.str('OPENAI_API_KEY', default='')
+OPENAI_MODEL = env.str('OPENAI_MODEL', default='')
+
 # =============================================================================
 # INSTALLED APPS
 # =============================================================================

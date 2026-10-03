@@ -1,12 +1,13 @@
-"""Motor determinístico de recomendaciones personalizadas de CU-14.
+"""Ranking determinístico de CU-14 y reordenación opcional de sus candidatos.
 
-No usa IA generativa ni persiste una segunda copia de las compras. Las señales
-de compra se leen siempre desde Pedido e ItemPedido.
+Las compras se leen desde Pedido e ItemPedido, sin duplicarlas en otra tabla.
 """
 
 from collections import defaultdict
 from datetime import timedelta
+import re
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Count, Exists, IntegerField, OuterRef, Prefetch, Q, Sum, Value
 from django.db.models.functions import Coalesce
@@ -16,11 +17,13 @@ from apps.catalogo.models import Producto, Variante
 from apps.pedidos.models import ItemCarrito, ItemPedido
 
 from .models import EventoUsuario
+from .llm_client import reordenar_candidatos
 
 
 DEFAULT_RECOMMENDATION_LIMIT = 8
 MAX_RECOMMENDATION_LIMIT = 20
 MAX_CANDIDATE_POOL = 200
+MAX_LLM_CANDIDATES = 40
 EVENT_DEDUPLICATION_SECONDS = 30
 
 EVENT_WEIGHTS = {
@@ -32,6 +35,17 @@ PURCHASE_WEIGHT = 10.0
 CURRENT_CART_WEIGHT = 6.0
 SEARCH_MATCH_WEIGHT = 3.0
 POPULARITY_WEIGHT = 0.25
+
+_SENSITIVE_TEXT = re.compile(
+    r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}'
+    r'|(?<!\w)\+?\d[\d\s().-]{7,}\d(?!\w)'
+    r'|\b(?:sk-[A-Za-z0-9_-]{10,}|eyJ[A-Za-z0-9_-]{15,})\b',
+    re.IGNORECASE,
+)
+
+
+def _safe_external_text(value):
+    return _SENSITIVE_TEXT.sub('[redacted]', value or '')
 
 
 @transaction.atomic
@@ -108,14 +122,15 @@ def _cart_rows(cliente, tienda):
     ).annotate(total=Sum('cantidad'))
 
 
-def obtener_recomendaciones_cliente(*, cliente, tienda, limit=DEFAULT_RECOMMENDATION_LIMIT):
-    """Devuelve productos ordenados por afinidad personal y fallback estable."""
-
-    limit = max(1, min(int(limit), MAX_RECOMMENDATION_LIMIT))
+def _rankear_candidatos(cliente, tienda):
+    """Construye el ranking original y un resumen anónimo de sus señales."""
     product_scores = defaultdict(float)
     category_scores = defaultdict(float)
     preferred_product_ids = set()
     preferred_category_ids = set()
+    event_counts = defaultdict(int)
+    purchase_quantity = 0
+    cart_quantity = 0
 
     event_rows = EventoUsuario.objects.filter(
         cliente=cliente,
@@ -129,6 +144,7 @@ def obtener_recomendaciones_cliente(*, cliente, tienda, limit=DEFAULT_RECOMMENDA
     ).annotate(total=Count('id'))
 
     for row in event_rows:
+        event_counts[row['tipo_evento']] += row['total']
         product_id = row['producto_id']
         category_id = row['producto__categoria_id']
         value = EVENT_WEIGHTS[row['tipo_evento']] * row['total']
@@ -142,6 +158,7 @@ def obtener_recomendaciones_cliente(*, cliente, tienda, limit=DEFAULT_RECOMMENDA
         product_id = row['variante__producto_id']
         category_id = row['variante__producto__categoria_id']
         quantity = row['total'] or 0
+        purchase_quantity += quantity
         product_scores[product_id] += PURCHASE_WEIGHT * quantity
         preferred_product_ids.add(product_id)
         if category_id is not None:
@@ -152,6 +169,7 @@ def obtener_recomendaciones_cliente(*, cliente, tienda, limit=DEFAULT_RECOMMENDA
         product_id = row['variante__producto_id']
         category_id = row['variante__producto__categoria_id']
         quantity = row['total'] or 0
+        cart_quantity += quantity
         product_scores[product_id] += CURRENT_CART_WEIGHT * quantity
         preferred_product_ids.add(product_id)
         if category_id is not None:
@@ -204,7 +222,7 @@ def obtener_recomendaciones_cliente(*, cliente, tienda, limit=DEFAULT_RECOMMENDA
 
     candidate_ids = list(dict.fromkeys(personal_ids + fallback_ids))
     if not candidate_ids:
-        return []
+        return [], {}
 
     active_variants = Variante.objects.filter(
         activa=True,
@@ -253,4 +271,98 @@ def obtener_recomendaciones_cliente(*, cliente, tienda, limit=DEFAULT_RECOMMENDA
             -product.id,
         )
     )
+    candidate_category_ids = {
+        product.categoria_id for product in products
+        if product.categoria and product.categoria.tienda_id == tienda.id
+    }
+    signals = {
+        'event_counts': dict(event_counts),
+        'purchase_quantity': purchase_quantity,
+        'cart_quantity': cart_quantity,
+        'search_terms': [
+            term for term in search_terms if not _SENSITIVE_TEXT.search(term)
+        ][:10],
+        'category_affinity': [
+            {'category_id': category_id, 'score': round(score, 2)}
+            for category_id, score in sorted(
+                category_scores.items(), key=lambda item: -item[1]
+            ) if category_id in candidate_category_ids
+        ][:10],
+    }
+    return products[:MAX_CANDIDATE_POOL], signals
+
+
+def obtener_recomendaciones_cliente(*, cliente, tienda, limit=DEFAULT_RECOMMENDATION_LIMIT):
+    """Conserva la interfaz pública del motor determinístico existente."""
+    limit = max(1, min(int(limit), MAX_RECOMMENDATION_LIMIT))
+    products, _ = _rankear_candidatos(cliente, tienda)
     return products[:limit]
+
+
+def obtener_recomendaciones_hibridas(*, cliente, tienda, limit=DEFAULT_RECOMMENDATION_LIMIT):
+    """La IA solo propone orden; la base de datos decide qué se devuelve."""
+    limit = max(1, min(int(limit), MAX_RECOMMENDATION_LIMIT))
+    ranked, signals = _rankear_candidatos(cliente, tienda)
+    if not ranked:
+        return []
+
+    # La precarga se hizo con variantes disponibles; si cambiaron durante la
+    # consulta, tampoco deben enviarse al proveedor.
+    ranked = [product for product in ranked if list(product.variantes.all())]
+    if not ranked:
+        return []
+    candidate_ids = {product.id for product in ranked[:MAX_LLM_CANDIDATES]}
+    proposed_ids = []
+    has_signals = bool(
+        signals['event_counts'] or signals['purchase_quantity']
+        or signals['cart_quantity'] or signals['search_terms']
+    )
+    if (
+        has_signals
+        and settings.AI_RECOMMENDATIONS_ENABLED
+        and settings.OPENAI_API_KEY
+        and settings.OPENAI_MODEL
+    ):
+        candidates = [
+            {
+                'id': product.id,
+                'name': _safe_external_text(product.nombre),
+                'category': (
+                    _safe_external_text(product.categoria.nombre)
+                    if product.categoria and product.categoria.tienda_id == tienda.id
+                    else ''
+                ),
+                'tags': [
+                    _safe_external_text(tag) for tag in (product.etiquetas or [])[:5]
+                ],
+                'price': str(min(v.precio for v in product.variantes.all())),
+                'base_rank': position,
+            }
+            for position, product in enumerate(ranked[:MAX_LLM_CANDIDATES], start=1)
+        ]
+        try:
+            proposed_ids = reordenar_candidatos(candidates=candidates, signals=signals)
+        except Exception:
+            # El proveedor no debe afectar la disponibilidad del endpoint.
+            proposed_ids = []
+
+    valid_proposed = []
+    if isinstance(proposed_ids, list):
+        for product_id in proposed_ids:
+            if (
+                type(product_id) is int
+                and product_id in candidate_ids
+                and product_id not in valid_proposed
+            ):
+                valid_proposed.append(product_id)
+
+    ordered_ids = list(dict.fromkeys(valid_proposed + [p.id for p in ranked]))
+    # Revalidar después de la llamada remota: stock y estado pudieron cambiar.
+    active_variants = Variante.objects.filter(activa=True, stock__gt=0).order_by('precio', 'id')
+    still_valid = {
+        product.id: product
+        for product in _candidate_queryset(tienda).filter(pk__in=ordered_ids)
+        .select_related('tienda', 'categoria')
+        .prefetch_related(Prefetch('variantes', queryset=active_variants))
+    }
+    return [still_valid[pid] for pid in ordered_ids if pid in still_valid][:limit]

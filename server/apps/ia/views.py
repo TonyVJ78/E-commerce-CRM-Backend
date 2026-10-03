@@ -14,7 +14,7 @@ from .serializers import (
     InteraccionRegistradaSerializer,
     RecomendacionQuerySerializer,
 )
-from .services import obtener_recomendaciones_cliente
+from .services import obtener_recomendaciones_hibridas
 
 
 class RecomendacionesTiendaView(APIView):
@@ -24,7 +24,7 @@ class RecomendacionesTiendaView(APIView):
         tienda = get_object_or_404(Tienda, pk=tienda_id, activa=True)
         query = RecomendacionQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
-        products = obtener_recomendaciones_cliente(
+        products = obtener_recomendaciones_hibridas(
             cliente=request.user,
             tienda=tienda,
             limit=query.validated_data['limit'],
