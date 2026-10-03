@@ -160,6 +160,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Solo las vistas que declaran `throttle_scope` usan estas tasas. El
+    # chatbot llama a una API de pago por cada mensaje.
+    'DEFAULT_THROTTLE_RATES': {
+        'chatbot': env('CHATBOT_THROTTLE_RATE', default='20/min'),
+    },
 }
 
 # =============================================================================
@@ -219,3 +224,11 @@ STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
 # muestra y guarda siempre en Bs, pero el PaymentIntent se crea en USD
 # convertido con este tipo de cambio. Cotización oficial BCB, ajustable por .env.
 STRIPE_USD_BOB_RATE = env.float('STRIPE_USD_BOB_RATE', default=10.99)
+
+# =============================================================================
+# CHATBOT DE RECOMENDACIONES (Claude)
+# =============================================================================
+# Sin clave el endpoint /api/ia/chatbot/ responde 503 y el resto de la API
+# funciona igual. La clave se crea en https://console.anthropic.com/.
+ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')
+CHATBOT_MODEL = env('CHATBOT_MODEL', default='claude-haiku-4-5')

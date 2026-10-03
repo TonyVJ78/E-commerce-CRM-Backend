@@ -20,6 +20,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | psycopg[binary] | 3.3.5 | Driver de PostgreSQL para Python (reemplaza a psycopg2-binary; wheels para Python 3.12-3.14) |
 | Gunicorn | 23.0.0 | Servidor WSGI para producción (no usado en dev, incluido para futura referencia) |
 | stripe | 15.6.0 | SDK de Stripe para crear y confirmar `PaymentIntent` en el checkout con tarjeta (CU-19) |
+| anthropic | 1.11.0 | SDK oficial de la API de Claude; el chatbot de recomendaciones usa Claude Haiku 4.5 (`claude-haiku-4-5`) con tool use sobre el catálogo |
 
 ## Frontend
 
@@ -33,6 +34,8 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | RxJS | 7.x | Programación reactiva para HTTP y estados |
 | Inter (Google Fonts) | — | Tipografía principal de la interfaz |
 | @stripe/stripe-js | 9.16.0 | Stripe.js: monta el Payment Element embebido en el carrito y confirma el pago (CU-19) |
+| marked | 18.0.14 | Convierte a HTML el Markdown de las respuestas del chatbot de recomendaciones |
+| DOMPurify | 3.4.16 | Sanitiza el HTML generado desde Markdown antes de insertarlo en el DOM (evita XSS) |
 
 ## App móvil
 
@@ -47,6 +50,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | image_picker | 1.1.2 | Selección de la imagen del producto desde galería o cámara (CU-08) |
 | flutter_stripe | 11.5.0 | SDK de Stripe para Flutter: `CardField` embebido y confirmación del pago con tarjeta (CU-19) |
 | intl | 0.20.2 | Formato de fechas y números en es-BO |
+| flutter_markdown_plus | 1.0.12 | Renderiza el Markdown de las respuestas del chatbot (continuación mantenida de `flutter_markdown`, descontinuado) |
 | Inter (fuente empaquetada) | — | Tipografía principal, incluida como asset local |
 
 ## Base de datos

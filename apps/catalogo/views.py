@@ -174,6 +174,26 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
         return queryset.order_by('-id')
 
 
+class ProductoCatalogoDetailView(generics.RetrieveAPIView):
+    """GET /api/catalogo/productos/<id>/ — Ficha pública de un producto.
+
+    La usa la pestaña de detalle del producto (p. ej. al abrir una
+    recomendación del chatbot). Solo muestra productos a la venta.
+    """
+
+    serializer_class = ProductoCatalogoSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        variantes_activas = Variante.objects.filter(activa=True)
+        return Producto.objects.filter(
+            activo=True,
+            tienda__activa=True,
+        ).select_related('tienda', 'categoria').prefetch_related(
+            Prefetch('variantes', queryset=variantes_activas)
+        )
+
+
 class CategoriaCatalogoListView(generics.ListAPIView):
     """GET /api/catalogo/categorias/ — Listar categorías activas para filtrado."""
 
