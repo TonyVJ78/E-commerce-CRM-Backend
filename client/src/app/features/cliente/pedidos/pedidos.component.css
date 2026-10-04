@@ -268,6 +268,47 @@
   font-weight: 500;
 }
 
+.order-card-products {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.order-products-label {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.order-card-product {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.15rem 0.5rem;
+}
+
+.order-product-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #1e293b;
+  font-size: 0.84rem;
+}
+
+.order-product-meta {
+  color: #94a3b8;
+  font-size: 0.73rem;
+}
+
+.order-product-state {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  justify-self: end;
+  text-align: center;
+}
+
 .order-card-bottom {
   display: flex;
   align-items: center;

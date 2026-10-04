@@ -82,6 +82,17 @@
             <span class="store-name">{{ pedido.tienda_nombre }}</span>
           </div>
 
+          <div class="order-card-products" *ngIf="pedido.items.length">
+            <span class="order-products-label">Productos del pedido</span>
+            <div class="order-card-product" *ngFor="let item of pedido.items">
+              <strong class="order-product-name">{{ item.producto_nombre }}</strong>
+              <span class="order-product-meta">{{ item.variante_nombre }} · {{ item.cantidad }} unidad(es)</span>
+              <span class="order-product-state" [ngClass]="claseBadgeEstado(pedido.estado)">
+                {{ iconoEstado(pedido.estado) }} {{ etiquetaEstado(pedido.estado) }}
+              </span>
+            </div>
+          </div>
+
           <div class="order-card-bottom">
             <time class="order-date">{{ pedido.fecha | date:'d MMM y, HH:mm' }}</time>
             <span class="order-amount">Bs {{ pedido.total }}</span>
