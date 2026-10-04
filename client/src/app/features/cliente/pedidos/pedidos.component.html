@@ -1,0 +1,41 @@
+<main class="orders-page">
+  <header class="page-heading">
+    <div><p class="eyebrow">KANTU MARKET / CU-20 + CU-21</p><h1>Mis pedidos</h1></div>
+    <button class="refresh-button" type="button" (click)="cargarPedidos()" [disabled]="cargando" aria-label="Actualizar pedidos">↻</button>
+  </header>
+  <p class="notice error" *ngIf="error" role="alert">{{ error }}</p>
+  <p class="notice success" *ngIf="mensaje" role="status">{{ mensaje }}</p>
+  <div class="orders-layout">
+    <section class="orders-list" aria-label="Lista de pedidos">
+      <p class="loading" *ngIf="cargando">Cargando pedidos...</p>
+      <p class="empty" *ngIf="!cargando && pedidos.length === 0">Todavía no tienes pedidos.</p>
+      <button class="order-row" type="button" *ngFor="let pedido of pedidos" (click)="abrirPedido(pedido.id)" [class.selected]="seleccionado?.id === pedido.id">
+        <span class="order-top"><strong>Pedido #{{ pedido.id }}</strong><span class="status">{{ etiquetaEstado(pedido.estado) }}</span></span>
+        <span class="order-store">{{ pedido.tienda_nombre }}</span>
+        <span class="order-bottom"><time>{{ pedido.fecha | date:'mediumDate' }}</time><strong>Bs {{ pedido.total }}</strong></span>
+      </button>
+    </section>
+    <section class="order-detail" *ngIf="seleccionado as pedido; else chooseOrder" aria-live="polite">
+      <header class="detail-heading"><div><p class="eyebrow">{{ pedido.tienda_nombre }}</p><h2>Pedido #{{ pedido.id }}</h2></div><span class="status large">{{ etiquetaEstado(pedido.estado) }}</span></header>
+      <div class="summary-line"><span>Fecha</span><strong>{{ pedido.fecha | date:'medium' }}</strong></div>
+      <div class="summary-line"><span>Total</span><strong>Bs {{ pedido.total }}</strong></div>
+      <h3>Productos</h3>
+      <div class="item-row" *ngFor="let item of pedido.items"><div><strong>{{ item.producto_nombre }}</strong><small>{{ item.variante_nombre }} · {{ item.cantidad }} unidad(es)</small></div><span>Bs {{ item.subtotal }}</span></div>
+      <h3 class="history-title">Seguimiento</h3>
+      <ol class="timeline" *ngIf="pedido.historial?.length; else noHistory"><li *ngFor="let evento of pedido.historial"><span class="timeline-dot"></span><div><strong>{{ etiquetaEstado(evento.estado) }}</strong><time>{{ evento.fecha | date:'medium' }}</time><p *ngIf="evento.observacion">{{ evento.observacion }}</p></div></li></ol>
+      <ng-template #noHistory><p class="muted">No hay cambios de estado registrados.</p></ng-template>
+      <section class="review-section" *ngIf="puedeCalificar(pedido)">
+        <h3>Comparte tu experiencia</h3>
+        <div class="review-list" *ngFor="let resena of pedido.resenas"><span class="review-stars" [attr.aria-label]="resena.calificacion + ' de 5 estrellas'">{{ '★'.repeat(resena.calificacion) }}</span><strong>{{ resena.tipo === 'tienda' ? resena.tienda_nombre : resena.producto_nombre }}</strong><p *ngIf="resena.comentario">{{ resena.comentario }}</p></div>
+        <form class="review-form" (ngSubmit)="guardarResena()">
+          <label>Calificar<select name="tipo" [(ngModel)]="tipoResena"><option value="producto">Producto</option><option value="tienda">Tienda</option></select></label>
+          <label *ngIf="tipoResena === 'producto'">Producto<select name="productoId" [(ngModel)]="productoId" required><option *ngFor="let item of pedido.items" [ngValue]="item.producto_id" [disabled]="!item.producto_id">{{ item.producto_nombre }}</option></select></label>
+          <label>Puntuación<select name="calificacion" [(ngModel)]="calificacion"><option [ngValue]="5">5 · Excelente</option><option [ngValue]="4">4 · Muy bueno</option><option [ngValue]="3">3 · Bueno</option><option [ngValue]="2">2 · Regular</option><option [ngValue]="1">1 · Malo</option></select></label>
+          <label>Comentario<textarea name="comentario" [(ngModel)]="comentario" maxlength="5000" rows="3"></textarea></label>
+          <button class="submit-review" type="submit" [disabled]="guardandoResena">{{ guardandoResena ? 'Guardando...' : 'Guardar calificación' }}</button>
+        </form>
+      </section>
+    </section>
+    <ng-template #chooseOrder><section class="choose-order"><span>←</span><p>Selecciona un pedido para consultar sus detalles.</p></section></ng-template>
+  </div>
+</main>

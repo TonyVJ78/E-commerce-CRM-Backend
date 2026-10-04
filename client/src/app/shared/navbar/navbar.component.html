@@ -28,6 +28,7 @@
       <ng-container *ngIf="authService.isAuthenticated; else guestLinks">
         <!-- Catálogo accesible para todos los usuarios autenticados -->
         <a routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catálogo</a>
+        <a *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'" routerLink="/mis-pedidos" routerLinkActive="active" (click)="menuOpen = false">Mis pedidos</a>
 
         <!-- Enlaces según rol -->
         <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/dashboard" routerLinkActive="active" (click)="menuOpen = false">Dashboard</a>

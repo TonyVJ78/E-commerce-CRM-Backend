@@ -36,6 +36,12 @@ export const routes: Routes = [
       import('./features/home/home-cliente.component').then(m => m.HomeClienteComponent)
   },
   {
+    path: 'mis-pedidos',
+    canActivate: [clienteGuard],
+    loadComponent: () =>
+      import('./features/cliente/pedidos/pedidos.component').then(m => m.PedidosClienteComponent)
+  },
+  {
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () =>
