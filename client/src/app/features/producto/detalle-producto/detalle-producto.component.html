@@ -1,0 +1,94 @@
+<div class="detalle-page">
+  <a routerLink="/inicio" class="volver">← Volver al catálogo</a>
+
+  <div class="loading-state" *ngIf="cargando">
+    <div class="spinner"></div>
+    <p>Cargando producto...</p>
+  </div>
+
+  <div class="empty-state" *ngIf="!cargando && noEncontrado">
+    <div class="empty-emoji">🔎</div>
+    <h3>Este producto ya no está disponible</h3>
+    <p>Puede que la tienda lo haya retirado del catálogo.</p>
+    <a routerLink="/inicio" class="btn btn-primary btn-sm">Ver el catálogo</a>
+  </div>
+
+  <article class="detalle" *ngIf="!cargando && producto as p">
+    <!-- Galería -->
+    <section class="galeria">
+      <div class="imagen-principal">
+        <img [src]="imagenActiva" [alt]="p.nombre" />
+        <span class="badge-oferta" *ngIf="precioAnterior">Oferta</span>
+      </div>
+      <div class="miniaturas" *ngIf="imagenes.length > 1">
+        <button
+          type="button"
+          *ngFor="let img of imagenes; let i = index"
+          [class.activa]="img === imagenActiva"
+          (click)="imagenActiva = img"
+          [attr.aria-label]="'Ver imagen ' + (i + 1)"
+        >
+          <img [src]="img" alt="" loading="lazy" />
+        </button>
+      </div>
+    </section>
+
+    <!-- Información -->
+    <section class="info">
+      <div class="etiquetas">
+        <span class="tag tag-tienda" *ngIf="p.tienda_nombre">🏬 {{ p.tienda_nombre }}</span>
+        <span class="tag" *ngIf="p.categoria_nombre">{{ p.categoria_nombre }}</span>
+      </div>
+
+      <h1>{{ p.nombre }}</h1>
+
+      <div class="precio">
+        <span class="precio-actual">Bs {{ precioActual }}</span>
+        <span class="precio-anterior" *ngIf="precioAnterior">Bs {{ precioAnterior }}</span>
+      </div>
+
+      <p class="descripcion" *ngIf="p.descripcion">{{ p.descripcion }}</p>
+
+      <div class="variantes" *ngIf="p.variantes.length > 1">
+        <span class="label">Opciones</span>
+        <div class="opciones">
+          <button
+            type="button"
+            *ngFor="let v of p.variantes"
+            class="opcion"
+            [class.seleccionada]="variante?.id === v.id"
+            [class.agotada]="v.stock <= 0"
+            (click)="seleccionarVariante(v)"
+          >
+            {{ v.nombre }}
+          </button>
+        </div>
+      </div>
+
+      <dl class="atributos" *ngIf="atributos.length">
+        <ng-container *ngFor="let a of atributos">
+          <dt>{{ a[0] }}</dt>
+          <dd>{{ a[1] }}</dd>
+        </ng-container>
+      </dl>
+
+      <div class="stock" [class.sin-stock]="(variante?.stock || 0) <= 0">
+        <span class="stock-dot"></span>
+        <span *ngIf="(variante?.stock || 0) > 0">{{ variante?.stock }} en stock</span>
+        <span *ngIf="(variante?.stock || 0) <= 0">Agotado</span>
+      </div>
+
+      <div class="alert alert-success" *ngIf="mensajeExito"><span>✓</span> {{ mensajeExito }}</div>
+      <div class="alert alert-error" *ngIf="mensajeError"><span>⚠</span> {{ mensajeError }}</div>
+
+      <button
+        type="button"
+        class="btn-add-cart"
+        [disabled]="agregando || (variante?.stock || 0) <= 0"
+        (click)="agregarAlCarrito()"
+      >
+        {{ agregando ? 'Agregando...' : '🛒 Agregar al carrito' }}
+      </button>
+    </section>
+  </article>
+</div>

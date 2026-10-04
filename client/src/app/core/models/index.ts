@@ -6,3 +6,5 @@ export * from './carrito.model';
 export * from './catalogo.model';
 export * from './accesos.model';
 export * from './auditoria.model';
+export * from './chatbot.model';
+

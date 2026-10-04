@@ -47,6 +47,14 @@ export const routes: Routes = [
     pathMatch: 'full'
   },
   {
+    path: 'producto/:id',
+    loadComponent: () =>
+      import('./features/producto/detalle-producto/detalle-producto.component').then(
+        m => m.DetalleProductoComponent
+      )
+  },
+
+  {
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () =>

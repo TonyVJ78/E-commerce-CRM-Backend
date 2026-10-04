@@ -1,0 +1,125 @@
+<!-- Panel del chat -->
+<section
+  class="chat-panel"
+  *ngIf="abierto"
+  role="dialog"
+  aria-modal="false"
+  aria-labelledby="chat-titulo"
+>
+  <header class="chat-header">
+    <div class="chat-avatar" aria-hidden="true">K</div>
+    <div class="chat-titulos">
+      <h2 id="chat-titulo">Kantu</h2>
+      <p>Asistente de compras con IA</p>
+    </div>
+    <button
+      type="button"
+      class="icon-btn"
+      (click)="reiniciar()"
+      [disabled]="enviando"
+      title="Nueva conversación"
+      aria-label="Nueva conversación"
+    >
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M4 12a8 8 0 1 0 2.34-5.66M4 4v4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button type="button" class="icon-btn" (click)="cerrar()" title="Cerrar" aria-label="Cerrar chat">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="chat-mensajes" #lista aria-live="polite">
+    <ng-container *ngFor="let m of mensajes; let i = index; trackBy: trackPorIndice">
+      <div class="fila" [class.fila-usuario]="m.rol === 'usuario'">
+        <div class="burbuja" [class.burbuja-usuario]="m.rol === 'usuario'" [class.burbuja-error]="m.error">
+          <span *ngIf="m.rol === 'usuario'" class="texto-plano">{{ m.contenido }}</span>
+          <app-markdown
+            *ngIf="m.rol === 'asistente'"
+            [texto]="m.contenido"
+            (productoAbierto)="alAbrirProducto()"
+          ></app-markdown>
+        </div>
+      </div>
+
+      <!-- Productos citados en la respuesta -->
+      <div class="productos" *ngIf="m.productos?.length">
+        <a
+          class="producto-card"
+          *ngFor="let p of m.productos"
+          [routerLink]="['/producto', p.id]"
+          (click)="alAbrirProducto()"
+          [title]="'Ver ' + p.nombre"
+        >
+          <img [src]="imagen(p)" [alt]="p.nombre" loading="lazy" />
+          <div class="producto-info">
+            <span class="producto-nombre">{{ p.nombre }}</span>
+            <span class="producto-tienda" *ngIf="p.tienda_nombre">{{ p.tienda_nombre }}</span>
+            <span class="producto-precio">
+              Bs {{ precio(p) }}
+              <span class="badge-oferta" *ngIf="enOferta(p)">Oferta</span>
+            </span>
+          </div>
+          <span class="producto-ir" aria-hidden="true">›</span>
+        </a>
+      </div>
+
+      <!-- Respuestas rápidas: solo las del último mensaje -->
+      <div class="sugerencias" *ngIf="esUltimoDelAsistente(i) && m.sugerencias?.length && !enviando">
+        <button
+          type="button"
+          class="chip"
+          *ngFor="let s of m.sugerencias"
+          (click)="enviar(s)"
+        >{{ s }}</button>
+      </div>
+    </ng-container>
+
+    <div class="fila" *ngIf="enviando">
+      <div class="burbuja escribiendo" aria-label="Kantu está escribiendo">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <form class="chat-entrada" (ngSubmit)="enviar()">
+    <textarea
+      #entrada
+      rows="1"
+      name="texto"
+      [(ngModel)]="texto"
+      (input)="ajustarAltura()"
+      (keydown)="alTeclear($event)"
+      placeholder="Escribe qué estás buscando..."
+      maxlength="2000"
+      aria-label="Mensaje para Kantu"
+    ></textarea>
+    <button type="submit" class="btn-enviar" [disabled]="!texto.trim() || enviando" aria-label="Enviar">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M4 12l16-8-6 16-2.5-6.5L4 12z" fill="currentColor"/>
+      </svg>
+    </button>
+  </form>
+  <p class="aviso">Kantu puede equivocarse. Revisa la ficha del producto antes de comprar.</p>
+</section>
+
+<!-- Botón flotante -->
+<button
+  type="button"
+  class="chat-launcher"
+  [class.activo]="abierto"
+  (click)="alternar()"
+  [attr.aria-expanded]="abierto"
+  [attr.aria-label]="abierto ? 'Cerrar asistente' : 'Abrir asistente de compras'"
+>
+  <svg *ngIf="!abierto" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A2.5 2.5 0 0 1 4 13.5v-8z" fill="currentColor"/>
+    <path d="M12 6.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z" fill="var(--accent)"/>
+  </svg>
+  <svg *ngIf="abierto" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+    <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+  </svg>
+  <span class="launcher-label" *ngIf="!abierto">¿Te ayudo a elegir?</span>
+</button>
