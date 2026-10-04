@@ -7,3 +7,4 @@ django-filter==24.3
 psycopg[binary]>=3.1.18
 gunicorn==23.0.0
 cloudinary==1.44.1
+stripe==15.6.0

@@ -23,6 +23,11 @@ urlpatterns = [
         name='carrito_checkout',
     ),
     path(
+        'carrito/pago-intento/',
+        views.IniciarPagoStripeView.as_view(),
+        name='carrito_pago_intento',
+    ),
+    path(
         'mis-pedidos/',
         views.MisPedidosView.as_view(),
         name='mis_pedidos',
@@ -38,5 +43,3 @@ urlpatterns = [
         name='resenas_pedido',
     ),
 ]
-
-

@@ -1,0 +1,206 @@
+<div class="brand-page page-container">
+  <header class="page-heading">
+    <div>
+      <span class="eyebrow">CU-13 · Configuración</span>
+      <h1>Identidad de Marca</h1>
+      <p>Personaliza el logotipo, el color principal y el slug público de cada tienda.</p>
+    </div>
+    <span class="security-chip">Acceso Empresa</span>
+  </header>
+
+  <section class="store-selector" aria-labelledby="store-selector-title">
+    <div class="selector-copy">
+      <span class="step-number">1</span>
+      <div>
+        <h2 id="store-selector-title">Selecciona una tienda</h2>
+        <p>Solo se muestran las tiendas asociadas a tu cuenta (aislamiento multitenant).</p>
+      </div>
+    </div>
+
+    <div class="selector-control" *ngIf="!loadingStores && tiendas.length">
+      <label for="store">Tienda</label>
+      <select id="store" [value]="selectedStoreId ?? ''" (change)="onStoreChange($event)">
+        <option value="" disabled>Elige una tienda</option>
+        <option *ngFor="let store of tiendas" [value]="store.id">
+          {{ store.nombre }} · /{{ store.slug }}
+        </option>
+      </select>
+    </div>
+
+    <div class="inline-loading" *ngIf="loadingStores" aria-live="polite">
+      <span class="loader dark"></span> Cargando tus tiendas...
+    </div>
+  </section>
+
+  <div class="alert success" *ngIf="successMessage" role="status">
+    <span>✓</span>{{ successMessage }}
+  </div>
+  <div class="alert error" *ngIf="errorMessage" role="alert">
+    <span>!</span>{{ errorMessage }}
+  </div>
+
+  <section class="empty-panel" *ngIf="!loadingStores && tiendas.length === 0">
+    <div class="empty-mark">KM</div>
+    <h2>Aún no tienes tiendas</h2>
+    <p>Crea una tienda primero para poder configurar su identidad de marca.</p>
+  </section>
+
+  <section class="choose-panel" *ngIf="!loadingStores && tiendas.length > 1 && !selectedStoreId">
+    <div class="choose-icon">↗</div>
+    <h2>Elige la tienda que quieres personalizar</h2>
+    <p>Cada tienda conserva su propia identidad y configuración visual.</p>
+  </section>
+
+  <section class="identity-loading" *ngIf="loadingIdentity" aria-live="polite">
+    <span class="loader dark"></span>
+    <p>Cargando identidad de marca...</p>
+  </section>
+
+  <form
+    *ngIf="selectedStoreId && identidad && !loadingIdentity"
+    class="identity-form"
+    [formGroup]="identityForm"
+    (ngSubmit)="save()"
+  >
+    <div class="store-context">
+      <div class="store-monogram" [style.background-color]="colorControl.value">
+        {{ identidad.nombre.slice(0, 2).toUpperCase() }}
+      </div>
+      <div>
+        <span>Editando identidad de</span>
+        <strong>{{ identidad.nombre }}</strong>
+      </div>
+    </div>
+
+    <div class="identity-grid">
+      <section class="form-card logo-section">
+        <div class="section-title">
+          <span class="step-number">2</span>
+          <div>
+            <h2>Logotipo</h2>
+            <p>JPEG, PNG o WebP. Máximo 5 MB.</p>
+          </div>
+        </div>
+
+        <div class="logo-comparison">
+          <div class="logo-block">
+            <span class="image-label">Logo actual</span>
+            <div class="logo-frame">
+              <img *ngIf="identidad.logo_url; else currentPlaceholder" [src]="identidad.logo_url" [alt]="'Logo actual de ' + identidad.nombre" />
+              <ng-template #currentPlaceholder>
+                <span class="logo-placeholder" [style.color]="colorControl.value">
+                  {{ identidad.nombre.slice(0, 2).toUpperCase() }}
+                </span>
+              </ng-template>
+            </div>
+          </div>
+
+          <div class="logo-arrow" aria-hidden="true">→</div>
+
+          <div class="logo-block">
+            <span class="image-label">Vista previa local</span>
+            <div class="logo-frame preview" [class.empty]="!logoPreviewUrl">
+              <img *ngIf="logoPreviewUrl" [src]="logoPreviewUrl" alt="Vista previa del nuevo logotipo" />
+              <span *ngIf="!logoPreviewUrl" class="preview-copy">Selecciona un nuevo archivo</span>
+            </div>
+          </div>
+        </div>
+
+        <label class="upload-button" for="logo-file">
+          <span>↑</span>{{ selectedLogo ? 'Cambiar archivo' : 'Seleccionar nuevo logo' }}
+        </label>
+        <input
+          #logoInput
+          id="logo-file"
+          class="file-input"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+          (change)="onLogoSelected($event)"
+        />
+        <p class="selected-file" *ngIf="selectedLogo">
+          {{ selectedLogo.name }} · {{ selectedLogo.size / 1024 | number:'1.0-0' }} KB
+        </p>
+        <p class="field-error" *ngIf="logoError">{{ logoError }}</p>
+      </section>
+
+      <section class="form-card settings-section">
+        <div class="section-title">
+          <span class="step-number">3</span>
+          <div>
+            <h2>Color y dirección</h2>
+            <p>Define cómo se reconoce públicamente tu tienda.</p>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="brand-color">Color principal (#RRGGBB)</label>
+          <div class="color-row">
+            <input id="brand-color" class="color-picker" type="color" formControlName="color_primario" />
+            <input
+              class="color-text"
+              type="text"
+              maxlength="7"
+              formControlName="color_primario"
+              (blur)="onColorBlur()"
+              aria-label="Color principal en formato hexadecimal"
+              placeholder="#C8102E"
+            />
+            <span class="color-swatch" [style.background-color]="colorControl.valid ? colorControl.value : '#E5E7EB'"></span>
+          </div>
+          <p class="field-error" *ngIf="colorControl.touched && colorControl.invalid">
+            Usa un formato hexadecimal estricto de 6 dígitos, por ejemplo #C8102E.
+          </p>
+        </div>
+
+        <div class="field-group">
+          <label for="store-slug">Slug de la tienda</label>
+          <div class="slug-input">
+            <span>/</span>
+            <input
+              id="store-slug"
+              type="text"
+              maxlength="100"
+              formControlName="slug"
+              (input)="slugStatus = null"
+              (blur)="onSlugBlur()"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="slug-feedback" aria-live="polite">
+            <span class="checking" *ngIf="slugStatus === 'checking'">Comprobando disponibilidad...</span>
+            <span class="available" *ngIf="slugStatus === 'available'">✓ Slug disponible</span>
+            <span class="occupied" *ngIf="slugStatus === 'occupied'">⚠️ Este slug ya está en uso.</span>
+          </div>
+          <p class="field-error" *ngIf="slugControl.touched && slugControl.hasError('required')">
+            El slug es obligatorio.
+          </p>
+          <p class="field-error" *ngIf="slugControl.touched && slugControl.hasError('pattern')">
+            Usa letras minúsculas, números y guiones simples.
+          </p>
+          <p class="field-help">Vista pública: /{{ slugControl.value || 'mi-tienda' }}</p>
+        </div>
+
+        <div class="brand-sample" [style.border-left-color]="colorControl.valid ? colorControl.value : '#C8102E'">
+          <span>Vista de marca</span>
+          <strong [style.color]="colorControl.valid ? colorControl.value : '#C8102E'">
+            {{ identidad.nombre }}
+          </strong>
+          <small>Tu color principal se aplicará a elementos destacados y temas.</small>
+        </div>
+      </section>
+    </div>
+
+    <footer class="form-actions">
+      <p>Los cambios se aplicarán únicamente a <strong>{{ identidad.nombre }}</strong>.</p>
+      <button
+        type="submit"
+        class="save-button"
+        [disabled]="identityForm.invalid || saving || slugStatus === 'occupied' || slugStatus === 'checking'"
+      >
+        <span class="loader" *ngIf="saving"></span>
+        {{ saving ? 'Guardando...' : 'Guardar cambios' }}
+      </button>
+    </footer>
+  </form>
+</div>

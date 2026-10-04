@@ -1,0 +1,28 @@
+<section class="recommendations" *ngIf="!cargando && productos.length > 0" aria-labelledby="recommendations-title">
+  <div class="recommendations-heading">
+    <div>
+      <span class="eyebrow">Selección personalizada con IA</span>
+      <h2 id="recommendations-title">Recomendados para ti</h2>
+    </div>
+  </div>
+
+  <div class="recommendation-list">
+    <button
+      type="button"
+      class="recommendation-card"
+      *ngFor="let producto of productos; trackBy: trackProduct"
+      (click)="seleccionar(producto)"
+    >
+      <div class="recommendation-image">
+        <img *ngIf="imagen(producto); else imagePlaceholder" [src]="imagen(producto)" [alt]="producto.nombre" />
+        <ng-template #imagePlaceholder><span>KM</span></ng-template>
+      </div>
+      <div class="recommendation-copy">
+        <small>{{ producto.categoria_nombre || producto.tienda_nombre }}</small>
+        <strong>{{ producto.nombre }}</strong>
+        <span>Bs {{ producto.precio_base || '0.00' }}</span>
+        <em>Ver producto →</em>
+      </div>
+    </button>
+  </div>
+</section>

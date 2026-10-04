@@ -36,10 +36,15 @@ export const routes: Routes = [
       import('./features/home/home-cliente.component').then(m => m.HomeClienteComponent)
   },
   {
-    path: 'mis-pedidos',
+    path: 'pedidos',
     canActivate: [clienteGuard],
     loadComponent: () =>
       import('./features/cliente/pedidos/pedidos.component').then(m => m.PedidosClienteComponent)
+  },
+  {
+    path: 'mis-pedidos',
+    redirectTo: 'pedidos',
+    pathMatch: 'full'
   },
   {
     path: 'dashboard',
@@ -76,6 +81,12 @@ export const routes: Routes = [
     canActivate: [empresaGuard],
     loadComponent: () =>
       import('./features/tienda/gestion-productos/gestion-productos.component').then(m => m.GestionProductosComponent)
+  },
+  {
+    path: 'tiendas/identidad',
+    canActivate: [empresaGuard],
+    loadComponent: () =>
+      import('./features/tienda/identidad-marca/identidad-marca.component').then(m => m.IdentidadMarcaComponent)
   },
   {
     path: 'tiendas/:tiendaId/productos/nuevo',

@@ -605,3 +605,113 @@
   }
 }
 
+.product-card[role='button'] {
+  cursor: pointer;
+}
+
+.product-card[role='button']:focus-visible {
+  outline: 3px solid rgba(200, 16, 46, 0.35);
+  outline-offset: 3px;
+}
+
+.product-detail-backdrop {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.product-detail-dialog {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(220px, 340px) minmax(280px, 430px);
+  overflow: hidden;
+  width: min(820px, 100%);
+  max-height: 88vh;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  animation: popIn 0.25s ease-out;
+}
+
+.product-detail-dialog > img {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  object-fit: cover;
+}
+
+.detail-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 34px;
+}
+
+.detail-copy small {
+  color: #7F8C8D;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.detail-copy h2 {
+  margin: 8px 0 12px;
+  color: #2C3E50;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.detail-copy p {
+  color: #5D6D7E;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.detail-copy strong {
+  margin: 12px 0 22px;
+  color: var(--primary, #C8102E);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.detail-close {
+  position: absolute;
+  z-index: 10;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  color: #2C3E50;
+  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s ease;
+}
+
+.detail-close:hover {
+  transform: scale(1.1);
+}
+
+@media (max-width: 700px) {
+  .product-detail-dialog {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .product-detail-dialog > img {
+    min-height: 200px;
+    max-height: 250px;
+  }
+  .detail-copy {
+    padding: 22px;
+  }
+}
+

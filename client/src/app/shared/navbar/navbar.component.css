@@ -468,11 +468,13 @@
   transform: scale(1.2);
 }
 
-/* Footer del Carrito */
-.cart-drawer-footer {
-  border-top: 1px solid #ECEFF1;
-  background: #FDFEFE;
-  padding: 1.25rem 1.5rem;
+/* Totales y checkout: viven dentro de cart-drawer-body, en el mismo scroll que el listado (sin doble scroll) */
+.cart-totals-section {
+  background: #FAFAFA;
+  border: 1px solid #EAECEE;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 1.1rem 1.25rem;
 }
 
 .total-row {
@@ -495,6 +497,58 @@
 .grand-total-amount {
   color: var(--primary, #C8102E);
   font-size: 1.3rem;
+}
+
+.payment-method-picker {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.payment-method-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #566573;
+  background: #F8F9F9;
+  border: 1.5px solid #D5D8DC;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.payment-method-option.selected {
+  color: var(--primary, #C8102E);
+  border-color: var(--primary, #C8102E);
+  background: rgba(200, 16, 46, 0.06);
+}
+
+.stripe-payment-box {
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  background: #F8F9F9;
+  border: 1px solid #D5D8DC;
+  border-radius: 10px;
+}
+
+.stripe-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  font-size: 0.82rem;
+  color: #7F8C8D;
+}
+
+.stripe-loading .spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
 }
 
 .cart-footer-buttons {

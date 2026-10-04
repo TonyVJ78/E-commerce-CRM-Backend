@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, Subject, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -22,6 +22,15 @@ export interface CheckoutResponse {
   mensaje: string;
   pedidos: number[];
   items_comprados?: ItemCompradoInfo[];
+  metodo_pago?: string;
+}
+
+export interface IntentoPagoStripe {
+  client_secret: string;
+  payment_intent_id: string;
+  publishable_key: string;
+  monto_bs: string;
+  monto_usd: string;
 }
 
 export type {
@@ -36,6 +45,7 @@ export type {
 
 @Injectable({ providedIn: 'root' })
 export class CarritoService {
+  private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiUrl}/pedidos/carrito`;
 
   private readonly cartCountSubject = new BehaviorSubject<number>(0);
@@ -47,7 +57,7 @@ export class CarritoService {
   private readonly checkoutCompletedSubject = new Subject<CheckoutResponse>();
   public readonly checkoutCompleted$ = this.checkoutCompletedSubject.asObservable();
 
-  constructor(private readonly http: HttpClient) {
+  constructor() {
     // Si hay token de usuario, intentar precargar conteo del carrito
     if (localStorage.getItem('km_access_token')) {
       this.cargarCarritoSilencioso();
@@ -103,8 +113,16 @@ export class CarritoService {
     );
   }
 
-  checkout(): Observable<CheckoutResponse> {
-    return this.http.post<CheckoutResponse>(`${this.apiUrl}/checkout/`, {}).pipe(
+  crearIntentoPagoStripe(): Observable<IntentoPagoStripe> {
+    return this.http.post<IntentoPagoStripe>(`${this.apiUrl}/pago-intento/`, {});
+  }
+
+  checkout(metodoPago: string = 'efectivo', paymentIntentId?: string): Observable<CheckoutResponse> {
+    const body: { metodo_pago: string; payment_intent_id?: string } = { metodo_pago: metodoPago };
+    if (paymentIntentId) {
+      body.payment_intent_id = paymentIntentId;
+    }
+    return this.http.post<CheckoutResponse>(`${this.apiUrl}/checkout/`, body).pipe(
       tap((res) => {
         this.cartCountSubject.next(0);
         this.cartDataSubject.next(null);
@@ -113,4 +131,3 @@ export class CarritoService {
     );
   }
 }
-

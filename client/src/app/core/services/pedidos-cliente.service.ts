@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -44,11 +44,17 @@ export interface PedidoCliente {
   resenas?: ResenaPedido[];
 }
 
+export interface GuardarResenaPayload {
+  tipo: 'producto' | 'tienda';
+  producto_id?: number;
+  calificacion: number;
+  comentario: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PedidosClienteService {
+  private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiUrl}/pedidos/mis-pedidos`;
-
-  constructor(private readonly http: HttpClient) {}
 
   listar(): Observable<{ pedidos: PedidoCliente[] }> {
     return this.http.get<{ pedidos: PedidoCliente[] }>(`${this.apiUrl}/`);
@@ -58,12 +64,7 @@ export class PedidosClienteService {
     return this.http.get<PedidoCliente>(`${this.apiUrl}/${id}/`);
   }
 
-  guardarResena(id: number, resena: {
-    tipo: 'producto' | 'tienda';
-    producto_id?: number;
-    calificacion: number;
-    comentario: string;
-  }): Observable<ResenaPedido> {
+  guardarResena(id: number, resena: GuardarResenaPayload): Observable<ResenaPedido> {
     return this.http.post<ResenaPedido>(`${this.apiUrl}/${id}/resenas/`, resena);
   }
 }

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import {
@@ -11,15 +11,21 @@ import {
 } from '../../core/models';
 import { CatalogoService } from '../../core/services/catalogo.service';
 import { CarritoService } from '../../core/services/carrito.service';
+import { RecomendacionService } from '../../core/services/recomendacion.service';
+import { RecomendacionesComponent } from './recomendaciones/recomendaciones.component';
 
 @Component({
   selector: 'app-home-cliente',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RecomendacionesComponent],
   templateUrl: './home-cliente.component.html',
   styleUrls: ['./home-cliente.component.css']
 })
 export class HomeClienteComponent implements OnInit, OnDestroy {
+  private readonly catalogoService = inject(CatalogoService);
+  private readonly carritoService = inject(CarritoService);
+  private readonly recomendacionService = inject(RecomendacionService);
+
   productos: ProductoCatalogo[] = [];
   categorias: CategoriaCatalogo[] = [];
   tiendas: TiendaCatalogo[] = [];
@@ -37,13 +43,9 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
   // Notificaciones
   mensajeExito = '';
   mensajeError = '';
+  productoEnDetalle: ProductoCatalogo | null = null;
 
   private readonly subs = new Subscription();
-
-  constructor(
-    private readonly catalogoService: CatalogoService,
-    private readonly carritoService: CarritoService
-  ) {}
 
   ngOnInit(): void {
     this.cargarFiltrosYCatalogoGeneral();
@@ -58,19 +60,14 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
               if (prod.variantes) {
                 for (const v of prod.variantes) {
                   if (v.id === item.variante_id) {
-                    v.stock = Math.max(0, v.stock - item.cantidad);
+                    v.stock = Math.max(0, (v.stock || 0) - item.cantidad);
                   }
                 }
               }
             }
           }
         }
-
-        // 2. Banner de confirmación en la vista
-        this.mensajeExito = '¡Compra realizada con éxito! El inventario ha sido actualizado en tiempo real.';
-        setTimeout(() => this.limpiarMensajes(), 5000);
-
-        // 3. Re-sincronizar catálogo con el backend
+        // 2. Re-consulta silenciosa para sincronizar exactamente con la base de datos
         this.recargarCatalogoSilencioso();
       })
     );
@@ -81,10 +78,7 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
   }
 
   cargarFiltrosYCatalogoGeneral(): void {
-    this.cargando = true;
-    this.limpiarMensajes();
-
-    // 1. Cargar categorías disponibles
+    // 1. Cargar Categorías
     this.catalogoService.listarCategorias().subscribe({
       next: (cats) => {
         this.categorias = cats;
@@ -92,7 +86,7 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
       error: () => {}
     });
 
-    // 2. Cargar tiendas disponibles
+    // 2. Cargar Tiendas
     this.catalogoService.listarTiendas().subscribe({
       next: (tiendas) => {
         this.tiendas = tiendas;
@@ -101,10 +95,10 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
     });
 
     // 3. Cargar todos los productos en general al inicio
-    this.aplicarFiltros();
+    this.aplicarFiltros(false);
   }
 
-  aplicarFiltros(): void {
+  aplicarFiltros(registrarBusqueda = true): void {
     this.cargando = true;
     this.limpiarMensajes();
 
@@ -117,6 +111,14 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
     }
     if (this.terminoBusqueda.trim()) {
       filtros.q = this.terminoBusqueda.trim();
+      // Telemetría asíncrona fire-and-forget de búsqueda
+      if (registrarBusqueda && this.tiendaSeleccionadaId) {
+        this.recomendacionService.notificarInteraccion({
+          tienda_id: this.tiendaSeleccionadaId,
+          tipo_interaccion: 'SEARCH',
+          termino_busqueda: this.terminoBusqueda
+        });
+      }
     }
 
     this.catalogoService.listarTodosLosProductos(filtros).subscribe({
@@ -193,12 +195,39 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
     }
     if (producto.imagenes && producto.imagenes.length > 0) {
       const first = producto.imagenes[0];
-      if (typeof first === 'object' && first.url) {
-        return first.url;
+      if (typeof first === 'object' && (first as any).url) {
+        return (first as any).url;
       }
       return String(first);
     }
-    return 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80';
+    return 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80';
+  }
+
+  /**
+   * Abre el detalle del producto y dispara telemetría de interacción ("fire-and-forget").
+   * No bloquea la apertura modal ni la navegación.
+   */
+  abrirProducto(producto: ProductoCatalogo, registrarClick = true): void {
+    const tiendaId = producto.tienda_id;
+    if (tiendaId) {
+      if (registrarClick) {
+        this.recomendacionService.notificarInteraccion({
+          tienda_id: tiendaId,
+          producto_id: producto.id,
+          tipo_interaccion: 'CLICK'
+        });
+      }
+      this.recomendacionService.notificarInteraccion({
+        tienda_id: tiendaId,
+        producto_id: producto.id,
+        tipo_interaccion: 'VIEW'
+      });
+    }
+    this.productoEnDetalle = producto;
+  }
+
+  cerrarDetalle(): void {
+    this.productoEnDetalle = null;
   }
 
   agregarAlCarrito(producto: ProductoCatalogo): void {

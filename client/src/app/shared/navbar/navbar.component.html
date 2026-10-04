@@ -1,59 +1,68 @@
 <nav class="navbar">
   <div class="navbar-container">
+    <!-- Brand / Logo -->
     <a routerLink="/" class="navbar-brand">
-      <span class="brand-icon">🛍️</span>
-      <span class="brand-text">Kantu Market</span>
+      <span class="brand-icon">🏪</span>
+      <span class="brand-text">Kantu <span class="brand-accent">Market</span></span>
     </a>
 
+    <!-- Acciones en barra móvil (Carrito y Toggle) -->
     <div class="navbar-actions-mobile">
-      <!-- Botón de carrito móvil -->
-      <button
-        *ngIf="authService.isAuthenticated"
-        class="cart-trigger-btn"
-        (click)="toggleCart()"
-        aria-label="Abrir carrito"
-      >
+      <button class="cart-trigger-btn mobile-cart-btn" (click)="toggleCart()" aria-label="Abrir carrito de compras">
         <span class="cart-icon">🛒</span>
-        <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">{{ count }}</span>
+        <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">
+          {{ count }}
+        </span>
       </button>
 
-      <button class="menu-toggle" (click)="toggleMenu()" [class.active]="menuOpen" aria-label="Menu principal">
+      <button class="menu-toggle" (click)="toggleMenu()" [class.active]="menuOpen" aria-label="Menú principal">
         <span></span>
         <span></span>
         <span></span>
       </button>
     </div>
 
+    <!-- Navegación Principal -->
     <div class="navbar-menu" [class.open]="menuOpen">
       <ng-container *ngIf="authService.isAuthenticated; else guestLinks">
-        <!-- Catálogo accesible para todos los usuarios autenticados -->
-        <a routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catálogo</a>
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'" routerLink="/mis-pedidos" routerLinkActive="active" (click)="menuOpen = false">Mis pedidos</a>
+        <!-- Enlaces para Clientes -->
+        <ng-container *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'">
+          <a routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catálogo</a>
+          <a routerLink="/pedidos" routerLinkActive="active" (click)="menuOpen = false">Mis Pedidos</a>
+        </ng-container>
 
-        <!-- Enlaces según rol -->
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/dashboard" routerLinkActive="active" (click)="menuOpen = false">Dashboard</a>
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/auditoria" routerLinkActive="active" (click)="menuOpen = false">Bitácora</a>
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'" routerLink="/accesos" routerLinkActive="active" (click)="menuOpen = false">Accesos</a>
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/panel-vendedor" routerLinkActive="active" (click)="menuOpen = false">Panel Vendedor</a>
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/tiendas" routerLinkActive="active" (click)="menuOpen = false">Mis Tiendas</a>
-        <a *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'" routerLink="/tiendas/productos" routerLinkActive="active" (click)="menuOpen = false">Gestionar Productos</a>
-        
-        <a routerLink="/perfil" routerLinkActive="active" (click)="menuOpen = false">Mi Perfil</a>
+        <!-- Enlaces para Empresas / Vendedores -->
+        <ng-container *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'">
+          <a routerLink="/panel-vendedor" routerLinkActive="active" (click)="menuOpen = false">Panel Vendedor</a>
+          <a routerLink="/tiendas" routerLinkActive="active" (click)="menuOpen = false">Mis Tiendas</a>
+          <a routerLink="/tiendas/productos" routerLinkActive="active" (click)="menuOpen = false">Inventario</a>
+          <a routerLink="/tiendas/identidad" routerLinkActive="active" (click)="menuOpen = false">Identidad de Marca</a>
+        </ng-container>
 
-        <!-- Botón de carrito desktop -->
-        <button
-          *ngIf="authService.isAuthenticated"
-          class="cart-trigger-btn desktop-only"
-          (click)="toggleCart()"
-          title="Ver Carrito de Compras"
-        >
+        <!-- Enlaces para Administradores -->
+        <ng-container *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'">
+          <a routerLink="/dashboard" routerLinkActive="active" (click)="menuOpen = false">Dashboard</a>
+          <a routerLink="/auditoria" routerLinkActive="active" (click)="menuOpen = false">Auditoría</a>
+          <a routerLink="/accesos" routerLinkActive="active" (click)="menuOpen = false">Roles y Permisos</a>
+        </ng-container>
+
+        <!-- Botón de Carrito (Desktop) -->
+        <button class="cart-trigger-btn desktop-only" (click)="toggleCart()" aria-label="Abrir carrito de compras">
           <span class="cart-icon">🛒</span>
           <span class="cart-label">Carrito</span>
-          <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">{{ count }}</span>
+          <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">
+            {{ count }}
+          </span>
         </button>
-        
+
+        <!-- Menú de Usuario -->
         <div class="navbar-user">
-          <span class="user-email">{{ (authService.currentUser$ | async)?.email }}</span>
+          <a routerLink="/perfil" class="user-chip" (click)="menuOpen = false">
+            <span class="user-avatar">👤</span>
+            <span class="user-name">
+              {{ (authService.currentUser$ | async)?.first_name || (authService.currentUser$ | async)?.email }}
+            </span>
+          </a>
           <span class="user-role-badge" [attr.data-role]="(authService.currentUser$ | async)?.rol">
             {{ (authService.currentUser$ | async)?.rol }}
           </span>
@@ -71,9 +80,8 @@
 
 <div class="navbar-backdrop" *ngIf="menuOpen" (click)="menuOpen = false"></div>
 
-
 <!-- ========================================================================= -->
-<!-- SLIDE-OVER DRAWER DEL CARRITO DE COMPRAS -->
+<!-- SLIDE-OVER DRAWER DEL CARRITO DE COMPRAS CON PASARELA STRIPE -->
 <!-- ========================================================================= -->
 <div class="cart-backdrop" *ngIf="cartOpen" (click)="closeCart()"></div>
 
@@ -117,7 +125,7 @@
             <div class="cart-item-card" *ngFor="let item of tiendaCart.items">
               <img
                 class="cart-item-img"
-                [src]="item.producto_imagen || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=150&q=80'"
+                [src]="item.producto_imagen || 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=150&q=80'"
                 [alt]="item.producto_nombre"
               />
 
@@ -146,6 +154,81 @@
           </div>
         </div>
       </div>
+
+      <!-- Totales y Selector de Pasarela (Dentro del scroll único para evitar doble scroll) -->
+      <div class="cart-totals-section" *ngIf="cartData.total_items > 0 && !checkoutSuccess">
+        <div class="total-row">
+          <span>Artículos:</span>
+          <strong>{{ cartData.total_items }}</strong>
+        </div>
+        <div class="total-row grand-total">
+          <span>Total a pagar:</span>
+          <span class="grand-total-amount">Bs {{ cartData.total_global }}</span>
+        </div>
+
+        <div class="checkout-error-alert" *ngIf="checkoutError" style="margin-bottom: 0.75rem; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 0.82rem;">
+          ⚠️ {{ checkoutError }}
+        </div>
+
+        <!-- Selector de método de pago (CU-19) -->
+        <div class="payment-method-picker">
+          <button
+            type="button"
+            class="payment-method-option"
+            [class.selected]="metodoPago === 'efectivo'"
+            (click)="seleccionarMetodoPago('efectivo')"
+          >
+            <span>💵</span> Efectivo / QR contra entrega
+          </button>
+          <button
+            type="button"
+            class="payment-method-option"
+            [class.selected]="metodoPago === 'stripe'"
+            (click)="seleccionarMetodoPago('stripe')"
+          >
+            <span>💳</span> Tarjeta (Stripe)
+          </button>
+        </div>
+
+        <!-- Formulario Seguro de Stripe con contenedor controlado -->
+        <div class="stripe-payment-box" [hidden]="metodoPago !== 'stripe'">
+          <div class="stripe-loading" *ngIf="cargandoStripe">
+            <div class="spinner"></div>
+            <span>Cargando formulario seguro de Stripe...</span>
+          </div>
+
+          <div id="stripe-payment-element" [hidden]="cargandoStripe"></div>
+
+          <div class="checkout-error-alert" *ngIf="stripeError" style="margin: 0.6rem 0; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 0.82rem;">
+            ⚠️ {{ stripeError }}
+          </div>
+
+          <div class="cart-footer-buttons">
+            <button class="btn btn-outline btn-sm btn-clear" [disabled]="pagandoStripe" (click)="vaciar()">
+              Vaciar
+            </button>
+            <button
+              class="btn btn-primary btn-checkout"
+              [disabled]="pagandoStripe || cargandoStripe"
+              (click)="pagarConStripe()"
+            >
+              <span *ngIf="pagandoStripe">Procesando pago...</span>
+              <span *ngIf="!pagandoStripe">Pagar con tarjeta →</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Botones de Checkout para Efectivo / QR -->
+        <div class="cart-footer-buttons" *ngIf="metodoPago === 'efectivo'">
+          <button class="btn btn-outline btn-sm btn-clear" [disabled]="isCheckingOut" (click)="vaciar()">
+            Vaciar
+          </button>
+          <button class="btn btn-primary btn-checkout" [disabled]="isCheckingOut" (click)="procederCheckout()">
+            <span *ngIf="isCheckingOut">Procesando compra...</span>
+            <span *ngIf="!isCheckingOut">Confirmar y Pagar (Checkout) →</span>
+          </button>
+        </div>
+      </div>
     </ng-container>
 
     <ng-template #cargandoCart>
@@ -154,33 +237,5 @@
         <p>Cargando tu carrito...</p>
       </div>
     </ng-template>
-  </div>
-
-  <!-- Footer del Carrito con Totales y Checkout -->
-  <div class="cart-drawer-footer" *ngIf="(carritoService.cartData$ | async) as cartData">
-    <div class="cart-totals-section" *ngIf="cartData.total_items > 0 && !checkoutSuccess">
-      <div class="total-row">
-        <span>Artículos:</span>
-        <strong>{{ cartData.total_items }}</strong>
-      </div>
-      <div class="total-row grand-total">
-        <span>Total a pagar:</span>
-        <span class="grand-total-amount">Bs {{ cartData.total_global }}</span>
-      </div>
-
-      <div class="checkout-error-alert" *ngIf="checkoutError" style="margin-bottom: 0.75rem; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 0.82rem;">
-        ⚠️ {{ checkoutError }}
-      </div>
-
-      <div class="cart-footer-buttons">
-        <button class="btn btn-outline btn-sm btn-clear" [disabled]="isCheckingOut" (click)="vaciar()">
-          Vaciar
-        </button>
-        <button class="btn btn-primary btn-checkout" [disabled]="isCheckingOut" (click)="procederCheckout()">
-          <span *ngIf="isCheckingOut">Procesando compra...</span>
-          <span *ngIf="!isCheckingOut">Confirmar y Pagar (Checkout) →</span>
-        </button>
-      </div>
-    </div>
   </div>
 </aside>

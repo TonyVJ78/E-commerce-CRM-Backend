@@ -24,6 +24,24 @@ export interface TiendaCreate {
 
 export type CreateTiendaData = TiendaCreate;
 
+export interface TiendaIdentidad {
+  id: number;
+  nombre: string;
+  slug: string;
+  logo_url: string;
+  color_primario: string;
+}
+
+export interface TiendaIdentidadUpdate {
+  slug: string;
+  color_primario: string;
+}
+
+export interface SlugDisponibilidad {
+  slug: string;
+  disponible: boolean;
+}
+
 export interface VentaDia {
   fecha: string;
   cantidad: number;

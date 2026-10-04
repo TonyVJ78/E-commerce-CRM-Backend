@@ -1,41 +1,381 @@
-<main class="orders-page">
-  <header class="page-heading">
-    <div><p class="eyebrow">KANTU MARKET / CU-20 + CU-21</p><h1>Mis pedidos</h1></div>
-    <button class="refresh-button" type="button" (click)="cargarPedidos()" [disabled]="cargando" aria-label="Actualizar pedidos">↻</button>
+<main class="pedidos-container">
+  <!-- Encabezado Principal -->
+  <header class="pedidos-header">
+    <div class="header-titles">
+      <span class="eyebrow-tag">KANTU MARKET · MI CUENTA</span>
+      <h1 class="main-title">Seguimiento de Pedidos y Reseñas</h1>
+      <p class="subtitle">Consulta la trazabilidad en tiempo real de tus compras y califica tu experiencia.</p>
+    </div>
+    <button
+      class="btn-refresh"
+      type="button"
+      (click)="cargarPedidos()"
+      [disabled]="cargando"
+      title="Actualizar listado de pedidos"
+      aria-label="Actualizar listado de pedidos"
+    >
+      <span class="refresh-icon" [class.spinning]="cargando">↻</span>
+      <span class="refresh-text">{{ cargando ? 'Actualizando...' : 'Actualizar' }}</span>
+    </button>
   </header>
-  <p class="notice error" *ngIf="error" role="alert">{{ error }}</p>
-  <p class="notice success" *ngIf="mensaje" role="status">{{ mensaje }}</p>
-  <div class="orders-layout">
-    <section class="orders-list" aria-label="Lista de pedidos">
-      <p class="loading" *ngIf="cargando">Cargando pedidos...</p>
-      <p class="empty" *ngIf="!cargando && pedidos.length === 0">Todavía no tienes pedidos.</p>
-      <button class="order-row" type="button" *ngFor="let pedido of pedidos" (click)="abrirPedido(pedido.id)" [class.selected]="seleccionado?.id === pedido.id">
-        <span class="order-top"><strong>Pedido #{{ pedido.id }}</strong><span class="status">{{ etiquetaEstado(pedido.estado) }}</span></span>
-        <span class="order-store">{{ pedido.tienda_nombre }}</span>
-        <span class="order-bottom"><time>{{ pedido.fecha | date:'mediumDate' }}</time><strong>Bs {{ pedido.total }}</strong></span>
-      </button>
+
+  <!-- Notificaciones de Alerta -->
+  <div class="alert-box alert-error" *ngIf="error" role="alert">
+    <span class="alert-icon">⚠️</span>
+    <div class="alert-content">
+      <strong>Atención</strong>
+      <p>{{ error }}</p>
+    </div>
+    <button class="alert-close" type="button" (click)="error = ''" aria-label="Cerrar">✕</button>
+  </div>
+
+  <div class="alert-box alert-success" *ngIf="mensaje" role="status">
+    <span class="alert-icon">🎉</span>
+    <div class="alert-content">
+      <strong>¡Operación exitosa!</strong>
+      <p>{{ mensaje }}</p>
+    </div>
+    <button class="alert-close" type="button" (click)="mensaje = ''" aria-label="Cerrar">✕</button>
+  </div>
+
+  <!-- Contenedor Maestro-Detalle -->
+  <div class="pedidos-grid">
+    <!-- Panel Izquierdo: Lista de Pedidos -->
+    <aside class="orders-sidebar" aria-label="Lista de mis pedidos">
+      <div class="sidebar-header">
+        <h2>Historial de Compras</h2>
+        <span class="orders-count" *ngIf="!cargando">{{ pedidos.length }} pedido(s)</span>
+      </div>
+
+      <!-- Estado de carga -->
+      <div class="skeleton-list" *ngIf="cargando">
+        <div class="skeleton-card" *ngFor="let _ of [1, 2, 3]"></div>
+      </div>
+
+      <!-- Estado vacío -->
+      <div class="empty-orders-card" *ngIf="!cargando && pedidos.length === 0">
+        <span class="empty-icon">🛍️</span>
+        <h3>Aún no tienes pedidos</h3>
+        <p>Explora nuestro catálogo artesanal y realiza tu primera compra.</p>
+        <a routerLink="/inicio" class="btn-primary-sm">Ir al Catálogo</a>
+      </div>
+
+      <!-- Lista de pedidos -->
+      <div class="orders-cards-scroll" *ngIf="!cargando && pedidos.length > 0">
+        <button
+          class="order-card-btn"
+          *ngFor="let pedido of pedidos"
+          type="button"
+          (click)="abrirPedido(pedido.id)"
+          [class.active]="seleccionado?.id === pedido.id"
+          [attr.aria-current]="seleccionado?.id === pedido.id ? 'true' : null"
+        >
+          <div class="order-card-top">
+            <span class="order-id">Pedido #{{ pedido.id }}</span>
+            <span class="badge" [ngClass]="claseBadgeEstado(pedido.estado)">
+              {{ iconoEstado(pedido.estado) }} {{ etiquetaEstado(pedido.estado) }}
+            </span>
+          </div>
+
+          <div class="order-card-store">
+            <span class="store-icon">🏬</span>
+            <span class="store-name">{{ pedido.tienda_nombre }}</span>
+          </div>
+
+          <div class="order-card-bottom">
+            <time class="order-date">{{ pedido.fecha | date:'d MMM y, HH:mm' }}</time>
+            <span class="order-amount">Bs {{ pedido.total }}</span>
+          </div>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Panel Derecho: Detalle y Trazabilidad del Pedido -->
+    <section class="order-detail-panel" aria-live="polite">
+      <!-- Loader de detalle -->
+      <div class="detail-loader" *ngIf="cargandoDetalle">
+        <div class="spinner"></div>
+        <p>Cargando detalles de trazabilidad...</p>
+      </div>
+
+      <!-- Detalle seleccionado -->
+      <div class="detail-content" *ngIf="!cargandoDetalle && seleccionado as pedido; else chooseOrderPrompt">
+        <!-- Tarjeta de Resumen Principal -->
+        <div class="detail-hero-card">
+          <div class="hero-header">
+            <div>
+              <span class="store-pill">🏬 {{ pedido.tienda_nombre }}</span>
+              <h2 class="hero-title">Detalle del Pedido #{{ pedido.id }}</h2>
+            </div>
+            <span class="badge badge-lg" [ngClass]="claseBadgeEstado(pedido.estado)">
+              {{ iconoEstado(pedido.estado) }} {{ etiquetaEstado(pedido.estado) }}
+            </span>
+          </div>
+
+          <div class="hero-stats-row">
+            <div class="stat-box">
+              <span class="stat-label">Fecha de Compra</span>
+              <span class="stat-val">{{ pedido.fecha | date:'d MMMM y, HH:mm' }}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Subtotal</span>
+              <span class="stat-val">Bs {{ pedido.subtotal }}</span>
+            </div>
+            <div class="stat-box stat-highlight">
+              <span class="stat-label">Total Pagado</span>
+              <span class="stat-val total-price">Bs {{ pedido.total }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección de Artículos Comprados -->
+        <div class="section-card">
+          <h3 class="section-title">
+            <span class="section-icon">📦</span> Artículos en este Pedido
+          </h3>
+          <div class="items-table-wrapper">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Variante</th>
+                  <th class="text-center">Cant.</th>
+                  <th class="text-right">Precio Unit.</th>
+                  <th class="text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of pedido.items">
+                  <td class="product-cell">
+                    <span class="product-tag-icon">🏷️</span>
+                    <strong>{{ item.producto_nombre }}</strong>
+                  </td>
+                  <td><span class="variant-chip">{{ item.variante_nombre }}</span></td>
+                  <td class="text-center"><strong>{{ item.cantidad }}</strong></td>
+                  <td class="text-right">Bs {{ item.precio_unitario }}</td>
+                  <td class="text-right item-subtotal">Bs {{ item.subtotal }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sección de Trazabilidad / Timeline (CU-20) -->
+        <div class="section-card">
+          <h3 class="section-title">
+            <span class="section-icon">⏱️</span> Línea de Tiempo y Seguimiento
+          </h3>
+
+          <div class="timeline-container" *ngIf="pedido.historial?.length; else emptyTimeline">
+            <ol class="timeline-stepper">
+              <li
+                class="timeline-step"
+                *ngFor="let evento of pedido.historial; let last = last; let idx = index"
+                [class.current]="last"
+              >
+                <div class="step-indicator">
+                  <div class="step-dot" [ngClass]="claseBadgeEstado(evento.estado)">
+                    {{ last ? '📍' : '✓' }}
+                  </div>
+                  <div class="step-line" *ngIf="!last"></div>
+                </div>
+
+                <div class="step-content">
+                  <div class="step-header">
+                    <span class="badge" [ngClass]="claseBadgeEstado(evento.estado)">
+                      {{ iconoEstado(evento.estado) }} {{ etiquetaEstado(evento.estado) }}
+                    </span>
+                    <time class="step-time">{{ evento.fecha | date:'d MMM y, HH:mm:ss' }}</time>
+                  </div>
+                  <div class="observation-box" *ngIf="evento.observacion">
+                    <span class="obs-icon">💬</span>
+                    <p class="obs-text">{{ evento.observacion }}</p>
+                  </div>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <ng-template #emptyTimeline>
+            <div class="empty-state-notice">
+              <span class="empty-icon">⏳</span>
+              <p>Tu pedido está siendo procesado por el vendedor. El historial de estados se actualizará en breve.</p>
+            </div>
+          </ng-template>
+        </div>
+
+        <!-- Sección de Reseñas y Experiencia (CU-21) -->
+        <div class="section-card review-experience-card">
+          <h3 class="section-title">
+            <span class="section-icon">⭐</span> Calificaciones y Reseñas
+          </h3>
+
+          <!-- Reseñas ya registradas -->
+          <div class="existing-reviews-wrapper" *ngIf="pedido.resenas?.length">
+            <h4 class="sub-title">Tus Reseñas Registradas:</h4>
+            <div class="reviews-grid">
+              <div class="review-item-card" *ngFor="let res of pedido.resenas">
+                <div class="review-item-header">
+                  <span class="target-type-badge" [class.badge-store]="res.tipo === 'tienda'">
+                    {{ res.tipo === 'tienda' ? '🏬 Tienda' : '🏷️ Producto' }}
+                  </span>
+                  <div class="star-rating-display" [attr.aria-label]="res.calificacion + ' de 5 estrellas'">
+                    <span
+                      class="star"
+                      *ngFor="let s of [1, 2, 3, 4, 5]"
+                      [class.filled]="s <= res.calificacion"
+                    >★</span>
+                  </div>
+                </div>
+                <h5 class="reviewed-target-name">
+                  {{ res.tipo === 'tienda' ? res.tienda_nombre : res.producto_nombre }}
+                </h5>
+                <p class="review-comment-body" *ngIf="res.comentario">
+                  "{{ res.comentario }}"
+                </p>
+                <time class="review-date" *ngIf="res.fecha">
+                  Calificado el {{ res.fecha | date:'mediumDate' }}
+                </time>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formulario Reactivo de Nueva Reseña (Solo si el pedido está completado/entregado) -->
+          <div class="review-form-wrapper" *ngIf="puedeCalificar(pedido); else notDeliverableNotice">
+            <div class="form-banner">
+              <h4>¿Cómo fue tu experiencia de compra?</h4>
+              <p>Ayuda a otros compradores compartiendo tu opinión sincera sobre la tienda o los productos recibidos.</p>
+            </div>
+
+            <form [formGroup]="resenaForm" (ngSubmit)="guardarResena()" class="reactive-review-form">
+              <!-- Selector Tipo de Reseña -->
+              <div class="form-group">
+                <label class="form-label">¿Qué deseas calificar?</label>
+                <div class="segmented-control">
+                  <button
+                    type="button"
+                    class="segment-btn"
+                    [class.selected]="resenaForm.get('tipo')?.value === 'producto'"
+                    (click)="resenaForm.patchValue({ tipo: 'producto' })"
+                  >
+                    🏷️ Producto Específico
+                  </button>
+                  <button
+                    type="button"
+                    class="segment-btn"
+                    [class.selected]="resenaForm.get('tipo')?.value === 'tienda'"
+                    (click)="resenaForm.patchValue({ tipo: 'tienda' })"
+                  >
+                    🏬 La Tienda (Atención / Envío)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selector de Producto (si aplica) -->
+              <div class="form-group" *ngIf="resenaForm.get('tipo')?.value === 'producto'">
+                <label for="productoSelect" class="form-label">Selecciona el Producto</label>
+                <select
+                  id="productoSelect"
+                  formControlName="producto_id"
+                  class="custom-select"
+                >
+                  <option [ngValue]="null" disabled>-- Elige un artículo de tu pedido --</option>
+                  <option
+                    *ngFor="let item of pedido.items"
+                    [ngValue]="item.producto_id"
+                    [disabled]="!item.producto_id"
+                  >
+                    {{ item.producto_nombre }} ({{ item.variante_nombre }})
+                  </option>
+                </select>
+                <span
+                  class="field-error"
+                  *ngIf="resenaForm.get('producto_id')?.touched && resenaForm.get('producto_id')?.invalid"
+                >
+                  Debes seleccionar un producto para evaluarlo.
+                </span>
+              </div>
+
+              <!-- Selector de Estrellas Interactivo -->
+              <div class="form-group">
+                <label class="form-label">Puntuación (1 a 5 estrellas)</label>
+                <div
+                  class="interactive-stars-widget"
+                  (mouseleave)="hoverCalificacion = 0"
+                  role="radiogroup"
+                  aria-label="Puntuación"
+                >
+                  <button
+                    *ngFor="let star of [1, 2, 3, 4, 5]"
+                    type="button"
+                    class="star-button"
+                    [class.active]="(hoverCalificacion || resenaForm.get('calificacion')?.value || 0) >= star"
+                    (mouseenter)="hoverCalificacion = star"
+                    (click)="setCalificacion(star)"
+                    [attr.aria-label]="star + ' estrellas'"
+                  >
+                    ★
+                  </button>
+                  <span class="rating-label">
+                    {{ resenaForm.get('calificacion')?.value }} de 5 estrellas
+                  </span>
+                </div>
+              </div>
+
+              <!-- Comentario -->
+              <div class="form-group">
+                <label for="comentarioText" class="form-label">
+                  Comentario u Observaciones
+                  <span class="optional-tag">(Opcional)</span>
+                </label>
+                <textarea
+                  id="comentarioText"
+                  formControlName="comentario"
+                  rows="3"
+                  class="custom-textarea"
+                  placeholder="Describe la calidad de los materiales, rapidez en la entrega o trato recibido..."
+                  maxlength="5000"
+                ></textarea>
+                <span class="char-counter">
+                  {{ resenaForm.get('comentario')?.value?.length || 0 }} / 5000 caracteres
+                </span>
+              </div>
+
+              <!-- Botón de Envío -->
+              <div class="form-actions">
+                <button
+                  type="submit"
+                  class="btn-submit-review"
+                  [disabled]="guardandoResena || resenaForm.invalid"
+                >
+                  <span class="btn-spinner" *ngIf="guardandoResena"></span>
+                  <span>{{ guardandoResena ? 'Guardando Calificación...' : 'Publicar Calificación' }}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Mensaje cuando el pedido no está entregado -->
+          <ng-template #notDeliverableNotice>
+            <div class="pending-review-notice">
+              <span class="notice-icon">ℹ️</span>
+              <div>
+                <strong>Calificaciones deshabilitadas temporalmente</strong>
+                <p>Podrás registrar tu reseña de la tienda y productos una vez que el pedido figure con estado <em>"Entregado"</em> o <em>"Completado"</em>.</p>
+              </div>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+
+      <!-- Pantalla de Selección Inicial (Si no hay pedido seleccionado) -->
+      <ng-template #chooseOrderPrompt>
+        <div class="no-selection-card">
+          <div class="no-selection-icon">📦</div>
+          <h2>Selecciona un Pedido</h2>
+          <p>Elige cualquier compra del panel izquierdo para inspeccionar su trazabilidad, productos y calificaciones.</p>
+        </div>
+      </ng-template>
     </section>
-    <section class="order-detail" *ngIf="seleccionado as pedido; else chooseOrder" aria-live="polite">
-      <header class="detail-heading"><div><p class="eyebrow">{{ pedido.tienda_nombre }}</p><h2>Pedido #{{ pedido.id }}</h2></div><span class="status large">{{ etiquetaEstado(pedido.estado) }}</span></header>
-      <div class="summary-line"><span>Fecha</span><strong>{{ pedido.fecha | date:'medium' }}</strong></div>
-      <div class="summary-line"><span>Total</span><strong>Bs {{ pedido.total }}</strong></div>
-      <h3>Productos</h3>
-      <div class="item-row" *ngFor="let item of pedido.items"><div><strong>{{ item.producto_nombre }}</strong><small>{{ item.variante_nombre }} · {{ item.cantidad }} unidad(es)</small></div><span>Bs {{ item.subtotal }}</span></div>
-      <h3 class="history-title">Seguimiento</h3>
-      <ol class="timeline" *ngIf="pedido.historial?.length; else noHistory"><li *ngFor="let evento of pedido.historial"><span class="timeline-dot"></span><div><strong>{{ etiquetaEstado(evento.estado) }}</strong><time>{{ evento.fecha | date:'medium' }}</time><p *ngIf="evento.observacion">{{ evento.observacion }}</p></div></li></ol>
-      <ng-template #noHistory><p class="muted">No hay cambios de estado registrados.</p></ng-template>
-      <section class="review-section" *ngIf="puedeCalificar(pedido)">
-        <h3>Comparte tu experiencia</h3>
-        <div class="review-list" *ngFor="let resena of pedido.resenas"><span class="review-stars" [attr.aria-label]="resena.calificacion + ' de 5 estrellas'">{{ '★'.repeat(resena.calificacion) }}</span><strong>{{ resena.tipo === 'tienda' ? resena.tienda_nombre : resena.producto_nombre }}</strong><p *ngIf="resena.comentario">{{ resena.comentario }}</p></div>
-        <form class="review-form" (ngSubmit)="guardarResena()">
-          <label>Calificar<select name="tipo" [(ngModel)]="tipoResena"><option value="producto">Producto</option><option value="tienda">Tienda</option></select></label>
-          <label *ngIf="tipoResena === 'producto'">Producto<select name="productoId" [(ngModel)]="productoId" required><option *ngFor="let item of pedido.items" [ngValue]="item.producto_id" [disabled]="!item.producto_id">{{ item.producto_nombre }}</option></select></label>
-          <label>Puntuación<select name="calificacion" [(ngModel)]="calificacion"><option [ngValue]="5">5 · Excelente</option><option [ngValue]="4">4 · Muy bueno</option><option [ngValue]="3">3 · Bueno</option><option [ngValue]="2">2 · Regular</option><option [ngValue]="1">1 · Malo</option></select></label>
-          <label>Comentario<textarea name="comentario" [(ngModel)]="comentario" maxlength="5000" rows="3"></textarea></label>
-          <button class="submit-review" type="submit" [disabled]="guardandoResena">{{ guardandoResena ? 'Guardando...' : 'Guardar calificación' }}</button>
-        </form>
-      </section>
-    </section>
-    <ng-template #chooseOrder><section class="choose-order"><span>←</span><p>Selecciona un pedido para consultar sus detalles.</p></section></ng-template>
   </div>
 </main>
