@@ -299,7 +299,11 @@ class CheckoutView(APIView):
 
             # El intento debe ser del propio cliente: de lo contrario se podría
             # canjear (o reembolsar) el pago de otra persona.
-            if str((intent.metadata or {}).get('cliente_id', '')) != str(request.user.id):
+            metadata = intent.metadata or {}
+            if hasattr(metadata, 'to_dict'):
+                # En stripe 15 `metadata` es un StripeObject y no admite `.get()`.
+                metadata = metadata.to_dict()
+            if str(metadata.get('cliente_id', '')) != str(request.user.id):
                 return Response(
                     {'error': 'El pago con tarjeta no pertenece a este usuario.'},
                     status=status.HTTP_403_FORBIDDEN,

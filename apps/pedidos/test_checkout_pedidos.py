@@ -8,6 +8,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest import mock
 
+import stripe
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
@@ -21,12 +22,19 @@ PRECIO = Decimal('109.90')  # con la tasa 10.99 → 10.00 USD por unidad
 
 
 def intento(centavos, cliente_id, status='succeeded', pi_id='pi_test_1'):
-    return SimpleNamespace(
-        id=pi_id,
-        status=status,
-        amount=centavos,
-        metadata={'cliente_id': str(cliente_id)},
-        client_secret='cs_test',
+    # Objeto real de la librería (no un dict ni un SimpleNamespace): en stripe 15
+    # `metadata` es un StripeObject sin `.get()`, y un doble de prueba más
+    # permisivo ocultó ese fallo en producción.
+    return stripe.PaymentIntent.construct_from(
+        {
+            'id': pi_id,
+            'object': 'payment_intent',
+            'status': status,
+            'amount': centavos,
+            'metadata': {'cliente_id': str(cliente_id)},
+            'client_secret': 'cs_test',
+        },
+        'sk_test_dummy',
     )
 
 
