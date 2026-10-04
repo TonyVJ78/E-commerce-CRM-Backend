@@ -4,11 +4,13 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.catalogo.models import Producto
 from apps.usuarios.permissions import IsClienteUser
 
-from .models import Carrito, ItemCarrito, Pedido, ItemPedido
+from .models import Carrito, HistorialEstadoPedido, ItemCarrito, ItemPedido, Pedido, Resena
 from .serializers import (
     AgregarItemCarritoSerializer,
+    CrearResenaSerializer,
     ItemCarritoCreadoSerializer,
     ItemCarritoDetalleSerializer,
     CarritoDetalleSerializer,
@@ -171,7 +173,7 @@ class CheckoutView(APIView):
 
 class MisPedidosView(APIView):
     """GET /api/pedidos/mis-pedidos/ — Listar los pedidos del usuario autenticado."""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
 
     def get(self, request):
         pedidos = Pedido.objects.filter(cliente=request.user).order_by('-fecha')[:20]
@@ -182,6 +184,7 @@ class MisPedidosView(APIView):
                 subtot = float(it.cantidad) * float(it.precio_unitario)
                 items.append({
                     'id': it.id,
+                    'producto_id': it.variante.producto_id if it.variante_id else None,
                     'producto_nombre': it.variante.producto.nombre if it.variante and it.variante.producto else 'Producto',
                     'variante_nombre': it.variante.nombre if it.variante else 'Unica',
                     'cantidad': it.cantidad,
@@ -190,12 +193,149 @@ class MisPedidosView(APIView):
                 })
             data.append({
                 'id': p.id,
+                'tienda_id': p.tienda_id,
                 'tienda_nombre': p.tienda.nombre if p.tienda else 'Tienda',
                 'estado': p.estado_actual,
+                'subtotal': str(p.subtotal),
                 'total': str(p.total),
                 'fecha': p.fecha.isoformat() if p.fecha else None,
                 'items': items,
             })
         return Response({'pedidos': data}, status=status.HTTP_200_OK)
+
+
+def _pedido_cliente(request, pedido_id):
+    return get_object_or_404(
+        Pedido.objects.select_related('tienda').prefetch_related(
+            'items__variante__producto', 'historial_estados'
+        ),
+        pk=pedido_id,
+        cliente=request.user,
+    )
+
+
+def _serializar_item_pedido(item):
+    producto = item.variante.producto if item.variante_id else None
+    return {
+        'id': item.id,
+        'producto_id': producto.id if producto else None,
+        'producto_nombre': producto.nombre if producto else 'Producto',
+        'variante_nombre': item.variante.nombre if item.variante_id else 'Unica',
+        'cantidad': item.cantidad,
+        'precio_unitario': str(item.precio_unitario),
+        'subtotal': f'{item.cantidad * item.precio_unitario:.2f}',
+    }
+
+
+def _serializar_resena(resena):
+    es_producto = resena.producto_id is not None
+    return {
+        'id': resena.id,
+        'tipo': 'producto' if es_producto else 'tienda',
+        'producto_id': resena.producto_id,
+        'producto_nombre': resena.producto.nombre if es_producto else None,
+        'tienda_id': resena.tienda_id,
+        'tienda_nombre': resena.tienda.nombre,
+        'calificacion': resena.calificacion,
+        'comentario': resena.comentario,
+        'fecha': resena.fecha.isoformat() if resena.fecha else None,
+    }
+
+
+class PedidoDetalleView(APIView):
+    """GET /api/pedidos/mis-pedidos/<id>/ — Detalle y trazabilidad del pedido propio."""
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+
+    def get(self, request, pedido_id):
+        pedido = _pedido_cliente(request, pedido_id)
+        historial = HistorialEstadoPedido.objects.filter(pedido=pedido).order_by('fecha', 'pk')
+        resenas = Resena.objects.filter(cliente=request.user, tienda=pedido.tienda).filter(
+            producto__in=[item.variante.producto_id for item in pedido.items.all()]
+        )
+        resena_tienda = Resena.objects.filter(
+            cliente=request.user, tienda=pedido.tienda, producto__isnull=True
+        )
+
+        return Response({
+            'id': pedido.id,
+            'tienda_id': pedido.tienda_id,
+            'tienda_nombre': pedido.tienda.nombre,
+            'estado': pedido.estado_actual,
+            'subtotal': str(pedido.subtotal),
+            'total': str(pedido.total),
+            'fecha': pedido.fecha.isoformat() if pedido.fecha else None,
+            'items': [_serializar_item_pedido(item) for item in pedido.items.all()],
+            'historial': [{
+                'estado': entrada.estado,
+                'fecha': entrada.fecha.isoformat() if entrada.fecha else None,
+                'observacion': entrada.observacion,
+            } for entrada in historial],
+            'resenas': [_serializar_resena(resena) for resena in resenas.select_related('producto', 'tienda')]
+                + [_serializar_resena(resena) for resena in resena_tienda.select_related('tienda')],
+        }, status=status.HTTP_200_OK)
+
+
+class ResenasPedidoView(APIView):
+    """GET/POST /api/pedidos/mis-pedidos/<id>/resenas/ — Consultar y registrar reseñas."""
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    estados_calificables = {'completado', 'completada', 'entregado', 'finalizado', 'completed'}
+
+    def get(self, request, pedido_id):
+        pedido = _pedido_cliente(request, pedido_id)
+        productos_ids = pedido.items.values_list('variante__producto_id', flat=True)
+        producto_resenas = Resena.objects.filter(
+            cliente=request.user, tienda=pedido.tienda, producto_id__in=productos_ids
+        ).select_related('producto', 'tienda')
+        tienda_resena = Resena.objects.filter(
+            cliente=request.user, tienda=pedido.tienda, producto__isnull=True
+        ).select_related('tienda')
+        return Response(
+            [_serializar_resena(resena) for resena in producto_resenas]
+            + [_serializar_resena(resena) for resena in tienda_resena],
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request, pedido_id):
+        pedido = _pedido_cliente(request, pedido_id)
+        if pedido.estado_actual.strip().lower() not in self.estados_calificables:
+            return Response(
+                {'error': 'Solo se pueden calificar pedidos completados o entregados.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = CrearResenaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        values = serializer.validated_data
+        producto = None
+        if values['tipo'] == 'producto':
+            get_object_or_404(
+                ItemPedido,
+                pedido=pedido,
+                variante__producto_id=values['producto_id'],
+            )
+            producto = get_object_or_404(Producto, pk=values['producto_id'])
+
+        lookup = {
+            'cliente': request.user,
+            'tienda': pedido.tienda,
+            'producto': producto,
+        }
+        resena = Resena.objects.filter(**lookup).first()
+        created = resena is None
+        if created:
+            resena = Resena.objects.create(
+                **lookup,
+                calificacion=values['calificacion'],
+                comentario=values['comentario'],
+            )
+        else:
+            resena.calificacion = values['calificacion']
+            resena.comentario = values['comentario']
+            resena.save(update_fields=['calificacion', 'comentario'])
+
+        return Response(
+            _serializar_resena(resena),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 

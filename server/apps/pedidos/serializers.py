@@ -174,3 +174,22 @@ class CarritoDetalleSerializer(serializers.ModelSerializer):
     def get_cantidad_items(self, obj):
         return sum(item.cantidad for item in obj.items.all())
 
+
+class CrearResenaSerializer(serializers.Serializer):
+    tipo = serializers.ChoiceField(choices=['producto', 'tienda'])
+    producto_id = serializers.IntegerField(required=False)
+    calificacion = serializers.IntegerField(min_value=1, max_value=5)
+    comentario = serializers.CharField(required=False, allow_blank=True, max_length=5000)
+
+    def validate(self, attrs):
+        if attrs['tipo'] == 'producto' and not attrs.get('producto_id'):
+            raise serializers.ValidationError({
+                'producto_id': 'Este campo es obligatorio para calificar un producto.'
+            })
+        if attrs['tipo'] == 'tienda' and attrs.get('producto_id'):
+            raise serializers.ValidationError({
+                'producto_id': 'No se debe enviar producto_id para calificar una tienda.'
+            })
+        attrs.setdefault('comentario', '')
+        return attrs
+

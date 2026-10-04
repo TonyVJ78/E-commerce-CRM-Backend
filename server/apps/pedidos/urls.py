@@ -27,6 +27,16 @@ urlpatterns = [
         views.MisPedidosView.as_view(),
         name='mis_pedidos',
     ),
+    path(
+        'mis-pedidos/<int:pedido_id>/',
+        views.PedidoDetalleView.as_view(),
+        name='pedido_detalle_cliente',
+    ),
+    path(
+        'mis-pedidos/<int:pedido_id>/resenas/',
+        views.ResenasPedidoView.as_view(),
+        name='resenas_pedido',
+    ),
 ]
 
 
