@@ -220,6 +220,7 @@ CLOUDINARY_API_SECRET = env('CLOUDINARY_API_SECRET', default='')
 # =============================================================================
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
+STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
 # Stripe no admite el boliviano (BOB) como moneda de cobro: el carrito se
 # muestra y guarda siempre en Bs, pero el PaymentIntent se crea en USD
 # convertido con este tipo de cambio. Cotización oficial BCB, ajustable por .env.
@@ -232,3 +233,10 @@ STRIPE_USD_BOB_RATE = env.float('STRIPE_USD_BOB_RATE', default=10.99)
 # funciona igual. La clave se crea en https://console.anthropic.com/.
 ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')
 CHATBOT_MODEL = env('CHATBOT_MODEL', default='claude-haiku-4-5')
+
+# =============================================================================
+# OPENAI / MOTOR DE IA (CU-14)
+# =============================================================================
+OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
+OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-6-luna')
+AI_RECOMMENDATIONS_ENABLED = env.bool('AI_RECOMMENDATIONS_ENABLED', default=False)

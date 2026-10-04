@@ -1,41 +1,97 @@
+"""Serializers de CU-14: recomendaciones e interacciones del cliente."""
+
 from rest_framework import serializers
 
+from apps.catalogo.models import Producto
+from apps.tiendas.models import Tienda
 
-MAX_MENSAJES_HISTORIAL = 20
-MAX_LARGO_MENSAJE = 2000
-
-
-class MensajeChatSerializer(serializers.Serializer):
-    rol = serializers.ChoiceField(choices=['usuario', 'asistente'])
-    contenido = serializers.CharField(max_length=MAX_LARGO_MENSAJE, trim_whitespace=True)
+from .models import EventoUsuario
+from .services import MAX_RECOMMENDATION_LIMIT, registrar_interaccion
 
 
-class ChatbotSerializer(serializers.Serializer):
-    """Historial de la conversación, del más antiguo al más reciente."""
+class RecomendacionQuerySerializer(serializers.Serializer):
+    limit = serializers.IntegerField(
+        required=False,
+        default=8,
+        min_value=1,
+        max_value=MAX_RECOMMENDATION_LIMIT,
+    )
+    tienda_id = serializers.IntegerField(required=False, min_value=1)
 
-    mensajes = MensajeChatSerializer(many=True, allow_empty=False)
 
-    def validate_mensajes(self, mensajes):
-        if mensajes[-1]['rol'] != 'usuario':
-            raise serializers.ValidationError('El último mensaje debe ser del usuario.')
-        return mensajes
+class InteraccionProductoSerializer(serializers.Serializer):
+    ALLOWED_CLIENT_EVENTS = (
+        EventoUsuario.TipoEvento.VIEW,
+        EventoUsuario.TipoEvento.CLICK,
+        EventoUsuario.TipoEvento.SEARCH,
+    )
 
-    def como_mensajes_claude(self):
-        """Convierte al formato de la API de Claude.
+    tienda_id = serializers.PrimaryKeyRelatedField(
+        source='tienda',
+        queryset=Tienda.objects.filter(activa=True),
+    )
+    producto_id = serializers.PrimaryKeyRelatedField(
+        source='producto',
+        queryset=Producto.objects.filter(activo=True, tienda__activa=True),
+        required=False,
+        allow_null=True,
+    )
+    tipo_interaccion = serializers.ChoiceField(choices=ALLOWED_CLIENT_EVENTS)
+    termino_busqueda = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=150,
+        trim_whitespace=True,
+    )
 
-        Se queda con los últimos mensajes, descarta los del asistente que
-        quedan al inicio (el saludo de bienvenida) y junta mensajes seguidos
-        del mismo rol, porque la API exige que user y assistant se alternen.
-        """
-        recientes = self.validated_data['mensajes'][-MAX_MENSAJES_HISTORIAL:]
-        while recientes and recientes[0]['rol'] != 'usuario':
-            recientes = recientes[1:]
+    def validate(self, attrs):
+        tienda = attrs['tienda']
+        producto = attrs.get('producto')
+        tipo = attrs['tipo_interaccion']
+        termino = attrs.get('termino_busqueda', '').strip()
 
-        resultado = []
-        for mensaje in recientes:
-            rol = 'user' if mensaje['rol'] == 'usuario' else 'assistant'
-            if resultado and resultado[-1]['role'] == rol:
-                resultado[-1]['content'] += '\n\n' + mensaje['contenido']
-            else:
-                resultado.append({'role': rol, 'content': mensaje['contenido']})
-        return resultado
+        if producto is not None and producto.tienda_id != tienda.id:
+            raise serializers.ValidationError({
+                'producto_id': 'El producto no pertenece a la tienda indicada.'
+            })
+
+        if tipo == EventoUsuario.TipoEvento.SEARCH:
+            if not termino:
+                raise serializers.ValidationError({
+                    'termino_busqueda': 'Debe indicar el término buscado.'
+                })
+            if producto is not None:
+                raise serializers.ValidationError({
+                    'producto_id': 'Una búsqueda no debe indicar un producto.'
+                })
+        elif producto is None:
+            raise serializers.ValidationError({
+                'producto_id': 'VIEW y CLICK requieren un producto.'
+            })
+
+        attrs['termino_busqueda'] = termino
+        return attrs
+
+    def create(self, validated_data):
+        return registrar_interaccion(
+            cliente=self.context['request'].user,
+            tienda=validated_data['tienda'],
+            producto=validated_data.get('producto'),
+            tipo_evento=validated_data['tipo_interaccion'],
+            termino_busqueda=validated_data.get('termino_busqueda', ''),
+        )
+
+
+class InteraccionRegistradaSerializer(serializers.ModelSerializer):
+    tipo_interaccion = serializers.CharField(source='tipo_evento')
+
+    class Meta:
+        model = EventoUsuario
+        fields = [
+            'id',
+            'tienda_id',
+            'producto_id',
+            'tipo_interaccion',
+            'termino_busqueda',
+            'fecha',
+        ]

@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 import stripe
 from django.conf import settings
@@ -8,11 +8,14 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.catalogo.models import Producto
+from apps.usuarios.permissions import IsClienteUser
 from . import estados
-from .models import Carrito, ItemCarrito, MetodoPago, Pago, Pedido, ItemPedido
+from .models import Carrito, HistorialEstadoPedido, ItemCarrito, ItemPedido, MetodoPago, Pago, Pedido, Resena
 from .presentacion import envio_a_dict, historial_a_dict, item_a_dict
 from .serializers import (
     AgregarItemCarritoSerializer,
+    CrearResenaSerializer,
     ItemCarritoCreadoSerializer,
     ItemCarritoDetalleSerializer,
     CarritoDetalleSerializer,
@@ -20,6 +23,7 @@ from .serializers import (
 
 NOMBRE_METODO_STRIPE = 'Tarjeta (Stripe)'
 NOMBRE_METODO_EFECTIVO = 'Efectivo'
+NOMBRE_METODO_QR = 'QR'
 
 
 def _total_carrito_bs(carritos):
@@ -31,10 +35,26 @@ def _total_carrito_bs(carritos):
     return total
 
 
+def _tasa_usd_bob():
+    tasa = Decimal(str(getattr(settings, 'STRIPE_USD_BOB_RATE', 0) or 0))
+    return tasa if tasa > 0 else Decimal('6.96')
+
+
+def _monto_usd(total_bs):
+    """Monto en USD (2 decimales, redondeo comercial) según STRIPE_USD_BOB_RATE."""
+    return (total_bs / _tasa_usd_bob()).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
 def _usd_centavos(total_bs):
     """Convierte un monto en Bs a centavos de USD según STRIPE_USD_BOB_RATE."""
-    tasa = Decimal(str(settings.STRIPE_USD_BOB_RATE))
-    return round((total_bs / tasa) * 100)
+    return int(_monto_usd(total_bs) * 100)
+
+
+def _stripe_no_configurado():
+    return Response(
+        {'error': 'La pasarela de pago Stripe no está configurada en el servidor.'},
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
 
 
 def _faltantes_de_stock(carritos):
@@ -82,6 +102,20 @@ class AgregarItemCarritoView(APIView):
         serializer = AgregarItemCarritoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         item = serializer.save(cliente=request.user)
+
+        try:
+            from apps.ia.models import EventoUsuario
+            from apps.ia.services import registrar_interaccion
+
+            registrar_interaccion(
+                cliente=request.user,
+                tienda=item.tienda,
+                producto=item.variante.producto,
+                tipo_evento=EventoUsuario.TipoEvento.CART,
+            )
+        except Exception:
+            pass
+
         response_serializer = ItemCarritoCreadoSerializer(item)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -150,6 +184,9 @@ class IniciarPagoStripeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        if not settings.STRIPE_SECRET_KEY:
+            return _stripe_no_configurado()
+
         carritos = Carrito.objects.filter(
             cliente=request.user
         ).prefetch_related('items__variante__producto')
@@ -168,7 +205,8 @@ class IniciarPagoStripeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        monto_usd_centavos = _usd_centavos(total_bs)
+        monto_usd = _monto_usd(total_bs)
+        monto_usd_centavos = int(monto_usd * 100)
 
         stripe.api_key = settings.STRIPE_SECRET_KEY
         try:
@@ -197,7 +235,7 @@ class IniciarPagoStripeView(APIView):
                 'payment_intent_id': intent.id,
                 'publishable_key': settings.STRIPE_PUBLISHABLE_KEY,
                 'monto_bs': str(total_bs),
-                'monto_usd': f'{monto_usd_centavos / 100:.2f}',
+                'monto_usd': str(monto_usd),
             },
             status=status.HTTP_200_OK,
         )
@@ -231,7 +269,7 @@ class CheckoutView(APIView):
             )
 
         metodo_pago_valor = str(request.data.get('metodo_pago') or NOMBRE_METODO_EFECTIVO).strip()
-        es_stripe = metodo_pago_valor.lower() == 'stripe'
+        es_stripe = metodo_pago_valor.lower() in ('stripe', 'tarjeta', NOMBRE_METODO_STRIPE.lower())
         payment_intent_id = str(request.data.get('payment_intent_id') or '').strip()
 
         if es_stripe:
@@ -240,6 +278,9 @@ class CheckoutView(APIView):
                     {'error': 'Falta el identificador del pago con tarjeta.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+            if not settings.STRIPE_SECRET_KEY:
+                return _stripe_no_configurado()
 
             stripe.api_key = settings.STRIPE_SECRET_KEY
             try:
@@ -252,7 +293,7 @@ class CheckoutView(APIView):
 
             if intent.status != 'succeeded':
                 return Response(
-                    {'error': 'El pago con tarjeta todavía no se completó.'},
+                    {'error': f'El pago con tarjeta todavía no se completó (estado actual: {intent.status}).'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -291,7 +332,7 @@ class CheckoutView(APIView):
 
             metodo_pago_nombre = NOMBRE_METODO_STRIPE
         elif metodo_pago_valor.lower() == 'qr':
-            metodo_pago_nombre = 'QR'
+            metodo_pago_nombre = NOMBRE_METODO_QR
         elif metodo_pago_valor.lower() in ('efectivo', ''):
             metodo_pago_nombre = NOMBRE_METODO_EFECTIVO
         else:
@@ -423,9 +464,11 @@ class MisPedidosView(APIView):
             pago = min(p.pagos.all(), key=lambda x: x.id, default=None)
             data.append({
                 'id': p.id,
+                'tienda_id': p.tienda_id,
                 'tienda_nombre': p.tienda.nombre if p.tienda else 'Tienda',
                 'estado': estados.normalizar(p.estado_actual),
                 'estado_etiqueta': estados.etiqueta(p.estado_actual),
+                'subtotal': str(p.subtotal),
                 'total': str(p.total),
                 'metodo_pago': pago.metodo_pago.nombre if pago else '',
                 'fecha': p.fecha.isoformat() if p.fecha else None,
@@ -437,3 +480,138 @@ class MisPedidosView(APIView):
                 'envio': envio_a_dict(envio),
             })
         return Response({'pedidos': data}, status=status.HTTP_200_OK)
+
+
+def _pedido_cliente(request, pedido_id):
+    return get_object_or_404(
+        Pedido.objects.select_related('tienda').prefetch_related(
+            'items__variante__producto', 'historial_estados'
+        ),
+        pk=pedido_id,
+        cliente=request.user,
+    )
+
+
+def _serializar_item_pedido(item):
+    producto = item.variante.producto if item.variante_id else None
+    return {
+        'id': item.id,
+        'producto_id': producto.id if producto else None,
+        'producto_nombre': producto.nombre if producto else 'Producto',
+        'variante_nombre': item.variante.nombre if item.variante_id else 'Unica',
+        'cantidad': item.cantidad,
+        'precio_unitario': str(item.precio_unitario),
+        'subtotal': f'{item.cantidad * item.precio_unitario:.2f}',
+    }
+
+
+def _serializar_resena(resena):
+    es_producto = resena.producto_id is not None
+    return {
+        'id': resena.id,
+        'tipo': 'producto' if es_producto else 'tienda',
+        'producto_id': resena.producto_id,
+        'producto_nombre': resena.producto.nombre if es_producto else None,
+        'tienda_id': resena.tienda_id,
+        'tienda_nombre': resena.tienda.nombre,
+        'calificacion': resena.calificacion,
+        'comentario': resena.comentario,
+        'fecha': resena.fecha.isoformat() if resena.fecha else None,
+    }
+
+
+class PedidoDetalleView(APIView):
+    """GET /api/pedidos/mis-pedidos/<id>/ — Detalle y trazabilidad del pedido propio."""
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+
+    def get(self, request, pedido_id):
+        pedido = _pedido_cliente(request, pedido_id)
+        historial = HistorialEstadoPedido.objects.filter(pedido=pedido).order_by('fecha', 'pk')
+        resenas = Resena.objects.filter(cliente=request.user, tienda=pedido.tienda).filter(
+            producto__in=[item.variante.producto_id for item in pedido.items.all()]
+        )
+        resena_tienda = Resena.objects.filter(
+            cliente=request.user, tienda=pedido.tienda, producto__isnull=True
+        )
+
+        return Response({
+            'id': pedido.id,
+            'tienda_id': pedido.tienda_id,
+            'tienda_nombre': pedido.tienda.nombre,
+            'estado': pedido.estado_actual,
+            'subtotal': str(pedido.subtotal),
+            'total': str(pedido.total),
+            'fecha': pedido.fecha.isoformat() if pedido.fecha else None,
+            'items': [_serializar_item_pedido(item) for item in pedido.items.all()],
+            'historial': [{
+                'estado': entrada.estado,
+                'fecha': entrada.fecha.isoformat() if entrada.fecha else None,
+                'observacion': entrada.observacion,
+            } for entrada in historial],
+            'resenas': [_serializar_resena(resena) for resena in resenas.select_related('producto', 'tienda')]
+                + [_serializar_resena(resena) for resena in resena_tienda.select_related('tienda')],
+        }, status=status.HTTP_200_OK)
+
+
+class ResenasPedidoView(APIView):
+    """GET/POST /api/pedidos/mis-pedidos/<id>/resenas/ — Consultar y registrar reseñas."""
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    estados_calificables = {'completado', 'completada', 'entregado', 'finalizado', 'completed'}
+
+    def get(self, request, pedido_id):
+        pedido = _pedido_cliente(request, pedido_id)
+        productos_ids = pedido.items.values_list('variante__producto_id', flat=True)
+        producto_resenas = Resena.objects.filter(
+            cliente=request.user, tienda=pedido.tienda, producto_id__in=productos_ids
+        ).select_related('producto', 'tienda')
+        tienda_resena = Resena.objects.filter(
+            cliente=request.user, tienda=pedido.tienda, producto__isnull=True
+        ).select_related('tienda')
+        return Response(
+            [_serializar_resena(resena) for resena in producto_resenas]
+            + [_serializar_resena(resena) for resena in tienda_resena],
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request, pedido_id):
+        pedido = _pedido_cliente(request, pedido_id)
+        if pedido.estado_actual.strip().lower() not in self.estados_calificables:
+            return Response(
+                {'error': 'Solo se pueden calificar pedidos completados o entregados.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = CrearResenaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        values = serializer.validated_data
+        producto = None
+        if values['tipo'] == 'producto':
+            get_object_or_404(
+                ItemPedido,
+                pedido=pedido,
+                variante__producto_id=values['producto_id'],
+            )
+            producto = get_object_or_404(Producto, pk=values['producto_id'])
+
+        lookup = {
+            'cliente': request.user,
+            'tienda': pedido.tienda,
+            'producto': producto,
+        }
+        resena = Resena.objects.filter(**lookup).first()
+        created = resena is None
+        if created:
+            resena = Resena.objects.create(
+                **lookup,
+                calificacion=values['calificacion'],
+                comentario=values['comentario'],
+            )
+        else:
+            resena.calificacion = values['calificacion']
+            resena.comentario = values['comentario']
+            resena.save(update_fields=['calificacion', 'comentario'])
+
+        return Response(
+            _serializar_resena(resena),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )

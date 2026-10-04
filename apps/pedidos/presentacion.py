@@ -35,6 +35,7 @@ def historial_a_dict(historial):
         'estado': estados.normalizar(historial.estado),
         'estado_etiqueta': estados.etiqueta(historial.estado),
         'fecha': historial.fecha.isoformat() if historial.fecha else None,
+        'observacion': historial.observacion,
     }
 
 

@@ -143,7 +143,7 @@ CATEGORY_IMAGES = {
     ],
 }
 
-DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80'
+DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80'
 
 
 def update_images():

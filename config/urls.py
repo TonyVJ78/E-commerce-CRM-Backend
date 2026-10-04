@@ -21,14 +21,13 @@ api_patterns = [
     path('auditoria/', include('apps.usuarios.urls_auditoria')),
     path('', include('apps.usuarios.urls_accesos')),
     path('tiendas/', include('apps.tiendas.urls')),
-    # Gestion de catalogo por tienda (CU-08/CU-09): categorias y productos de la empresa
-    path('tiendas/', include('apps.catalogo.urls')),
     # Gestion de pedidos recibidos por tienda (CU-22)
     path('tiendas/', include('apps.pedidos.urls_empresa')),
     path('catalogo/', include('apps.catalogo.urls_cliente')),
     path('pedidos/', include('apps.pedidos.urls')),
-    # Chatbot de recomendaciones con Claude
+    # Chatbot de recomendaciones (Claude) y recomendaciones personalizadas (CU-14)
     path('ia/', include('apps.ia.urls')),
+    path('recomendaciones/', include('apps.ia.urls')),
 ]
 
 urlpatterns = [

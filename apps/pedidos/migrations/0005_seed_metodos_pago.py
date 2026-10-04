@@ -20,7 +20,7 @@ def eliminar_metodos_pago(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('pedidos', '0003_triggers_negocio_kantu'),
+        ('pedidos', '0004_observacion_historial_y_resena_tienda'),
     ]
 
     operations = [

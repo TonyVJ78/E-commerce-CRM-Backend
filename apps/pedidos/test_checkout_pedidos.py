@@ -8,6 +8,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest import mock
 
+from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from apps.catalogo.models import Producto, Variante
@@ -29,6 +30,7 @@ def intento(centavos, cliente_id, status='succeeded', pi_id='pi_test_1'):
     )
 
 
+@override_settings(STRIPE_SECRET_KEY='sk_test_dummy', STRIPE_USD_BOB_RATE=10.99)
 class BaseCompra(APITestCase):
     def setUp(self):
         rol_cliente = Rol.objects.get_or_create(nombre='cliente')[0]
