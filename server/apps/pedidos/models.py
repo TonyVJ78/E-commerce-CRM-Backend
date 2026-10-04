@@ -141,6 +141,7 @@ class HistorialEstadoPedido(models.Model):
         related_name='historial_estados',
     )
     estado = models.CharField(max_length=30)
+    observacion = models.TextField(null=True, blank=True)
     fecha = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -258,6 +259,8 @@ class Resena(models.Model):
         'catalogo.Producto',
         on_delete=models.CASCADE,
         related_name='resenas',
+        null=True,
+        blank=True,
     )
     calificacion = models.SmallIntegerField()
     comentario = models.TextField(blank=True, default='')
@@ -270,4 +273,5 @@ class Resena(models.Model):
         ordering = ['-fecha']
 
     def __str__(self):
-        return f'★{self.calificacion}/5 por {self.cliente.email} en {self.producto.nombre}'
+        objetivo = self.producto.nombre if self.producto_id else self.tienda.nombre
+        return f'★{self.calificacion}/5 por {self.cliente.email} en {objetivo}'
