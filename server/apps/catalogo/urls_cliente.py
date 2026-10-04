@@ -8,7 +8,13 @@ from . import views
 urlpatterns = [
     path('tiendas/', views.TiendaCatalogoListView.as_view(), name='catalogo_tiendas'),
     path('productos/', views.ProductoCatalogoGeneralListView.as_view(), name='catalogo_productos_general'),
+    path(
+        'productos/<int:pk>/',
+        views.ProductoCatalogoDetailView.as_view(),
+        name='catalogo_producto_detalle',
+    ),
     path('categorias/', views.CategoriaCatalogoListView.as_view(), name='catalogo_categorias'),
+
     path(
         'tiendas/<int:tienda_id>/productos/',
         views.ProductoTiendaListView.as_view(),

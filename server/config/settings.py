@@ -160,7 +160,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_THROTTLE_RATES': {
+        'chatbot': env('CHATBOT_THROTTLE_RATE', default='20/min'),
+    },
 }
+
 
 # =============================================================================
 # SIMPLE JWT
@@ -227,4 +231,12 @@ STRIPE_USD_BOB_RATE = env.float('STRIPE_USD_BOB_RATE', default=6.96)
 OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-6-luna')
 AI_RECOMMENDATIONS_ENABLED = env.bool('AI_RECOMMENDATIONS_ENABLED', default=False)
+
+# =============================================================================
+# ANTHROPIC / CHATBOT IA CONVERSACIONAL (Claude Haiku 4.5)
+# =============================================================================
+ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')
+ANTHROPIC_MODEL = env('ANTHROPIC_MODEL', default='claude-haiku-4-5')
+CHATBOT_MODEL = env('CHATBOT_MODEL', default=ANTHROPIC_MODEL)
+
 

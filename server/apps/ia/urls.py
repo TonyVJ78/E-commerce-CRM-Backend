@@ -2,11 +2,19 @@
 
 from django.urls import path
 
-from . import views
+from . import views, views_chatbot
 
 
 urlpatterns = [
+    # Chatbot Asistente IA (Claude Haiku 4.5)
+    path(
+        'chatbot/',
+        views_chatbot.ChatbotView.as_view(),
+        name='ia_chatbot',
+    ),
+
     # Telemetría de interacción (acepta tanto 'eventos' como 'interacciones')
+
     path(
         'eventos/',
         views.InteraccionProductoView.as_view(),
@@ -16,6 +24,11 @@ urlpatterns = [
         'interacciones/',
         views.InteraccionProductoView.as_view(),
         name='ia_interacciones',
+    ),
+    path(
+        'interacciones/compat/',
+        views.InteraccionProductoView.as_view(),
+        name='recomendaciones_interaccion',
     ),
 
     # Recomendaciones personalizadas

@@ -45,7 +45,7 @@ def _usd_centavos(total_bs: Decimal) -> int:
 class AgregarItemCarritoView(APIView):
     """POST /api/pedidos/carrito/items/ — Agregar una variante al carrito."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
 
     def post(self, request):
         serializer = AgregarItemCarritoSerializer(data=request.data)

@@ -132,6 +132,17 @@ class ProductoTiendaListView(generics.ListAPIView):
         )
 
 
+def _productos_publicos():
+    """Productos a la venta (activos, de tiendas activas) con variantes activas."""
+    variantes_activas = Variante.objects.filter(activa=True)
+    return Producto.objects.filter(
+        activo=True,
+        tienda__activa=True,
+    ).select_related('tienda', 'categoria').prefetch_related(
+        Prefetch('variantes', queryset=variantes_activas)
+    )
+
+
 class ProductoCatalogoGeneralListView(generics.ListAPIView):
     """GET /api/catalogo/productos/ — Catálogo general de todas las tiendas con filtros."""
 
@@ -139,13 +150,7 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        variantes_activas = Variante.objects.filter(activa=True)
-        queryset = Producto.objects.filter(
-            activo=True,
-            tienda__activa=True,
-        ).select_related('tienda', 'categoria').prefetch_related(
-            Prefetch('variantes', queryset=variantes_activas)
-        )
+        queryset = _productos_publicos()
 
         tienda_id = self.request.query_params.get('tienda')
         if tienda_id:
@@ -165,6 +170,21 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
             )
 
         return queryset.order_by('-id')
+
+
+class ProductoCatalogoDetailView(generics.RetrieveAPIView):
+    """GET /api/catalogo/productos/<id>/ — Ficha pública de un producto.
+
+    La usa la pestaña de detalle del producto (p. ej. al abrir una
+    recomendación del chatbot). Solo muestra productos a la venta.
+    """
+
+    serializer_class = ProductoCatalogoSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return _productos_publicos()
+
 
 
 class CategoriaCatalogoListView(generics.ListAPIView):
