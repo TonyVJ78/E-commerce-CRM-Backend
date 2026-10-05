@@ -11,17 +11,20 @@ from apps.tiendas.models import Tienda
 from apps.usuarios.audit import ACCION_CREAR, registrar_auditoria
 from apps.usuarios.permissions import IsClienteUser, IsEmpresa
 
-from .models import Categoria, Producto, Variante
+from .models import Categoria, Producto, Variante, VarianteStockMovimiento
 from .serializers import (
     CategoriaSerializer,
     ProductoCatalogoSerializer,
     ProductoCreateSerializer,
     ProductoSerializer,
+    StockAdjustmentInputSerializer,
+    StockMovementSerializer,
     TiendaCatalogoSerializer,
 )
 from .services import (
     CloudinaryConfigurationError,
     CloudinaryUploadError,
+    adjust_variant_stock,
     create_product_with_images,
 )
 
@@ -87,6 +90,41 @@ class ProductoListCreateView(OwnedStoreMixin, generics.ListCreateAPIView):
             datos_nuevos=output.data,
         )
         return Response(output.data, status=status.HTTP_201_CREATED)
+
+
+class VarianteStockMovementView(OwnedStoreMixin, generics.ListCreateAPIView):
+    """Ajuste manual y lectura del historial de una variante de tienda."""
+    serializer_class = StockMovementSerializer
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    def get_variante(self):
+        return get_object_or_404(
+            Variante.objects.select_related('producto'),
+            pk=self.kwargs['variante_id'],
+            producto__tienda=self.get_tienda(),
+        )
+
+    def get_queryset(self):
+        return VarianteStockMovimiento.objects.filter(
+            variante=self.get_variante(),
+        ).select_related('actor', 'variante').order_by('-created_at', '-id')
+
+    def create(self, request, *args, **kwargs):
+        variante = self.get_variante()
+        serializer = StockAdjustmentInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            movimiento = adjust_variant_stock(
+                variante_id=variante.pk,
+                actor=request.user,
+                **serializer.validated_data,
+            )
+        except ValidationError as exc:
+            return Response({'detail': exc.messages}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            StockMovementSerializer(movimiento).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ProductoDetailView(OwnedStoreMixin, generics.RetrieveUpdateDestroyAPIView):

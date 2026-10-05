@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from apps.tiendas.models import Tienda
 
-from .models import Categoria, Producto, Variante
+from .models import Categoria, Producto, Variante, VarianteStockMovimiento
 
 
 def _json_object_pairs(pairs):
@@ -137,6 +137,43 @@ class VarianteOutputSerializer(serializers.ModelSerializer):
         ]
 
 
+class StockAdjustmentInputSerializer(serializers.Serializer):
+    delta = serializers.IntegerField(min_value=-2_147_483_648, max_value=2_147_483_647)
+    reason = serializers.CharField(max_length=255, trim_whitespace=True, allow_blank=False)
+
+    def to_internal_value(self, data):
+        if not hasattr(data, 'get'):
+            raise serializers.ValidationError({
+                'non_field_errors': 'Se esperaba un objeto JSON.'
+            })
+        delta = data.get('delta')
+        if type(delta) is not int:
+            raise serializers.ValidationError({
+                'delta': 'Debe ser un entero JSON, no una cadena ni un número decimal.'
+            })
+        return super().to_internal_value(data)
+
+    def validate_delta(self, value):
+        if value == 0:
+            raise serializers.ValidationError('El delta no puede ser cero.')
+        return value
+
+    def validate_reason(self, value):
+        if not value:
+            raise serializers.ValidationError('La razón es obligatoria.')
+        return value
+
+
+class StockMovementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VarianteStockMovimiento
+        fields = [
+            'id', 'variante', 'previous_stock', 'delta', 'resulting_stock',
+            'actor', 'reason', 'created_at',
+        ]
+        read_only_fields = fields
+
+
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categoria
@@ -194,9 +231,15 @@ class ProductoSerializer(serializers.ModelSerializer):
             return str(first)
         return ''
 
+    def validate(self, attrs):
+        if 'stock' in self.initial_data:
+            raise serializers.ValidationError({
+                'stock': 'El stock solo puede cambiarse mediante un ajuste de variante.'
+            })
+        return attrs
+
     def update(self, instance, validated_data):
         precio = self.initial_data.get('precio')
-        stock = self.initial_data.get('stock')
         categoria_val = self.initial_data.get('categoria')
 
         if categoria_val:
@@ -215,13 +258,11 @@ class ProductoSerializer(serializers.ModelSerializer):
 
         instance = super().update(instance, validated_data)
 
-        if precio is not None or stock is not None:
+        if precio is not None:
             variante = instance.variantes.first()
             if variante:
                 if precio is not None:
                     variante.precio = precio
-                if stock is not None:
-                    variante.stock = stock
                 variante.save()
 
         return instance
