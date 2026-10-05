@@ -5,6 +5,11 @@ from . import views
 
 urlpatterns = [
     path(
+        '<int:tienda_id>/productos/<int:producto_id>/variantes/<int:variante_id>/inventario/',
+        views.VarianteInventarioView.as_view(),
+        name='variante-inventario',
+    ),
+    path(
         '<int:tienda_id>/categorias/',
         views.CategoriaListView.as_view(),
         name='categoria-list',

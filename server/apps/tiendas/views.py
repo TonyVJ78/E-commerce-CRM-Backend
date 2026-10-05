@@ -5,15 +5,11 @@ CU13: Gestión de identidad de marca (logo, color primario, slug).
 """
 
 import logging
-from datetime import timedelta
 
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import F, Sum
-from django.db.models.functions import TruncDate
 from django.http import Http404
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import APIException
@@ -21,14 +17,13 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.catalogo.models import Producto, Variante
 from apps.catalogo.services import CloudinaryConfigurationError, CloudinaryUploadError
-from apps.pedidos.models import ItemPedido, Pedido
 from apps.usuarios.audit import AuditoriaCreateMixin, AuditoriaUpdateMixin
 from apps.usuarios.permissions import IsEmpresaUser
 
 from .models import Tienda
-from .serializers import TiendaIdentidadSerializer, TiendaSerializer
+from .serializers import TiendaIdentidadSerializer, TiendaSerializer, PanelTiendaSerializer
+from .services import consultar_alertas_stock, consultar_panel_tienda, resolver_tienda_autorizada
 
 
 logger = logging.getLogger(__name__)
@@ -135,66 +130,22 @@ class SlugDisponibilidadView(ControlledErrorMixin, APIView):
 
 class DashboardVendedorView(APIView):
     """
-    GET /api/tiendas/dashboard/ — Obtener métricas y KPIs para el Panel del Vendedor (CU10).
+    CU-17/CU-18: resumen operativo de una tienda del propietario autenticado.
+    La ruta anterior acepta tienda_id; sin él solo resuelve una tienda única.
     """
     permission_classes = [permissions.IsAuthenticated, IsEmpresaUser]
 
-    def get(self, request):
-        user = request.user
+    def get(self, request, tienda_id=None):
+        tienda_id = tienda_id or request.query_params.get('tienda_id')
+        tienda = resolver_tienda_autorizada(request.user, tienda_id)
+        return Response(PanelTiendaSerializer(consultar_panel_tienda(tienda)).data)
 
-        # 1. Métricas de Productos
-        productos = Producto.objects.filter(tienda__propietario=user)
-        total_productos = productos.count()
-        productos_activos = productos.filter(activo=True).count()
 
-        # 2. Métricas de Pedidos
-        pedidos = Pedido.objects.filter(tienda__propietario=user)
-        total_pedidos = pedidos.count()
-        pedidos_pendientes = pedidos.filter(estado_actual='pendiente').count()
+class AlertaStockView(APIView):
+    """GET /api/tiendas/<tienda_id>/alertas-stock/ — Alertas vigentes, sin duplicados."""
+    permission_classes = [permissions.IsAuthenticated, IsEmpresaUser]
 
-        # 3. Ingresos (Suma de pedidos que no estén cancelados)
-        ingresos_totales = pedidos.exclude(estado_actual='cancelado').aggregate(
-            suma=Sum('total')
-        )['suma'] or 0.00
-
-        # 4. Variantes bajo stock (stock <= stock_minimo)
-        productos_bajo_stock = Variante.objects.filter(
-            producto__tienda__propietario=user,
-            activa=True,
-            stock__lte=F('stock_minimo')
-        ).count()
-
-        # 5. Ventas últimos 7 días optimizadas en una única consulta agrupada (sin N+1)
-        hoy = timezone.now().date()
-        inicio_semana = hoy - timedelta(days=6)
-
-        ventas_agrupadas = (
-            ItemPedido.objects.filter(
-                pedido__tienda__propietario=user,
-                pedido__fecha__date__gte=inicio_semana,
-                pedido__fecha__date__lte=hoy,
-            )
-            .exclude(pedido__estado_actual='cancelado')
-            .annotate(dia=TruncDate('pedido__fecha'))
-            .values('dia')
-            .annotate(total_vendidos=Sum('cantidad'))
-        )
-        ventas_por_dia = {item['dia']: item['total_vendidos'] or 0 for item in ventas_agrupadas}
-
-        ventas_semana = [
-            {
-                'fecha': (inicio_semana + timedelta(days=i)).strftime('%d/%m'),
-                'cantidad': ventas_por_dia.get(inicio_semana + timedelta(days=i), 0)
-            }
-            for i in range(7)
-        ]
-
-        return Response({
-            'total_productos': total_productos,
-            'productos_activos': productos_activos,
-            'total_pedidos': total_pedidos,
-            'pedidos_pendientes': pedidos_pendientes,
-            'ingresos_totales': float(ingresos_totales),
-            'productos_bajo_stock': productos_bajo_stock,
-            'ventas_semana': ventas_semana,
-        })
+    def get(self, request, tienda_id):
+        tienda = resolver_tienda_autorizada(request.user, tienda_id)
+        alertas = consultar_alertas_stock(tienda)
+        return Response({'tienda_id': tienda.id, 'cantidad': len(alertas), 'alertas_stock': alertas})

@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 
@@ -8,7 +8,8 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.tiendas.models import Tienda
-from apps.usuarios.audit import ACCION_CREAR, registrar_auditoria
+from apps.tiendas.services import resolver_tienda_autorizada
+from apps.usuarios.audit import ACCION_CREAR, AuditoriaUpdateMixin, registrar_auditoria
 from apps.usuarios.permissions import IsClienteUser, IsEmpresa
 
 from .models import Categoria, Producto, Variante
@@ -18,6 +19,7 @@ from .serializers import (
     ProductoCreateSerializer,
     ProductoSerializer,
     TiendaCatalogoSerializer,
+    VarianteInventarioSerializer,
 )
 from .services import (
     CloudinaryConfigurationError,
@@ -30,11 +32,7 @@ class OwnedStoreMixin:
     permission_classes = [permissions.IsAuthenticated, IsEmpresa]
 
     def get_tienda(self):
-        return get_object_or_404(
-            Tienda,
-            pk=self.kwargs['tienda_id'],
-            propietario=self.request.user,
-        )
+        return resolver_tienda_autorizada(self.request.user, self.kwargs['tienda_id'])
 
 
 class CategoriaListView(OwnedStoreMixin, generics.ListAPIView):
@@ -102,6 +100,35 @@ class ProductoDetailView(OwnedStoreMixin, generics.RetrieveUpdateDestroyAPIView)
         """Borrado lógico (soft-delete) para mantener integridad con pedidos históricos."""
         instance.activo = False
         instance.save(update_fields=['activo'])
+
+
+class VarianteInventarioView(OwnedStoreMixin, AuditoriaUpdateMixin, generics.RetrieveUpdateAPIView):
+    """Ajuste manual auditado; descuentos de ventas siguen a cargo de PostgreSQL."""
+    serializer_class = VarianteInventarioSerializer
+    lookup_url_kwarg = 'variante_id'
+    http_method_names = ['get', 'patch', 'head', 'options']
+    audit_tabla = 'variante'
+
+    def get_queryset(self):
+        queryset = Variante.objects.filter(
+            producto__tienda=self.get_tienda(),
+            producto_id=self.kwargs['producto_id'],
+        )
+        return queryset.select_for_update() if self.request.method == 'PATCH' else queryset
+
+    @transaction.atomic
+    def patch(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        expected = serializer.validated_data.get('stock_esperado')
+        if 'stock' in serializer.validated_data and expected != instance.stock:
+            return Response(
+                {'detail': 'El stock cambió desde la consulta. Actualiza el inventario antes de guardar.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 
 # =========================================================================

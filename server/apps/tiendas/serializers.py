@@ -16,6 +16,41 @@ COLOR_HEX_ERROR = 'El color debe tener el formato hexadecimal #RRGGBB.'
 SLUG_IN_USE_ERROR = 'Este slug ya está en uso.'
 
 
+class AlertaStockSerializer(serializers.Serializer):
+    producto_id = serializers.IntegerField()
+    producto_nombre = serializers.CharField()
+    variante_id = serializers.IntegerField()
+    variante_nombre = serializers.CharField()
+    sku = serializers.CharField()
+    stock = serializers.IntegerField()
+    stock_minimo = serializers.IntegerField()
+
+
+class VentaDiaSerializer(serializers.Serializer):
+    fecha = serializers.DateField()
+    cantidad = serializers.IntegerField()
+
+
+class TiendaPanelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tienda
+        fields = ['id', 'nombre', 'slug', 'descripcion', 'logo_url', 'color_primario', 'activa']
+
+
+class PanelTiendaSerializer(serializers.Serializer):
+    tienda = TiendaPanelSerializer()
+    tienda_id = serializers.IntegerField()
+    tienda_nombre = serializers.CharField()
+    total_productos = serializers.IntegerField()
+    productos_activos = serializers.IntegerField()
+    total_pedidos = serializers.IntegerField()
+    pedidos_pendientes = serializers.IntegerField()
+    ingresos_totales = serializers.DecimalField(max_digits=20, decimal_places=2)
+    productos_bajo_stock = serializers.IntegerField()
+    alertas_stock = AlertaStockSerializer(many=True)
+    ventas_semana = VentaDiaSerializer(many=True)
+
+
 def normalize_store_slug(value):
     """Normaliza un slug con la misma regla usada por ``Tienda.save``."""
     normalized = slugify(value or '')

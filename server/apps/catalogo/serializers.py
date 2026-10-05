@@ -143,6 +143,31 @@ class CategoriaSerializer(serializers.ModelSerializer):
         fields = ['id', 'nombre', 'categoria_padre']
 
 
+class VarianteInventarioSerializer(serializers.ModelSerializer):
+    """Edición explícita de una variante; nunca de un stock agregado de producto."""
+    stock = serializers.IntegerField(min_value=0, required=False)
+    stock_minimo = serializers.IntegerField(min_value=0, required=False)
+    stock_esperado = serializers.IntegerField(min_value=0, write_only=True, required=False)
+
+    class Meta:
+        model = Variante
+        fields = ['id', 'producto', 'nombre', 'sku', 'stock', 'stock_minimo', 'activa', 'stock_esperado']
+        read_only_fields = ['id', 'producto', 'nombre', 'sku', 'activa']
+
+    def validate(self, attrs):
+        if 'stock' in attrs and 'stock_esperado' not in attrs:
+            raise serializers.ValidationError({'stock_esperado': 'Confirma el stock consultado antes de ajustarlo.'})
+        return attrs
+
+    def update(self, instance, validated_data):
+        validated_data.pop('stock_esperado', None)
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        if validated_data:
+            instance.save(update_fields=list(validated_data))
+        return instance
+
+
 class ProductoSerializer(serializers.ModelSerializer):
     categoria_id = serializers.PrimaryKeyRelatedField(
         queryset=Categoria.objects.all(),
@@ -198,6 +223,9 @@ class ProductoSerializer(serializers.ModelSerializer):
         precio = self.initial_data.get('precio')
         stock = self.initial_data.get('stock')
         categoria_val = self.initial_data.get('categoria')
+
+        if stock is not None and instance.variantes.count() > 1:
+            raise serializers.ValidationError({'stock': 'Modifica el inventario por variante, no el stock total del producto.'})
 
         if categoria_val:
             if isinstance(categoria_val, int):
