@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.text import slugify
 
-from .models import Producto, Variante
+from .models import Producto, Variante, VarianteStockMovimiento
 
 
 ALLOWED_IMAGE_TYPES = {
@@ -12,6 +12,33 @@ ALLOWED_IMAGE_TYPES = {
     'image/webp': b'webp',
 }
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+
+class InsufficientStockError(ValidationError):
+    """El ajuste solicitado reduciria el stock por debajo de cero."""
+
+
+def adjust_variant_stock(*, variante_id, actor, delta, reason):
+    """Actualiza stock y auditoría en una única transacción protegida por fila."""
+    with transaction.atomic():
+        variante = Variante.objects.select_for_update().get(pk=variante_id)
+        resulting_stock = variante.stock + delta
+        if resulting_stock < 0:
+            raise InsufficientStockError('El ajuste no puede dejar stock negativo.')
+        if resulting_stock > 2_147_483_647:
+            raise ValidationError('El stock resultante excede el límite permitido.')
+
+        previous_stock = variante.stock
+        variante.stock = resulting_stock
+        variante.save(update_fields=['stock'])
+        return VarianteStockMovimiento.objects.create(
+            variante=variante,
+            previous_stock=previous_stock,
+            delta=delta,
+            resulting_stock=resulting_stock,
+            actor=actor,
+            reason=reason,
+        )
 
 
 class CloudinaryConfigurationError(RuntimeError):
