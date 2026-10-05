@@ -12,6 +12,22 @@ import {
 
 export type { Categoria, Producto, VarianteProducto, CrearProductoPayload, CrearVariantePayload };
 
+export interface MovimientoStock {
+  id: number;
+  variante: number;
+  previous_stock: number;
+  delta: number;
+  resulting_stock: number;
+  actor: number | string | null;
+  reason: string;
+  created_at: string;
+}
+
+export interface AjusteStockPayload {
+  delta: number;
+  reason: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -19,6 +35,14 @@ export class ProductoService {
   private readonly apiUrl = `${environment.apiUrl}/tiendas`;
 
   constructor(private readonly http: HttpClient) {}
+
+  listarMovimientosStock(tiendaId: number, varianteId: number): Observable<MovimientoStock[]> {
+    return this.http.get<MovimientoStock[]>(`${this.apiUrl}/${tiendaId}/variantes/${varianteId}/stock/`);
+  }
+
+  ajustarStock(tiendaId: number, varianteId: number, data: AjusteStockPayload): Observable<MovimientoStock> {
+    return this.http.post<MovimientoStock>(`${this.apiUrl}/${tiendaId}/variantes/${varianteId}/stock/`, data);
+  }
 
   listarCategorias(tiendaId: number): Observable<Categoria[]> {
     return this.http.get<Categoria[]>(`${this.apiUrl}/${tiendaId}/categorias/`);

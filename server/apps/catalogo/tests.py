@@ -12,7 +12,7 @@ from apps.tiendas.models import Tienda
 from apps.usuarios.models import Rol, Usuario
 
 from .models import Categoria, Producto, Variante
-from .services import create_product_with_images
+from .services import adjust_variant_stock, create_product_with_images
 
 
 class ProductoApiTests(APITestCase):
@@ -269,6 +269,180 @@ class ProductoApiTests(APITestCase):
 
         self.assertEqual(Producto.objects.count(), total_productos_antes)
         self.assertEqual(Variante.objects.count(), total_variantes_antes)
+
+    def _stock_variant(self, stock=10, tienda=None):
+        producto = Producto.objects.create(
+            tienda=tienda or self.tienda,
+            nombre=f'Producto stock {Variante.objects.count()}',
+            slug=f'producto-stock-{Variante.objects.count()}',
+        )
+        return Variante.objects.create(
+            producto=producto,
+            nombre='Talla única',
+            sku=f'STOCK-{Variante.objects.count()}',
+            precio=Decimal('12.00'),
+            stock=stock,
+        )
+
+    def _stock_url(self, variante, tienda=None):
+        return reverse(
+            'variante-stock-ajustes',
+            kwargs={'tienda_id': (tienda or self.tienda).id, 'variante_id': variante.id},
+        )
+
+    def test_ajuste_stock_suma_y_resta_deja_historial_completo(self):
+        variante = self._stock_variant(stock=10)
+        self._auth()
+
+        response = self.client.post(
+            self._stock_url(variante), {'delta': 5, 'reason': '  Recepción  '}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['previous_stock'], 10)
+        self.assertEqual(response.data['delta'], 5)
+        self.assertEqual(response.data['resulting_stock'], 15)
+        self.assertEqual(response.data['reason'], 'Recepción')
+        self.assertEqual(response.data['actor'], self.empresa.id)
+        self.assertIn('created_at', response.data)
+
+        response = self.client.post(
+            self._stock_url(variante), {'delta': -3, 'reason': 'Venta corregida'}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['previous_stock'], 15)
+        self.assertEqual(response.data['resulting_stock'], 12)
+        self.assertEqual(variante.stock_movimientos.count(), 2)
+
+    def test_ajuste_stock_rechaza_delta_y_razon_invalidos(self):
+        variante = self._stock_variant()
+        self._auth()
+        url = self._stock_url(variante)
+        for payload in (
+            [],
+            'scalar',
+            7,
+            None,
+            {'delta': 0, 'reason': 'Motivo'},
+            {'delta': '1', 'reason': 'Motivo'},
+            {'delta': '1.5', 'reason': 'Motivo'},
+            {'delta': 1.0, 'reason': 'Motivo'},
+            {'delta': 1.5, 'reason': 'Motivo'},
+            {'delta': True, 'reason': 'Motivo'},
+            {'delta': None, 'reason': 'Motivo'},
+            {'delta': 1, 'reason': '   '},
+            {'delta': 1, 'reason': 'x' * 256},
+            {'reason': 'Motivo'},
+        ):
+            with self.subTest(payload=payload):
+                response = self.client.post(url, payload, format='json')
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        variante.refresh_from_db()
+        self.assertEqual(variante.stock, 10)
+        self.assertEqual(variante.stock_movimientos.count(), 0)
+
+    def test_ajuste_stock_impide_stock_negativo(self):
+        variante = self._stock_variant(stock=2)
+        self._auth()
+        response = self.client.post(
+            self._stock_url(variante), {'delta': -3, 'reason': 'Corrección'}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        variante.refresh_from_db()
+        self.assertEqual(variante.stock, 2)
+        self.assertEqual(variante.stock_movimientos.count(), 0)
+
+    def test_ajuste_stock_exige_empresa_propietaria(self):
+        variante = self._stock_variant()
+        url = self._stock_url(variante)
+        self._auth(self.cliente)
+        self.assertEqual(
+            self.client.post(url, {'delta': 1, 'reason': 'Ajuste'}, format='json').status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+        self._auth(self.otra_empresa)
+        self.assertEqual(
+            self.client.post(url, {'delta': 1, 'reason': 'Ajuste'}, format='json').status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self._auth(self.empresa)
+        foreign_variant = self._stock_variant(tienda=self.otra_tienda)
+        self.assertEqual(
+            self.client.post(
+                self._stock_url(foreign_variant),
+                {'delta': 1, 'reason': 'Ajuste'}, format='json',
+            ).status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+    def test_falla_al_crear_movimiento_revierte_el_stock(self):
+        variante = self._stock_variant(stock=10)
+        with patch('apps.catalogo.services.VarianteStockMovimiento.objects.create', side_effect=IntegrityError):
+            with self.assertRaises(IntegrityError):
+                adjust_variant_stock(variante_id=variante.id, actor=self.empresa, delta=2, reason='Recepción')
+        variante.refresh_from_db()
+        self.assertEqual(variante.stock, 10)
+        self.assertEqual(variante.stock_movimientos.count(), 0)
+
+    def test_historial_es_solo_lectura_y_esta_limitado_a_tienda(self):
+        propia = self._stock_variant(stock=10)
+        ajena = self._stock_variant(tienda=self.otra_tienda)
+        self._auth()
+        own_url = self._stock_url(propia)
+        first_response = self.client.post(
+            own_url, {'delta': 1, 'reason': 'Recepción'}, format='json'
+        )
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        second_response = self.client.post(
+            own_url, {'delta': 2, 'reason': 'Ajuste adicional'}, format='json'
+        )
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+        for response, previous, delta, resulting, reason in (
+            (first_response, 10, 1, 11, 'Recepción'),
+            (second_response, 11, 2, 13, 'Ajuste adicional'),
+        ):
+            self.assertIn('id', response.data)
+            self.assertEqual(response.data['variante'], propia.id)
+            self.assertEqual(response.data['previous_stock'], previous)
+            self.assertEqual(response.data['delta'], delta)
+            self.assertEqual(response.data['resulting_stock'], resulting)
+            self.assertEqual(response.data['actor'], self.empresa.id)
+            self.assertEqual(response.data['reason'], reason)
+            self.assertIn('created_at', response.data)
+
+        response = self.client.get(own_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['id'], second_response.data['id'])
+        self.assertEqual(response.data[0]['previous_stock'], 11)
+        self.assertEqual(response.data[0]['delta'], 2)
+        self.assertEqual(response.data[0]['resulting_stock'], 13)
+        self.assertEqual(response.data[0]['actor'], self.empresa.id)
+        self.assertEqual(response.data[0]['reason'], 'Ajuste adicional')
+        self.assertIn('created_at', response.data[0])
+        self.assertEqual(response.data[1]['id'], first_response.data['id'])
+        self.assertEqual(response.data[1]['previous_stock'], 10)
+        self.assertEqual(response.data[1]['delta'], 1)
+        self.assertEqual(response.data[1]['resulting_stock'], 11)
+        self.assertEqual(response.data[1]['actor'], self.empresa.id)
+        self.assertEqual(response.data[1]['reason'], 'Recepción')
+        self.assertIn('created_at', response.data[1])
+        self.assertEqual(self.client.get(self._stock_url(ajena)).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.delete(own_url).status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_patch_producto_rechaza_stock_pero_permite_precio(self):
+        variante = self._stock_variant()
+        self._auth()
+        product_url = reverse(
+            'producto-detail', kwargs={'tienda_id': self.tienda.id, 'producto_id': variante.producto_id}
+        )
+        response = self.client.patch(product_url, {'stock': 99}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        variante.refresh_from_db()
+        self.assertEqual(variante.stock, 10)
+        response = self.client.patch(product_url, {'precio': '15.00'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        variante.refresh_from_db()
+        self.assertEqual(variante.precio, Decimal('15.00'))
 
 
 class CatalogoClienteAPITests(APITestCase):

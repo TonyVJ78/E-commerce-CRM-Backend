@@ -1125,3 +1125,16 @@
     padding: 0.85rem;
   }
 }
+
+/* Per-variant stock adjustment and audit history */
+.stock-dialog { max-width: 760px; }
+.stock-content { overflow-y: auto; }
+.stock-current { margin: 1rem 0; color: #334155; }
+.stock-error { color: #991b1b; font-weight: 600; }
+.stock-history { padding: .75rem 0; border-bottom: 1px solid #e2e8f0; }
+.stock-history p { margin: .2rem 0; }
+.stock-dialog .btn-modal-save:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 640px) {
+  .stock-dialog { max-height: 95vh; }
+  .stock-content .form-fields-grid { grid-template-columns: 1fr; }
+}
