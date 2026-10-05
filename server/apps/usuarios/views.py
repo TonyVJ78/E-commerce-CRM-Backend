@@ -24,6 +24,7 @@ from .audit import (
 )
 from .models import BitacoraAcceso
 from .serializers import (
+    CambiarPasswordSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
@@ -270,3 +271,28 @@ class PasswordResetConfirmView(APIView):
             {'mensaje': 'Contraseña restablecida exitosamente.'},
             status=status.HTTP_200_OK,
         )
+
+
+class CambiarPasswordView(APIView):
+    """POST /api/auth/cambiar-password/ — Cambio de contraseña autenticado (CU-05)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = CambiarPasswordSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        usuario = serializer.save()
+        registrar_auditoria(
+            request,
+            ACCION_ACTUALIZAR,
+            tabla=Usuario._meta.db_table,
+            registro_id=usuario.pk,
+            datos_nuevos={
+                'evento': 'cambio de contraseña autenticado',
+                'email': usuario.email,
+            },
+        )
+        return Response(
+            {'mensaje': 'Contraseña actualizada exitosamente.'},
+            status=status.HTTP_200_OK,
+        )
+
