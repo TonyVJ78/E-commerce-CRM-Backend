@@ -15,6 +15,11 @@ urlpatterns = [
         name='producto-list-create',
     ),
     path(
+        '<int:tienda_id>/variantes/<int:variante_id>/stock/',
+        views.VarianteStockMovementView.as_view(),
+        name='variante-stock-ajustes',
+    ),
+    path(
         '<int:tienda_id>/productos/<int:producto_id>/',
         views.ProductoDetailView.as_view(),
         name='producto-detail',

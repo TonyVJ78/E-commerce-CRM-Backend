@@ -3,6 +3,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import DatabaseError, transaction
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -246,6 +247,79 @@ class E2ETransaccionalCompletoTests(APITestCase):
     # =========================================================================
     # ESCENARIOS DE RESILIENCIA Y FALLBACK
     # =========================================================================
+    def _crear_pedido_item(self, variante, cantidad):
+        pedido = Pedido.objects.create(
+            cliente=self.cliente,
+            tienda=self.tienda_a,
+            subtotal=Decimal('0.00'),
+            total=Decimal('0.00'),
+        )
+        return pedido, ItemPedido.objects.create(
+            tienda=self.tienda_a,
+            pedido=pedido,
+            variante=variante,
+            cantidad=cantidad,
+            precio_unitario=Decimal('100.00'),
+        )
+
+    def test_actualizar_item_pedido_transfiere_stock_entre_variantes(self):
+        otra = Variante.objects.create(
+            producto=self.producto, nombre='Azul', sku='PON-ALP-AZU',
+            precio=Decimal('100.00'), stock=8, activa=True,
+        )
+        pedido, item = self._crear_pedido_item(self.variante, 2)
+        self.variante.refresh_from_db()
+        self.assertEqual(self.variante.stock, 8)
+
+        item.cantidad = 3
+        item.save(update_fields=['cantidad'])
+        self.variante.refresh_from_db()
+        self.assertEqual(self.variante.stock, 7)
+        item.cantidad = 1
+        item.save(update_fields=['cantidad'])
+        self.variante.refresh_from_db()
+        self.assertEqual(self.variante.stock, 9)
+
+        item.variante = otra
+        item.cantidad = 4
+        item.save(update_fields=['variante', 'cantidad'])
+        self.variante.refresh_from_db()
+        otra.refresh_from_db()
+        self.assertEqual(self.variante.stock, 10)
+        self.assertEqual(otra.stock, 4)
+
+    def test_eliminar_item_pedido_restaura_stock_de_variante(self):
+        pedido, item = self._crear_pedido_item(self.variante, 3)
+        self.variante.refresh_from_db()
+        self.assertEqual(self.variante.stock, 7)
+
+        item.delete()
+
+        self.variante.refresh_from_db()
+        self.assertEqual(self.variante.stock, 10)
+        self.assertFalse(ItemPedido.objects.filter(pk=item.pk).exists())
+        self.assertTrue(Pedido.objects.filter(pk=pedido.pk).exists())
+
+    def test_transferencia_sin_stock_revierte_item_y_ambos_stocks(self):
+        otra = Variante.objects.create(
+            producto=self.producto, nombre='Azul', sku='PON-ALP-AZU',
+            precio=Decimal('100.00'), stock=2, activa=True,
+        )
+        pedido, item = self._crear_pedido_item(self.variante, 3)
+        with self.assertRaises(DatabaseError):
+            with transaction.atomic():
+                item.variante = otra
+                item.cantidad = 4
+                item.save(update_fields=['variante', 'cantidad'])
+        item.refresh_from_db()
+        self.variante.refresh_from_db()
+        otra.refresh_from_db()
+        self.assertEqual(item.variante_id, self.variante.id)
+        self.assertEqual(item.cantidad, 3)
+        self.assertEqual(self.variante.stock, 7)
+        self.assertEqual(otra.stock, 2)
+        self.assertEqual(Pedido.objects.filter(pk=pedido.pk).count(), 1)
+
     def test_ia_fallback_silencioso_sin_romper_ux(self):
         """
         CU-14: Si el motor de IA falla o cae, el backend DEBE retornar [] con HTTP 200.

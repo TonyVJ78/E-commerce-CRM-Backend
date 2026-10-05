@@ -66,7 +66,7 @@
         <div class="modal-title-group">
           <div class="modal-chip">Edición de Producto</div>
           <h3>Modificar Producto</h3>
-          <p class="modal-sub">Actualiza los detalles, stock, precio e imagen para el catálogo público.</p>
+          <p class="modal-sub">Actualiza los detalles, precio e imagen para el catálogo público.</p>
         </div>
         <button type="button" class="btn-close-modal" (click)="cancelarEdicion()" aria-label="Cerrar modal">
           ✕
@@ -159,10 +159,6 @@
               </div>
             </div>
 
-            <div class="field-item">
-              <label class="field-label">Stock en Inventario <span class="required">*</span></label>
-              <input type="number" min="0" step="1" class="field-input" formControlName="stock" placeholder="0">
-            </div>
 
             <div class="field-item full-width">
               <label class="field-label">Categoría</label>
@@ -191,6 +187,27 @@
         </div>
       </form>
     </div>
+  </div>
+
+  <div *ngIf="productoInventario" class="modal-backdrop-custom" (click)="cerrarInventario()">
+    <section class="modal-dialog-custom stock-dialog" role="dialog" aria-modal="true" aria-labelledby="stock-dialog-title" (click)="$event.stopPropagation()">
+      <header class="modal-header-custom"><div class="modal-title-group"><div class="modal-chip">Control de inventario</div><h3 id="stock-dialog-title">Stock: {{ productoInventario.nombre }}</h3><p class="modal-sub">Los ajustes quedan registrados; las ventas siguen descontando unidades automáticamente.</p></div><button type="button" class="btn-close-modal" (click)="cerrarInventario()" [disabled]="guardandoStock" aria-label="Cerrar inventario">✕</button></header>
+      <div class="modal-body-content stock-content">
+        <label class="field-label" for="variantSelect">Variante</label>
+        <select id="variantSelect" class="field-input" [value]="varianteInventarioId ?? ''" [disabled]="guardandoStock" (change)="seleccionarVariante(+$any($event.target).value)"><option value="" disabled>Selecciona una variante</option><option *ngFor="let v of productoInventario.variantes" [value]="v.id">{{ v.nombre || v.sku }} — {{ v.sku }}</option></select>
+        <ng-container *ngIf="varianteInventario as variante">
+          <p class="stock-current">Stock actual: <strong>{{ variante.stock }}</strong></p>
+          <div class="form-fields-grid"><div class="field-item"><label class="field-label" for="stockDelta">Ajuste (entero con signo)</label><input id="stockDelta" class="field-input" type="number" step="1" [(ngModel)]="deltaStock" [ngModelOptions]="{standalone:true}" placeholder="Ej. 5 o -2"></div><div class="field-item"><label class="field-label" for="stockReason">Motivo (obligatorio, máximo 255)</label><input id="stockReason" class="field-input" maxlength="255" [(ngModel)]="motivoStock" [ngModelOptions]="{standalone:true}"></div></div>
+          <p>Stock resultante: <strong>{{ stockProyectado ?? '—' }}</strong></p>
+          <p *ngIf="stockProyectado !== null && stockProyectado < 0" class="stock-error" role="alert">El stock resultante no puede ser negativo.</p>
+          <p *ngIf="errorStock" class="stock-error" role="alert">{{ errorStock }}</p>
+          <button type="button" class="btn-modal-save" [disabled]="guardandoStock || !ajusteStockValido" (click)="guardarAjusteStock()">{{ guardandoStock ? 'Guardando...' : 'Registrar ajuste' }}</button>
+          <h4>Historial de movimientos</h4><p *ngIf="cargandoHistorial" aria-live="polite">Cargando historial...</p><p *ngIf="errorHistorial" class="stock-error" role="alert">{{ errorHistorial }}</p>
+          <p *ngIf="!cargandoHistorial && !errorHistorial && movimientosStock.length === 0">No hay movimientos registrados para esta variante.</p>
+          <div class="stock-history" *ngFor="let m of movimientosStock"><p><strong>{{ m.previous_stock }} → {{ m.resulting_stock }}</strong> ({{ m.delta > 0 ? '+' : '' }}{{ m.delta }})</p><p>{{ m.actor || 'Usuario' }} · {{ m.created_at | date:'short' }}</p><p>{{ m.reason }}</p></div>
+        </ng-container>
+      </div>
+    </section>
   </div>
 
   <!-- TABLA DE PRODUCTOS CON MINIATURA DE IMAGEN (CU09) -->
@@ -283,6 +300,7 @@
                   </svg>
                   <span>Editar</span>
                 </button>
+                <button type="button" class="btn-action-edit" (click)="abrirInventario(p)" [disabled]="guardandoStock" title="Gestionar inventario">Stock</button>
                 <button type="button" class="btn-action-delete" (click)="eliminar(p)" title="Eliminar producto">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"></polyline>
