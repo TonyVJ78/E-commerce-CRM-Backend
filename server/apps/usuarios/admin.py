@@ -47,3 +47,27 @@ class LogAuditoriaAdmin(admin.ModelAdmin):
     list_filter = ['accion', 'tabla_afectada', 'fecha']
     search_fields = ['tabla_afectada', 'usuario__email']
 
+
+class RespaldoBaseDatos(Usuario):
+    """Proxy model sin tabla física para exponer la gestión de respaldos en el menú de Django Admin."""
+    class Meta:
+        proxy = True
+        verbose_name = 'Copia de Seguridad (Backup)'
+        verbose_name_plural = 'Copias de Seguridad (Backups)'
+
+
+@admin.register(RespaldoBaseDatos)
+class RespaldoBaseDatosAdmin(admin.ModelAdmin):
+    def changelist_view(self, request, extra_context=None):
+        from .admin_backup_views import admin_backups_dashboard_view
+        return admin_backups_dashboard_view(request)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+

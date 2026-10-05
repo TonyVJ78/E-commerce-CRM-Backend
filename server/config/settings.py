@@ -4,8 +4,22 @@ Sprint 0 — Configuración base.
 """
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
+
+# Compatibilidad Windows Smart App Control / UMCI para driver PostgreSQL (psycopg ctypes)
+if sys.platform == 'win32':
+    for _candidate in [
+        r'C:\Program Files\LibreOffice\program',
+        r'C:\Program Files\Sparx Systems\EA Trial\DatabaseDrivers\PostgreSQL',
+        r'C:\Program Files\PostgreSQL\17\bin',
+        r'C:\Program Files\PostgreSQL\16\bin',
+        r'C:\Program Files\PostgreSQL\15\bin',
+    ]:
+        if os.path.isdir(_candidate) and _candidate not in os.environ.get('PATH', ''):
+            os.environ['PATH'] = _candidate + os.pathsep + os.environ.get('PATH', '')
+    os.environ.setdefault('PSYCOPG_IMPL', 'python')
 
 import environ
 
@@ -96,6 +110,20 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # =============================================================================
 # DATABASE
 # =============================================================================
+# Opciones seguras para PostgreSQL / Neon Tech Cloud
+db_host = env('DB_HOST', default='db')
+endpoint_id = db_host.split('.')[0] if ('neon.tech' in db_host and db_host.startswith('ep-')) else ''
+
+db_options = {
+    'sslmode': env('DB_SSLMODE', default='require'),
+}
+if endpoint_id:
+    db_options['options'] = f'endpoint={endpoint_id}'
+
+db_cb = env('DB_CHANNEL_BINDING', default='')
+if db_cb and db_cb not in ('prefer', 'none', ''):
+    db_options['channel_binding'] = db_cb
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -106,10 +134,7 @@ DATABASES = {
         'PORT': env('DB_PORT', default='5432'),
         'CONN_MAX_AGE': 600,
         'CONN_HEALTH_CHECKS': True,
-        'OPTIONS': {
-            'sslmode': env('DB_SSLMODE', default='prefer'),
-            'channel_binding': env('DB_CHANNEL_BINDING', default='prefer'),
-        },
+        'OPTIONS': db_options,
     }
 }
 

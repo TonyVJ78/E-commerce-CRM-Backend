@@ -31,6 +31,12 @@ db.sqlite3-journal
 media/
 staticfiles/
 
+# Backups (Kantu Market DR)
+backups/*.sql.gz
+backups/*.dump
+backups/*.sql
+!backups/.gitkeep
+
 # Environment
 .env
 

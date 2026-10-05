@@ -18,6 +18,12 @@ db.sqlite3
 staticfiles/
 media/
 
+# Database Backups (Kantu Market DR)
+server/backups/*.sql.gz
+server/backups/*.dump
+server/backups/*.sql
+!server/backups/.gitkeep
+
 # Node / Angular
 node_modules/
 client/dist/
