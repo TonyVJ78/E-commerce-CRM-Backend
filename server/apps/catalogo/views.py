@@ -8,7 +8,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.tiendas.models import Tienda
-from apps.usuarios.audit import ACCION_CREAR, registrar_auditoria
+from apps.usuarios.audit import ACCION_ACTUALIZAR, ACCION_CREAR, registrar_auditoria
 from apps.usuarios.permissions import IsClienteUser, IsEmpresa
 
 from .models import Categoria, Producto, Variante, VarianteStockMovimiento
@@ -121,6 +121,25 @@ class VarianteStockMovementView(OwnedStoreMixin, generics.ListCreateAPIView):
             )
         except ValidationError as exc:
             return Response({'detail': exc.messages}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Registro en la bitácora central de auditoría del sistema (CU07 / HU-55)
+        registrar_auditoria(
+            request,
+            ACCION_ACTUALIZAR,
+            tabla='variante',
+            registro_id=variante.pk,
+            datos_previos={
+                'stock': movimiento.previous_stock,
+                'variante_sku': variante.sku,
+                'producto_id': variante.producto_id,
+            },
+            datos_nuevos={
+                'stock': movimiento.resulting_stock,
+                'delta': movimiento.delta,
+                'reason': movimiento.reason,
+            },
+        )
+
         return Response(
             StockMovementSerializer(movimiento).data,
             status=status.HTTP_201_CREATED,

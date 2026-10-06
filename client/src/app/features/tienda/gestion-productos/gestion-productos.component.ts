@@ -30,8 +30,17 @@ export class GestionProductosComponent implements OnInit, OnDestroy {
   categoriasDisponibles: string[] = [];
   productoInventario: Producto | null = null;
   varianteInventarioId: number | null = null;
+  modoAjuste: 'relativo' | 'absoluto' = 'relativo';
   deltaStock: number | null = null;
+  nuevoStockAbsoluto: number | null = null;
+  tipoAjuste: 'INGRESO' | 'SALIDA' | 'CORRECCION' = 'CORRECCION';
   motivoStock = '';
+  motivosFrecuentes = [
+    { label: 'Reposición / Compra', tipo: 'INGRESO' as const, motivo: 'Recepción de mercadería de proveedor' },
+    { label: 'Merma / Daño', tipo: 'SALIDA' as const, motivo: 'Producto dañado o defectuoso en almacén' },
+    { label: 'Conteo / Cuadre', tipo: 'CORRECCION' as const, motivo: 'Cuadre según inventario físico' },
+    { label: 'Devolución cliente', tipo: 'INGRESO' as const, motivo: 'Devolución de cliente reintegrada a inventario' }
+  ];
   movimientosStock: MovimientoStock[] = [];
   cargandoHistorial = false;
   guardandoStock = false;
@@ -313,7 +322,10 @@ export class GestionProductosComponent implements OnInit, OnDestroy {
     this.productoInventario = producto;
     this.varianteInventarioId = null;
     this.movimientosStock = [];
+    this.modoAjuste = 'relativo';
     this.deltaStock = null;
+    this.nuevoStockAbsoluto = null;
+    this.tipoAjuste = 'CORRECCION';
     this.motivoStock = '';
     this.errorStock = '';
     this.errorHistorial = '';
@@ -333,13 +345,51 @@ export class GestionProductosComponent implements OnInit, OnDestroy {
     return this.productoInventario?.variantes?.find(v => v.id === this.varianteInventarioId);
   }
 
+  get deltaCalculado(): number | null {
+    if (!this.varianteInventario) return null;
+    if (this.modoAjuste === 'relativo') {
+      const d = Number(this.deltaStock);
+      return Number.isInteger(d) ? d : null;
+    }
+    const abs = Number(this.nuevoStockAbsoluto);
+    return Number.isInteger(abs) && abs >= 0 ? abs - this.varianteInventario.stock : null;
+  }
+
   get ajusteStockValido(): boolean {
-    const delta = Number(this.deltaStock);
-    return !!this.varianteInventario && Number.isInteger(delta) && delta !== 0 && !!this.motivoStock.trim() && this.motivoStock.trim().length <= 255 && this.varianteInventario.stock + delta >= 0;
+    const delta = this.deltaCalculado;
+    const reason = this.motivoStock.trim();
+    return !!this.varianteInventario &&
+      delta !== null &&
+      delta !== 0 &&
+      !!reason &&
+      reason.length <= 255 &&
+      this.varianteInventario.stock + delta >= 0;
   }
 
   get stockProyectado(): number | null {
-    return this.varianteInventario && this.deltaStock !== null && Number.isInteger(this.deltaStock) ? this.varianteInventario.stock + this.deltaStock : null;
+    if (!this.varianteInventario) return null;
+    const delta = this.deltaCalculado;
+    return delta !== null ? this.varianteInventario.stock + delta : null;
+  }
+
+  get alertaStockBajoProyectado(): boolean {
+    if (!this.varianteInventario || this.stockProyectado === null) return false;
+    return this.stockProyectado <= (this.varianteInventario.stock_minimo || 5);
+  }
+
+  seleccionarMotivoFrecuente(mf: { tipo: 'INGRESO' | 'SALIDA' | 'CORRECCION', motivo: string }): void {
+    this.tipoAjuste = mf.tipo;
+    this.motivoStock = mf.motivo;
+  }
+
+  aplicarPasoDelta(paso: number): void {
+    if (this.modoAjuste === 'relativo') {
+      const actual = Number(this.deltaStock) || 0;
+      this.deltaStock = actual + paso;
+    } else if (this.varianteInventario) {
+      const actual = this.nuevoStockAbsoluto !== null ? Number(this.nuevoStockAbsoluto) : this.varianteInventario.stock;
+      this.nuevoStockAbsoluto = Math.max(0, actual + paso);
+    }
   }
 
   seleccionarVariante(id: number): void {
@@ -347,6 +397,9 @@ export class GestionProductosComponent implements OnInit, OnDestroy {
     this.varianteInventarioId = id;
     this.contextoInventario++;
     this.movimientosStock = [];
+    this.deltaStock = null;
+    const v = this.varianteInventario;
+    this.nuevoStockAbsoluto = v ? v.stock : null;
     this.errorHistorial = '';
     const request = ++this.historialRequest;
     const tienda = this.productoInventario.tienda || this.tiendaSeleccionadaId;
@@ -362,16 +415,20 @@ export class GestionProductosComponent implements OnInit, OnDestroy {
   guardarAjusteStock(): void {
     const variant = this.varianteInventario;
     const tienda = this.productoInventario?.tienda || this.tiendaSeleccionadaId;
-    const delta = Number(this.deltaStock);
+    const delta = this.deltaCalculado;
     const reason = this.motivoStock.trim();
     const product = this.productoInventario;
-    if (this.guardandoStock || !variant || !product || !tienda || !Number.isInteger(delta) || delta === 0 || !reason || reason.length > 255 || variant.stock + delta < 0) return;
+    if (this.guardandoStock || !variant || !product || !tienda || delta === null || delta === 0 || !reason || reason.length > 255 || variant.stock + delta < 0) return;
     const productId = product.id;
     const variantId = variant.id;
     const contextId = this.contextoInventario;
+    const payload = this.modoAjuste === 'absoluto' && this.nuevoStockAbsoluto !== null
+      ? { nuevo_stock: Number(this.nuevoStockAbsoluto), reason, tipo_ajuste: this.tipoAjuste }
+      : { delta, reason, tipo_ajuste: this.tipoAjuste };
+
     this.guardandoStock = true;
     this.errorStock = '';
-    this.productoService.ajustarStock(tienda, variant.id, { delta, reason }).subscribe({
+    this.productoService.ajustarStock(tienda, variant.id, payload).subscribe({
       next: () => {
         this.guardandoStock = false;
         this.productos = this.productos.map(item => {
@@ -383,6 +440,8 @@ export class GestionProductosComponent implements OnInit, OnDestroy {
         if (this.productoInventario?.id === productId) {
           this.productoInventario = { ...this.productoInventario, variantes: this.productoInventario.variantes?.map(v => v.id === variantId ? { ...v, stock: v.stock + delta } : v) };
         }
+        this.deltaStock = null;
+        this.nuevoStockAbsoluto = variant.stock + delta;
         this.cargarProductosDeTienda(tienda);
         if (contextId === this.contextoInventario && this.productoInventario?.id === productId && this.varianteInventarioId === variantId) {
           this.seleccionarVariante(variantId);
