@@ -8,7 +8,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.tiendas.models import Tienda
-from apps.usuarios.audit import ACCION_CREAR, registrar_auditoria
+from apps.usuarios.audit import ACCION_ACTUALIZAR, ACCION_CREAR, registrar_auditoria
 from apps.usuarios.permissions import IsClienteUser, IsEmpresa
 
 from .models import Categoria, Producto, Variante, VarianteStockMovimiento
@@ -121,6 +121,25 @@ class VarianteStockMovementView(OwnedStoreMixin, generics.ListCreateAPIView):
             )
         except ValidationError as exc:
             return Response({'detail': exc.messages}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Registro en la bitácora central de auditoría del sistema (CU07 / HU-55)
+        registrar_auditoria(
+            request,
+            ACCION_ACTUALIZAR,
+            tabla='variante',
+            registro_id=variante.pk,
+            datos_previos={
+                'stock': movimiento.previous_stock,
+                'variante_sku': variante.sku,
+                'producto_id': variante.producto_id,
+            },
+            datos_nuevos={
+                'stock': movimiento.resulting_stock,
+                'delta': movimiento.delta,
+                'reason': movimiento.reason,
+            },
+        )
+
         return Response(
             StockMovementSerializer(movimiento).data,
             status=status.HTTP_201_CREATED,
@@ -182,7 +201,7 @@ def _productos_publicos():
 
 
 class ProductoCatalogoGeneralListView(generics.ListAPIView):
-    """GET /api/catalogo/productos/ — Catálogo general de todas las tiendas con filtros."""
+    """GET /api/catalogo/productos/ — Catálogo general de todas las tiendas con filtros avanzados."""
 
     serializer_class = ProductoCatalogoSerializer
     permission_classes = [permissions.AllowAny]
@@ -198,16 +217,56 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
         if categoria_id:
             queryset = queryset.filter(categoria_id=categoria_id)
 
+        categoria_nombre = self.request.query_params.get('categoria_nombre')
+        if categoria_nombre and categoria_nombre.strip():
+            queryset = queryset.filter(categoria__nombre__iexact=categoria_nombre.strip())
+
         q = self.request.query_params.get('q')
-        if q:
+        if q and q.strip():
+            q_clean = q.strip()
             queryset = queryset.filter(
-                models.Q(nombre__icontains=q) |
-                models.Q(descripcion__icontains=q) |
-                models.Q(categoria__nombre__icontains=q) |
-                models.Q(tienda__nombre__icontains=q)
+                models.Q(nombre__icontains=q_clean) |
+                models.Q(descripcion__icontains=q_clean) |
+                models.Q(categoria__nombre__icontains=q_clean) |
+                models.Q(tienda__nombre__icontains=q_clean)
             )
 
-        return queryset.order_by('-id')
+        # Filtro de stock disponible (en_stock=true)
+        en_stock = self.request.query_params.get('en_stock')
+        if en_stock in ('true', '1', 'True'):
+            queryset = queryset.filter(variantes__activa=True, variantes__stock__gt=0).distinct()
+
+        # Filtro de rango de precios sobre variantes activas
+        precio_min = self.request.query_params.get('precio_min')
+        if precio_min is not None:
+            try:
+                p_min = float(precio_min)
+                queryset = queryset.filter(variantes__activa=True, variantes__precio__gte=p_min).distinct()
+            except (ValueError, TypeError):
+                pass
+
+        precio_max = self.request.query_params.get('precio_max')
+        if precio_max is not None:
+            try:
+                p_max = float(precio_max)
+                queryset = queryset.filter(variantes__activa=True, variantes__precio__lte=p_max).distinct()
+            except (ValueError, TypeError):
+                pass
+
+        # Ordenamiento
+        orden = self.request.query_params.get('orden', 'recientes')
+        if orden == 'precio_asc':
+            queryset = queryset.order_by('variantes__precio', '-id').distinct()
+        elif orden == 'precio_desc':
+            queryset = queryset.order_by('-variantes__precio', '-id').distinct()
+        elif orden == 'nombre_asc':
+            queryset = queryset.order_by('nombre', '-id')
+        elif orden == 'nombre_desc':
+            queryset = queryset.order_by('-nombre', '-id')
+        else:
+            queryset = queryset.order_by('-creado', '-id')
+
+        return queryset
 
 
 class ProductoCatalogoDetailView(generics.RetrieveAPIView):

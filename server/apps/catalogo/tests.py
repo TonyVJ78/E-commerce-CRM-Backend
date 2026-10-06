@@ -295,19 +295,55 @@ class ProductoApiTests(APITestCase):
         self._auth()
 
         response = self.client.post(
-            self._stock_url(variante), {'delta': 5, 'reason': '  Recepción  '}, format='json'
+            self._stock_url(variante), {'delta': 5, 'reason': '  Recepción  ', 'tipo_ajuste': 'INGRESO'}, format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['previous_stock'], 10)
         self.assertEqual(response.data['delta'], 5)
         self.assertEqual(response.data['resulting_stock'], 15)
-        self.assertEqual(response.data['reason'], 'Recepción')
+        self.assertEqual(response.data['reason'], '[INGRESO] Recepción')
         self.assertEqual(response.data['actor'], self.empresa.id)
         self.assertIn('created_at', response.data)
+
+        # Verificar registro en LogAuditoria central
+        from apps.usuarios.models import LogAuditoria
+        log = LogAuditoria.objects.filter(tabla='variante', registro_id=variante.id).latest('id')
+        self.assertEqual(log.accion, 'ACTUALIZAR')
+        self.assertEqual(log.datos_previos['stock'], 10)
+        self.assertEqual(log.datos_nuevos['stock'], 15)
 
         response = self.client.post(
             self._stock_url(variante), {'delta': -3, 'reason': 'Venta corregida'}, format='json'
         )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['previous_stock'], 15)
+        self.assertEqual(response.data['resulting_stock'], 12)
+        self.assertEqual(variante.stock_movimientos.count(), 2)
+
+    def test_ajuste_stock_soporta_nuevo_stock_absoluto(self):
+        variante = self._stock_variant(stock=10)
+        self._auth()
+
+        # Ajuste a valor absoluto mayor
+        response = self.client.post(
+            self._stock_url(variante), {'nuevo_stock': 25, 'reason': 'Conteo de inventario', 'tipo_ajuste': 'CORRECCION'}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['previous_stock'], 10)
+        self.assertEqual(response.data['delta'], 15)
+        self.assertEqual(response.data['resulting_stock'], 25)
+
+        # Ajuste a valor absoluto idéntico debe fallar
+        response_same = self.client.post(
+            self._stock_url(variante), {'nuevo_stock': 25, 'reason': 'Conteo repetido'}, format='json'
+        )
+        self.assertEqual(response_same.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # No permitir ambos
+        response_both = self.client.post(
+            self._stock_url(variante), {'delta': 2, 'nuevo_stock': 25, 'reason': 'Ambos'}, format='json'
+        )
+        self.assertEqual(response_both.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['previous_stock'], 15)
         self.assertEqual(response.data['resulting_stock'], 12)

@@ -105,7 +105,27 @@ describe('GestionProductosComponent stock management', () => {
     component.abrirInventario({ id: 1, tienda: 2, nombre: 'P', slug: 'p', variantes: [{ id: 4, sku: 'A', nombre: 'A', precio: 1, precio_oferta: null, stock: 2, stock_minimo: 0, atributos: {}, activa: true }] });
     component.seleccionarVariante(4); component.deltaStock = -1; component.motivoStock = 'Conteo';
     component.guardarAjusteStock();
-    expect(producto.ajustarStock).toHaveBeenCalledWith(2, 4, { delta: -1, reason: 'Conteo' });
+    expect(producto.ajustarStock).toHaveBeenCalledWith(2, 4, { delta: -1, reason: 'Conteo', tipo_ajuste: 'CORRECCION' });
     expect(component.errorStock).toBe('Stock insuficiente');
+  });
+
+  it('supports absolute stock mode calculation and quick reasons', () => {
+    component.abrirInventario({ id: 1, tienda: 2, nombre: 'P', slug: 'p', variantes: [{ id: 4, sku: 'A', nombre: 'A', precio: 1, precio_oferta: null, stock: 10, stock_minimo: 5, atributos: {}, activa: true }] });
+    component.seleccionarVariante(4);
+    component.modoAjuste = 'absoluto';
+    component.nuevoStockAbsoluto = 25;
+    component.seleccionarMotivoFrecuente(component.motivosFrecuentes[0]);
+
+    expect(component.deltaCalculado).toBe(15);
+    expect(component.stockProyectado).toBe(25);
+    expect(component.ajusteStockValido).toBeTrue();
+    expect(component.tipoAjuste).toBe('INGRESO');
+
+    component.guardarAjusteStock();
+    expect(producto.ajustarStock).toHaveBeenCalledWith(2, 4, {
+      nuevo_stock: 25,
+      reason: component.motivosFrecuentes[0].motivo,
+      tipo_ajuste: 'INGRESO'
+    });
   });
 });
