@@ -2,11 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "frontend": {
-      "root": "client"
+      "root": "client",
+      "framework": "angular",
+      "outputDirectory": "dist/client/browser"
     },
     "backend": {
       "root": "server",
-      "entrypoint": "config/wsgi.py"
+      "framework": "django"
     }
   },
   "rewrites": [
@@ -18,6 +20,18 @@
     },
     {
       "source": "/api",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/admin",
       "destination": {
         "service": "backend"
       }

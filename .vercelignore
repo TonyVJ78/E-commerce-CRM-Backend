@@ -1,0 +1,16 @@
+# Docker
+Dockerfile
+**/Dockerfile
+docker-compose*.yml
+.dockerignore
+**/.dockerignore
+
+# Non-production / local folders
+movil/
+scratch/
+api/
+.agents/
+.vscode/
+
+# Ignore root pyproject to prevent root-level framework ambiguity
+pyproject.toml
