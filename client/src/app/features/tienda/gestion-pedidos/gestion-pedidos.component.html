@@ -1,0 +1,206 @@
+﻿<div class="pedidos-page">
+  <header class="pedidos-header">
+    <div>
+      <div class="eyebrow-tag">
+        <span class="pulse-dot"></span>
+        <span>M├│dulo de Empresa</span>
+      </div>
+      <h2>Pedidos Recibidos</h2>
+      <p class="pedidos-subtitle">Revisa los pedidos de tus clientes y actualiza su estado: lo que marques aqu├¡ es lo que ellos ven en "Mis pedidos".</p>
+    </div>
+
+    <div *ngIf="tiendas.length > 1" class="tienda-selector">
+      <label for="tiendaPedidos">Tienda:</label>
+      <select id="tiendaPedidos" [value]="tiendaSeleccionadaId" (change)="cambiarTienda($any($event.target).value)">
+        <option *ngFor="let t of tiendas" [value]="t.id">{{ t.nombre }}</option>
+      </select>
+    </div>
+  </header>
+
+  <div *ngIf="mensajeExito" class="custom-alert alert-success">
+    <span class="alert-icon">Ô£ô</span>
+    <p>{{ mensajeExito }}</p>
+    <button type="button" class="alert-close" (click)="mensajeExito = ''" aria-label="Cerrar">Ô£ò</button>
+  </div>
+  <div *ngIf="mensajeError" class="custom-alert alert-danger">
+    <span class="alert-icon">ÔÜá´©Å</span>
+    <p>{{ mensajeError }}</p>
+    <button type="button" class="alert-close" (click)="mensajeError = ''" aria-label="Cerrar">Ô£ò</button>
+  </div>
+
+  <div *ngIf="!cargando && tiendas.length === 0" class="empty-state">
+    <h3>A├║n no tienes tiendas</h3>
+    <p>Crea una tienda para empezar a recibir pedidos.</p>
+  </div>
+
+  <ng-container *ngIf="tiendas.length > 0">
+    <div class="toolbar">
+      <nav class="tabs" aria-label="Filtrar por estado">
+        <button
+          *ngFor="let p of pestanas"
+          type="button"
+          class="tab"
+          [class.active]="filtroEstado === p.valor"
+          [attr.data-estado]="p.valor || 'todos'"
+          (click)="cambiarFiltro(p.valor)">
+          {{ p.etiqueta }}
+          <span class="tab-count">{{ conteoPestana(p.valor) }}</span>
+        </button>
+      </nav>
+
+      <input
+        type="search"
+        class="search-input"
+        placeholder="Buscar por N┬░ de pedido o clienteÔÇª"
+        [(ngModel)]="busqueda"
+        (ngModelChange)="onBusqueda($event)" />
+    </div>
+
+    <div class="pedidos-layout" [class.con-detalle]="detalle || cargandoDetalle">
+      <!-- Listado -->
+      <section class="lista-card">
+        <div *ngIf="cargando" class="estado-carga">Cargando pedidosÔÇª</div>
+
+        <div *ngIf="!cargando && pedidos.length === 0" class="empty-state compact">
+          <h3>Sin pedidos</h3>
+          <p *ngIf="filtroEstado || busqueda">No hay pedidos que coincidan con el filtro.</p>
+          <p *ngIf="!filtroEstado && !busqueda">Cuando un cliente compre en tu tienda, el pedido aparecer├í aqu├¡.</p>
+        </div>
+
+        <table *ngIf="!cargando && pedidos.length > 0" class="pedidos-table">
+          <thead>
+            <tr>
+              <th>Pedido</th>
+              <th>Cliente</th>
+              <th class="col-fecha">Fecha</th>
+              <th class="num">Total</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let p of pedidos"
+              tabindex="0"
+              [class.seleccionado]="detalle?.id === p.id"
+              (click)="abrirDetalle(p)"
+              (keydown.enter)="abrirDetalle(p)">
+              <td class="pedido-id">#{{ p.id }}</td>
+              <td>
+                <div class="cliente-nombre">{{ p.cliente.nombre }}</div>
+                <div class="cliente-email">{{ p.cliente.email }}</div>
+              </td>
+              <td class="col-fecha">{{ p.fecha | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td class="num">Bs {{ p.total | number: '1.2-2' }}</td>
+              <td><span class="badge" [attr.data-estado]="p.estado">{{ p.estado_etiqueta }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Detalle -->
+      <aside *ngIf="detalle || cargandoDetalle" class="detalle-card">
+        <div *ngIf="cargandoDetalle" class="estado-carga">Cargando detalleÔÇª</div>
+
+        <ng-container *ngIf="detalle as d">
+          <div class="detalle-header">
+            <div>
+              <h3>Pedido #{{ d.id }}</h3>
+              <p class="detalle-fecha">{{ d.fecha | date: 'dd/MM/yyyy HH:mm' }}</p>
+            </div>
+            <span class="badge" [attr.data-estado]="d.estado">{{ d.estado_etiqueta }}</span>
+            <button type="button" class="btn-cerrar" (click)="cerrarDetalle()" aria-label="Cerrar detalle">Ô£ò</button>
+          </div>
+
+          <!-- L├¡nea de tiempo del ciclo de vida -->
+          <ol class="timeline" [class.cancelado]="d.estado === 'cancelado'">
+            <li *ngFor="let paso of flujo" class="paso" [attr.data-paso]="estadoPaso(d, paso)">
+              <span class="paso-punto"></span>
+              <span class="paso-nombre">{{ etiquetas[paso] }}</span>
+              <span class="paso-fecha" *ngIf="fechaPaso(d, paso) as f">{{ f | date: 'dd/MM HH:mm' }}</span>
+            </li>
+          </ol>
+          <p *ngIf="d.estado === 'cancelado'" class="nota-cancelado">
+            Pedido cancelado el {{ fechaPaso(d, 'cancelado') | date: 'dd/MM/yyyy HH:mm' }}. El stock se devolvi├│ al inventario.
+          </p>
+
+          <section class="detalle-seccion">
+            <h4>Cliente</h4>
+            <p class="dato-principal">{{ d.cliente.nombre }}</p>
+            <p class="dato-secundario">{{ d.cliente.email }}</p>
+          </section>
+
+          <section class="detalle-seccion">
+            <h4>Productos ({{ d.cantidad_items }})</h4>
+            <ul class="items">
+              <li *ngFor="let it of d.items" class="item">
+                <img *ngIf="it.producto_imagen" [src]="it.producto_imagen" [alt]="it.producto_nombre" class="item-img" />
+                <div *ngIf="!it.producto_imagen" class="item-img placeholder">­ƒôª</div>
+                <div class="item-info">
+                  <span class="item-nombre">{{ it.producto_nombre }}</span>
+                  <span class="item-variante" *ngIf="it.variante_nombre && it.variante_nombre.toLowerCase() !== 'unica'">{{ it.variante_nombre }}</span>
+                  <span class="item-cant">{{ it.cantidad }} ├ù Bs {{ it.precio_unitario | number: '1.2-2' }}</span>
+                </div>
+                <span class="item-subtotal">Bs {{ it.subtotal | number: '1.2-2' }}</span>
+              </li>
+            </ul>
+            <div class="total-row">
+              <span>Total</span>
+              <strong>Bs {{ d.total | number: '1.2-2' }}</strong>
+            </div>
+          </section>
+
+          <section class="detalle-seccion" *ngIf="d.pago">
+            <h4>Pago</h4>
+            <p class="dato-principal">{{ d.pago.metodo }} ┬À <span class="pago-estado" [attr.data-pago]="d.pago.estado">{{ d.pago.estado }}</span></p>
+          </section>
+
+          <section class="detalle-seccion" *ngIf="d.envio">
+            <h4>Env├¡o</h4>
+            <p class="dato-principal">{{ d.envio.direccion }}</p>
+            <p class="dato-secundario" *ngIf="d.envio.transportista || d.envio.numero_seguimiento">
+              {{ d.envio.transportista || 'Transportista sin indicar' }}
+              <ng-container *ngIf="d.envio.numero_seguimiento"> ┬À N┬░ {{ d.envio.numero_seguimiento }}</ng-container>
+            </p>
+          </section>
+
+          <!-- Acciones -->
+          <section class="acciones" *ngIf="siguienteEstado(d) || puedeCancelar(d)">
+            <ng-container *ngIf="siguienteEstado(d) as siguiente">
+              <div *ngIf="siguiente === 'enviado'" class="envio-form">
+                <label>
+                  Transportista <span class="opcional">(opcional)</span>
+                  <input type="text" maxlength="50" [(ngModel)]="transportista" placeholder="Ej. Correos de Bolivia" />
+                </label>
+                <label>
+                  N┬░ de seguimiento <span class="opcional">(opcional)</span>
+                  <input type="text" maxlength="50" [(ngModel)]="numeroSeguimiento" placeholder="Ej. CB-000123" />
+                </label>
+              </div>
+
+              <button type="button" class="btn-avanzar" [disabled]="actualizando" (click)="cambiarEstado(siguiente)">
+                {{ actualizando ? 'GuardandoÔÇª' : textoAvanzar(siguiente) }}
+              </button>
+            </ng-container>
+
+            <ng-container *ngIf="puedeCancelar(d)">
+              <button *ngIf="!confirmandoCancelacion" type="button" class="btn-cancelar" [disabled]="actualizando" (click)="confirmandoCancelacion = true">
+                Cancelar pedido
+              </button>
+              <div *ngIf="confirmandoCancelacion" class="confirmar-cancelacion">
+                <p>┬┐Cancelar el pedido #{{ d.id }}? Se devolver├í el stock y el cliente lo ver├í como cancelado.</p>
+                <div class="confirmar-botones">
+                  <button type="button" class="btn-secundario" (click)="confirmandoCancelacion = false">Volver</button>
+                  <button type="button" class="btn-peligro" [disabled]="actualizando" (click)="cambiarEstado('cancelado')">S├¡, cancelar</button>
+                </div>
+              </div>
+            </ng-container>
+          </section>
+
+          <p *ngIf="d.estado === 'entregado'" class="nota-final">
+            Ô£ô Pedido entregado. Su ciclo de vida est├í completo.
+          </p>
+        </ng-container>
+      </aside>
+    </div>
+  </ng-container>
+</div>
