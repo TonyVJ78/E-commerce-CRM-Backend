@@ -24,7 +24,9 @@ export interface MovimientoStock {
 }
 
 export interface AjusteStockPayload {
-  delta: number;
+  delta?: number;
+  nuevo_stock?: number;
+  tipo_ajuste?: 'INGRESO' | 'SALIDA' | 'CORRECCION';
   reason: string;
 }
 

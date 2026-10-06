@@ -138,7 +138,21 @@ class VarianteOutputSerializer(serializers.ModelSerializer):
 
 
 class StockAdjustmentInputSerializer(serializers.Serializer):
-    delta = serializers.IntegerField(min_value=-2_147_483_648, max_value=2_147_483_647)
+    delta = serializers.IntegerField(
+        min_value=-2_147_483_648,
+        max_value=2_147_483_647,
+        required=False,
+    )
+    nuevo_stock = serializers.IntegerField(
+        min_value=0,
+        max_value=2_147_483_647,
+        required=False,
+    )
+    tipo_ajuste = serializers.ChoiceField(
+        choices=['INGRESO', 'SALIDA', 'CORRECCION'],
+        required=False,
+        default='CORRECCION',
+    )
     reason = serializers.CharField(max_length=255, trim_whitespace=True, allow_blank=False)
 
     def to_internal_value(self, data):
@@ -147,16 +161,34 @@ class StockAdjustmentInputSerializer(serializers.Serializer):
                 'non_field_errors': 'Se esperaba un objeto JSON.'
             })
         delta = data.get('delta')
-        if type(delta) is not int:
+        nuevo_stock = data.get('nuevo_stock')
+
+        if delta is not None and type(delta) is not int:
             raise serializers.ValidationError({
                 'delta': 'Debe ser un entero JSON, no una cadena ni un número decimal.'
             })
+        if nuevo_stock is not None and type(nuevo_stock) is not int:
+            raise serializers.ValidationError({
+                'nuevo_stock': 'Debe ser un entero JSON no negativo.'
+            })
         return super().to_internal_value(data)
 
-    def validate_delta(self, value):
-        if value == 0:
-            raise serializers.ValidationError('El delta no puede ser cero.')
-        return value
+    def validate(self, attrs):
+        delta = attrs.get('delta')
+        nuevo_stock = attrs.get('nuevo_stock')
+
+        if delta is None and nuevo_stock is None:
+            raise serializers.ValidationError(
+                'Debe proporcionar "delta" o "nuevo_stock".'
+            )
+        if delta is not None and nuevo_stock is not None:
+            raise serializers.ValidationError(
+                'No puede enviar "delta" y "nuevo_stock" simultáneamente.'
+            )
+        if delta is not None and delta == 0:
+            raise serializers.ValidationError({'delta': 'El delta no puede ser cero.'})
+
+        return attrs
 
     def validate_reason(self, value):
         if not value:
