@@ -9,7 +9,7 @@
 }
 
 .navbar-container {
-  max-width: 1240px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1.5rem;
   display: flex;
@@ -21,11 +21,15 @@
 .navbar-brand {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   text-decoration: none;
   font-weight: 800;
   font-size: 1.25rem;
   color: var(--text-primary);
+}
+
+.brand-logo-svg {
+  flex-shrink: 0;
 }
 
 .brand-icon {
@@ -47,16 +51,35 @@
 
 .navbar-menu a {
   text-decoration: none;
-  color: var(--text-secondary);
-  font-weight: 500;
+  color: var(--muted, #5F6675);
+  font-weight: 600;
   font-size: 0.92rem;
-  transition: color 0.2s, transform 0.2s;
-  padding: 0.25rem 0;
+  transition: color 0.15s, border-color 0.15s;
+  padding: 0.35rem 0;
+  border-bottom: 2px solid transparent;
 }
 
-.navbar-menu a:hover,
-.navbar-menu a.active {
+.navbar-menu a:hover {
+  color: var(--ink, #1B1D24);
+}
+
+.navbar-menu a.active,
+.navbar-menu a[aria-current="page"] {
   color: var(--primary, #C8102E);
+  font-weight: 700;
+  border-bottom-color: var(--accent, #F5B301);
+}
+
+.nav-external-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.external-icon-svg {
+  flex-shrink: 0;
+  opacity: 0.75;
 }
 
 /* Botón de Carrito en el Navbar */

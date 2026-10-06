@@ -1,22 +1,40 @@
-<nav class="navbar">
+<header class="navbar">
   <div class="navbar-container">
     <!-- Brand / Logo -->
-    <a routerLink="/" class="navbar-brand">
+    <a routerLink="/" class="navbar-brand" aria-label="Kantu Market Inicio">
+      <svg class="brand-logo-svg" width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" fill="url(#kantuLogoGrad)"/>
+        <path d="M16 6C14.2 9.5 10.5 13 10.5 17.5C10.5 21 13 23 16 26C19 23 21.5 21 21.5 17.5C21.5 13 17.8 9.5 16 6Z" fill="#FFF8DB"/>
+        <path d="M16 10.5C14.8 12.8 12.5 15 12.5 18C12.5 20.2 14 21.8 16 23.5C18 21.8 19.5 20.2 19.5 18C19.5 15 17.2 12.8 16 10.5Z" fill="#C8102E"/>
+        <circle cx="16" cy="18.5" r="2.2" fill="#138A45"/>
+        <defs>
+          <linearGradient id="kantuLogoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#C8102E"/>
+            <stop offset="0.55" stop-color="#E8731A"/>
+            <stop offset="1" stop-color="#F5B301"/>
+          </linearGradient>
+        </defs>
+      </svg>
       <span class="brand-text">Kantu <span class="brand-accent">Market</span></span>
     </a>
 
     <!-- Acciones en barra movil (Carrito y Toggle) -->
     <div class="navbar-actions-mobile">
-      <button
-        *ngIf="esCliente"
-        class="cart-trigger-btn mobile-cart-btn"
-        (click)="toggleCart()"
-        aria-label="Abrir carrito de compras">
-        <span class="cart-icon">[Carrito]</span>
-        <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">
-          {{ count }}
-        </span>
-      </button>
+      @if (esCliente()) {
+        <button
+          class="cart-trigger-btn mobile-cart-btn"
+          (click)="toggleCart()"
+          aria-label="Abrir carrito de compras">
+          <svg class="cart-icon-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          @if (cartCount() > 0) {
+            <span class="cart-badge">{{ cartCount() }}</span>
+          }
+        </button>
+      }
 
       <button class="menu-toggle" (click)="toggleMenu()" [class.active]="menuOpen" aria-label="Menu principal">
         <span></span>
@@ -25,224 +43,285 @@
       </button>
     </div>
 
-    <!-- Navegación Principal -->
-    <div class="navbar-menu" [class.open]="menuOpen">
-      <ng-container *ngIf="authService.isAuthenticated; else guestLinks">
+    <!-- Navegacion Principal -->
+    <nav class="navbar-menu" [class.open]="menuOpen" aria-label="Navegacion principal">
+      @if (currentUser(); as user) {
         <!-- Enlaces para Clientes -->
-        <ng-container *ngIf="(authService.currentUser$ | async)?.rol === 'cliente'">
-          <a routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catálogo</a>
+        @if (user.rol === 'cliente') {
+          <a routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catalogo</a>
           <a routerLink="/pedidos" routerLinkActive="active" (click)="menuOpen = false">Mis Pedidos</a>
-        </ng-container>
+        }
 
         <!-- Enlaces para Empresas / Vendedores -->
-        <ng-container *ngIf="(authService.currentUser$ | async)?.rol === 'empresa'">
+        @if (user.rol === 'empresa') {
           <a routerLink="/panel-vendedor" routerLinkActive="active" (click)="menuOpen = false">Panel Vendedor</a>
           <a routerLink="/tiendas" routerLinkActive="active" (click)="menuOpen = false">Mis Tiendas</a>
           <a routerLink="/tiendas/productos" routerLinkActive="active" (click)="menuOpen = false">Inventario</a>
           <a routerLink="/tiendas/pedidos" routerLinkActive="active" (click)="menuOpen = false">Pedidos Recibidos</a>
           <a routerLink="/tiendas/identidad" routerLinkActive="active" (click)="menuOpen = false">Identidad de Marca</a>
-        </ng-container>
+        }
 
         <!-- Enlaces para Administradores -->
-        <ng-container *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'">
+        @if (user.rol === 'administrador') {
           <a routerLink="/dashboard" routerLinkActive="active" (click)="menuOpen = false">Dashboard</a>
           <a routerLink="/auditoria" routerLinkActive="active" (click)="menuOpen = false">Auditoria</a>
           <a routerLink="/accesos" routerLinkActive="active" (click)="menuOpen = false">Roles y Permisos</a>
-          <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/backups/')" style="cursor: pointer;">Backups</a>
-          <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/')" style="cursor: pointer;">Django Admin</a>
-        </ng-container>
-
-        <!-- Boton de Carrito (Desktop) -->
-        <button
-          *ngIf="esCliente"
-          class="cart-trigger-btn desktop-only"
-          (click)="toggleCart()"
-          aria-label="Abrir carrito de compras">
-          <span class="cart-icon">[Carrito]</span>
-          <span class="cart-label">Carrito</span>
-          <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">
-            {{ count }}
-          </span>
-        </button>
-
-        <!-- Menú de Usuario -->
-        <div class="navbar-user">
-          <a routerLink="/perfil" class="user-chip" (click)="menuOpen = false">
-            <span class="user-name">
-              {{ (authService.currentUser$ | async)?.first_name || (authService.currentUser$ | async)?.email }}
-            </span>
+          <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/backups/')" class="nav-external-link" style="cursor: pointer;">
+            <span>Backups</span>
+            <svg class="external-icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
           </a>
-          <span class="user-role-badge" [attr.data-role]="(authService.currentUser$ | async)?.rol">
-            {{ (authService.currentUser$ | async)?.rol }}
+          <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/')" class="nav-external-link" style="cursor: pointer;">
+            <span>Django Admin</span>
+            <svg class="external-icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+        }
+
+        <!-- Boton de Carrito (Desktop - solo rol cliente) -->
+        @if (esCliente()) {
+          <button
+            class="cart-trigger-btn desktop-only"
+            (click)="toggleCart()"
+            aria-label="Abrir carrito de compras">
+            <svg class="cart-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            <span class="cart-label">Carrito</span>
+            @if (cartCount() > 0) {
+              <span class="cart-badge">{{ cartCount() }}</span>
+            }
+          </button>
+        }
+
+        <!-- Menu de Usuario -->
+        <div class="navbar-user">
+          <a routerLink="/perfil" class="user-chip" (click)="menuOpen = false" title="Ver mi perfil">
+            <span class="user-name">{{ user.first_name || user.email }}</span>
+          </a>
+          <span class="badge" [ngClass]="'badge--' + (user.rol === 'administrador' ? 'admin' : user.rol)">
+            {{ user.rol }}
           </span>
-          <button class="btn btn-outline btn-sm" (click)="logout()">Cerrar Sesión</button>
+          <button class="btn btn--outline btn-logout-sm" (click)="logout()">Cerrar Sesion</button>
         </div>
-      </ng-container>
-
-      <ng-template #guestLinks>
-        <a routerLink="/login" routerLinkActive="active" (click)="menuOpen = false">Iniciar Sesión</a>
-        <a routerLink="/registro" routerLinkActive="active" class="btn btn-primary btn-sm" (click)="menuOpen = false">Registrarse</a>
-      </ng-template>
-    </div>
+      } @else {
+        <a routerLink="/login" routerLinkActive="active" (click)="menuOpen = false">Iniciar Sesion</a>
+        <a routerLink="/registro" routerLinkActive="active" class="btn btn--primary" (click)="menuOpen = false">Registrarse</a>
+      }
+    </nav>
   </div>
-</nav>
+</header>
 
-<div class="navbar-backdrop" *ngIf="menuOpen" (click)="menuOpen = false"></div>
+@if (menuOpen) {
+  <div class="navbar-backdrop" (click)="menuOpen = false"></div>
+}
 
 <!-- ========================================================================= -->
 <!-- SLIDE-OVER DRAWER DEL CARRITO DE COMPRAS CON PASARELA STRIPE -->
 <!-- ========================================================================= -->
-<ng-container *ngIf="esCliente">
-<div class="cart-backdrop" *ngIf="cartOpen" (click)="closeCart()"></div>
+@if (esCliente()) {
+  @if (cartOpen) {
+    <div class="cart-backdrop" (click)="closeCart()"></div>
+  }
 
-<aside class="cart-drawer" [class.open]="cartOpen">
-  <div class="cart-drawer-header">
-    <div class="cart-header-title">
-      <h3>Mi Carrito de Compras</h3>
-    </div>
-    <button class="btn-close-drawer" (click)="closeCart()" aria-label="Cerrar carrito">X</button>
-  </div>
-
-  <div class="cart-drawer-body">
-    <!-- Mensaje de éxito de Checkout -->
-    <div class="checkout-alert-success" *ngIf="checkoutSuccess">
-      <h4>¡Pedido realizado con éxito!</h4>
-      <p>Tu orden ha sido registrada. La tienda comenzará a procesarla.</p>
-    </div>
-
-    <!-- Contenido del Carrito -->
-    <ng-container *ngIf="carritoService.cartData$ | async as cartData; else cargandoCart">
-      <!-- Carrito Vacío -->
-      <div class="cart-empty-state" *ngIf="!checkoutSuccess && (!cartData.carritos || cartData.carritos.length === 0 || cartData.total_items === 0)">
-        <h4>Tu carrito está vacío</h4>
-        <p>Aún no has agregado productos. Explora nuestras tiendas y descubre lo mejor de Bolivia.</p>
-        <button class="btn btn-primary btn-sm" (click)="closeCart()" routerLink="/inicio">Explorar Catálogo</button>
+  <aside class="cart-drawer" [class.open]="cartOpen" aria-label="Carrito de compras">
+    <div class="cart-drawer-header">
+      <div class="cart-header-title">
+        <h3>Mi Carrito de Compras</h3>
       </div>
+      <button class="btn-close-drawer" (click)="closeCart()" aria-label="Cerrar carrito">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
 
-      <!-- Listado de Carritos por Tienda -->
-      <div class="cart-stores-list" *ngIf="!checkoutSuccess && cartData.total_items > 0">
-        <div class="cart-store-group" *ngFor="let tiendaCart of cartData.carritos">
-          <div class="cart-store-header" *ngIf="tiendaCart.items.length > 0">
-            <strong>{{ tiendaCart.tienda_nombre }}</strong>
-            <span class="store-subtotal">Subtotal: Bs {{ tiendaCart.total }}</span>
+    <div class="cart-drawer-body">
+      <!-- Mensaje de exito de Checkout -->
+      @if (checkoutSuccess) {
+        <div class="checkout-alert-success">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#138A45" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <div>
+            <h4>Pedido realizado con exito</h4>
+            <p>Tu orden ha sido registrada. La tienda comenzara a procesarla.</p>
           </div>
+        </div>
+      }
 
-          <div class="cart-items-list">
-            <div class="cart-item-card" *ngFor="let item of tiendaCart.items">
-              <img
-                class="cart-item-img"
-                [src]="item.producto_imagen || 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=150&q=80'"
-                [alt]="item.producto_nombre"
-              />
+      <!-- Contenido del Carrito -->
+      @if (cartData(); as cart) {
+        <!-- Carrito Vacio -->
+        @if (!checkoutSuccess && (!cart.carritos || cart.carritos.length === 0 || cart.total_items === 0)) {
+          <div class="cart-empty-state">
+            <svg class="empty-icon-svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </svg>
+            <h4>Tu carrito esta vacio</h4>
+            <p>Aun no has agregado productos. Explora nuestras tiendas y descubre lo mejor de Bolivia.</p>
+            <button class="btn btn--primary" (click)="closeCart()" routerLink="/inicio">Explorar Catalogo</button>
+          </div>
+        }
 
-              <div class="cart-item-info">
-                <h5 class="item-name">{{ item.producto_nombre }}</h5>
-                <p class="item-variant" *ngIf="item.variante_nombre">
-                  Variante: <span>{{ item.variante_nombre }}</span>
-                </p>
-                <div class="item-price">Bs {{ item.precio_unitario }} c/u</div>
-
-                <div class="item-actions-row">
-                  <div class="quantity-picker">
-                    <button type="button" class="btn-qty" (click)="decrementar(item)" title="Disminuir">−</button>
-                    <span class="qty-display">{{ item.cantidad }}</span>
-                    <button type="button" class="btn-qty" (click)="incrementar(item)" title="Aumentar">+</button>
+        <!-- Listado de Carritos por Tienda -->
+        @if (!checkoutSuccess && cart.total_items > 0) {
+          <div class="cart-stores-list">
+            @for (tiendaCart of cart.carritos; track tiendaCart.tienda_id) {
+              @if (tiendaCart.items.length > 0) {
+                <div class="cart-store-group">
+                  <div class="cart-store-header">
+                    <strong>{{ tiendaCart.tienda_nombre }}</strong>
+                    <span class="store-subtotal">Subtotal: Bs {{ tiendaCart.total }}</span>
                   </div>
 
-                  <div class="item-subtotal">Bs {{ item.subtotal }}</div>
+                  <div class="cart-items-list">
+                    @for (item of tiendaCart.items; track item.id) {
+                      <div class="cart-item-card">
+                        <img
+                          class="cart-item-img"
+                          [src]="item.producto_imagen || 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=150&q=80'"
+                          [alt]="item.producto_nombre"
+                        />
 
-                  <button type="button" class="btn-remove-item" (click)="eliminar(item.id)" title="Eliminar del carrito">
-                    Eliminar
-                  </button>
+                        <div class="cart-item-info">
+                          <h5 class="item-name">{{ item.producto_nombre }}</h5>
+                          @if (item.variante_nombre) {
+                            <p class="item-variant">Variante: <span>{{ item.variante_nombre }}</span></p>
+                          }
+                          <div class="item-price">Bs {{ item.precio_unitario }} c/u</div>
+
+                          <div class="item-actions-row">
+                            <div class="quantity-picker">
+                              <button type="button" class="btn-qty" (click)="decrementar(item)" title="Disminuir" aria-label="Disminuir cantidad">-</button>
+                              <span class="qty-display">{{ item.cantidad }}</span>
+                              <button type="button" class="btn-qty" (click)="incrementar(item)" title="Aumentar" aria-label="Aumentar cantidad">+</button>
+                            </div>
+
+                            <div class="item-subtotal">Bs {{ item.subtotal }}</div>
+
+                            <button type="button" class="btn-remove-item" (click)="eliminar(item.id)" title="Eliminar del carrito" aria-label="Eliminar producto">
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
                 </div>
+              }
+            }
+          </div>
+
+          <!-- Totales y Selector de Pasarela -->
+          <div class="cart-totals-section">
+            <div class="total-row">
+              <span>Articulos:</span>
+              <strong>{{ cart.total_items }}</strong>
+            </div>
+            <div class="total-row grand-total">
+              <span>Total a pagar:</span>
+              <span class="grand-total-amount">Bs {{ cart.total_global }}</span>
+            </div>
+
+            @if (checkoutError) {
+              <div class="checkout-error-alert">
+                {{ checkoutError }}
+              </div>
+            }
+
+            <!-- Selector de metodo de pago (CU-19) -->
+            <div class="payment-method-picker">
+              <button
+                type="button"
+                class="payment-method-option"
+                [class.selected]="metodoPago === 'efectivo'"
+                (click)="seleccionarMetodoPago('efectivo')"
+              >
+                Efectivo / QR contra entrega
+              </button>
+              <button
+                type="button"
+                class="payment-method-option"
+                [class.selected]="metodoPago === 'stripe'"
+                (click)="seleccionarMetodoPago('stripe')"
+              >
+                Tarjeta (Stripe)
+              </button>
+            </div>
+
+            <!-- Formulario Seguro de Stripe -->
+            <div class="stripe-payment-box" [hidden]="metodoPago !== 'stripe'">
+              @if (cargandoStripe) {
+                <div class="stripe-loading">
+                  <div class="spinner"></div>
+                  <span>Cargando formulario seguro de Stripe...</span>
+                </div>
+              }
+
+              <div id="stripe-payment-element" [hidden]="cargandoStripe"></div>
+
+              @if (stripeError) {
+                <div class="checkout-error-alert">
+                  {{ stripeError }}
+                </div>
+              }
+
+              <div class="cart-footer-buttons">
+                <button class="btn btn--outline btn-clear" [disabled]="pagandoStripe" (click)="vaciar()">
+                  Vaciar
+                </button>
+                <button
+                  class="btn btn--primary btn-checkout"
+                  [disabled]="pagandoStripe || cargandoStripe"
+                  (click)="pagarConStripe()"
+                >
+                  @if (pagandoStripe) {
+                    <span>Procesando pago...</span>
+                  } @else {
+                    <span>Pagar con tarjeta</span>
+                  }
+                </button>
               </div>
             </div>
+
+            <!-- Botones de Checkout para Efectivo / QR -->
+            @if (metodoPago === 'efectivo') {
+              <div class="cart-footer-buttons">
+                <button class="btn btn--outline btn-clear" [disabled]="isCheckingOut" (click)="vaciar()">
+                  Vaciar
+                </button>
+                <button class="btn btn--primary btn-checkout" [disabled]="isCheckingOut" (click)="procederCheckout()">
+                  @if (isCheckingOut) {
+                    <span>Procesando compra...</span>
+                  } @else {
+                    <span>Confirmar y Pagar</span>
+                  }
+                </button>
+              </div>
+            }
           </div>
+        }
+      } @else {
+        <div class="cart-loading">
+          <div class="spinner"></div>
+          <p>Cargando tu carrito...</p>
         </div>
-      </div>
-
-      <!-- Totales y Selector de Pasarela (Dentro del scroll único para evitar doble scroll) -->
-      <div class="cart-totals-section" *ngIf="cartData.total_items > 0 && !checkoutSuccess">
-        <div class="total-row">
-          <span>Artículos:</span>
-          <strong>{{ cartData.total_items }}</strong>
-        </div>
-        <div class="total-row grand-total">
-          <span>Total a pagar:</span>
-          <span class="grand-total-amount">Bs {{ cartData.total_global }}</span>
-        </div>
-
-        <div class="checkout-error-alert" *ngIf="checkoutError" style="margin-bottom: 0.75rem; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 0.82rem;">
-          {{ checkoutError }}
-        </div>
-
-        <!-- Selector de método de pago (CU-19) -->
-        <div class="payment-method-picker">
-          <button
-            type="button"
-            class="payment-method-option"
-            [class.selected]="metodoPago === 'efectivo'"
-            (click)="seleccionarMetodoPago('efectivo')"
-          >
-            Efectivo / QR contra entrega
-          </button>
-          <button
-            type="button"
-            class="payment-method-option"
-            [class.selected]="metodoPago === 'stripe'"
-            (click)="seleccionarMetodoPago('stripe')"
-          >
-            Tarjeta (Stripe)
-          </button>
-        </div>
-
-        <!-- Formulario Seguro de Stripe con contenedor controlado -->
-        <div class="stripe-payment-box" [hidden]="metodoPago !== 'stripe'">
-          <div class="stripe-loading" *ngIf="cargandoStripe">
-            <div class="spinner"></div>
-            <span>Cargando formulario seguro de Stripe...</span>
-          </div>
-
-          <div id="stripe-payment-element" [hidden]="cargandoStripe"></div>
-
-          <div class="checkout-error-alert" *ngIf="stripeError" style="margin: 0.6rem 0; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 0.82rem;">
-            {{ stripeError }}
-          </div>
-
-          <div class="cart-footer-buttons">
-            <button class="btn btn-outline btn-sm btn-clear" [disabled]="pagandoStripe" (click)="vaciar()">
-              Vaciar
-            </button>
-            <button
-              class="btn btn-primary btn-checkout"
-              [disabled]="pagandoStripe || cargandoStripe"
-              (click)="pagarConStripe()"
-            >
-              <span *ngIf="pagandoStripe">Procesando pago...</span>
-              <span *ngIf="!pagandoStripe">Pagar con tarjeta →</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Botones de Checkout para Efectivo / QR -->
-        <div class="cart-footer-buttons" *ngIf="metodoPago === 'efectivo'">
-          <button class="btn btn-outline btn-sm btn-clear" [disabled]="isCheckingOut" (click)="vaciar()">
-            Vaciar
-          </button>
-          <button class="btn btn-primary btn-checkout" [disabled]="isCheckingOut" (click)="procederCheckout()">
-            <span *ngIf="isCheckingOut">Procesando compra...</span>
-            <span *ngIf="!isCheckingOut">Confirmar y Pagar (Checkout) →</span>
-          </button>
-        </div>
-      </div>
-    </ng-container>
-
-    <ng-template #cargandoCart>
-      <div class="cart-loading">
-        <div class="spinner"></div>
-        <p>Cargando tu carrito...</p>
-      </div>
-    </ng-template>
-  </div>
-</aside>
-</ng-container>
+      }
+    </div>
+  </aside>
+}

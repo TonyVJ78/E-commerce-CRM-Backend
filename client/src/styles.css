@@ -1,11 +1,9 @@
+@import './assets/kantu-tokens.css';
+@import './assets/kantu-components.css';
+
 /* =============================================================================
    Kantu Market — Estilos Globales
-   Paleta inspirada en los colores patrios de Bolivia:
-   Rojo (#C8102E), Amarillo (#F4D03F), Verde (#27AE60)
-   Aplicados de forma moderna y profesional.
    ============================================================================= */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* --- Design Tokens --- */
 :root {
@@ -399,16 +397,17 @@ body {
 
 /* --- Page Container (perfil, tiendas) --- */
 .page-container {
-  max-width: 1000px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 1.5rem 1.25rem;
+  box-sizing: border-box;
   animation: fadeUp 0.4s ease-out;
   width: 100%;
 }
 
 @media (max-width: 640px) {
   .page-container {
-    padding: 1.25rem 0.85rem;
+    padding: 1rem 0.75rem;
   }
 }
 

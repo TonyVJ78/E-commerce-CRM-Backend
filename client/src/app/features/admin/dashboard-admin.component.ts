@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -11,7 +11,7 @@ import { AuthService } from '../../core/services/auth.service';
   styleUrls: ['./dashboard-admin.component.css']
 })
 export class DashboardAdminComponent {
-  constructor(public readonly authService: AuthService) {}
+  public readonly authService = inject(AuthService);
 
   abrirEnlaceExterno(ruta: string): void {
     window.open(ruta, '_blank', 'noopener,noreferrer');

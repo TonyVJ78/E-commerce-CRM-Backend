@@ -1,0 +1,94 @@
+/* Kantu Market – Design tokens
+   Rojo = marca / acción principal · Amarillo = destacado / atención · Verde = éxito / stock / confirmación */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* Rojo (marca) */
+  --red-50:  #FDECEE;
+  --red-100: #FAD1D6;
+  --red-500: #DC2640;
+  --red-600: #C8102E;   /* primario */
+  --red-700: #A50D26;   /* hover / pressed */
+  --red-800: #7F0A1E;
+
+  /* Amarillo (acento) */
+  --yellow-50:  #FFF8DB;
+  --yellow-100: #FFEFA8;
+  --yellow-400: #FFC933;
+  --yellow-500: #F5B301;  /* acento */
+  --yellow-700: #8A6200;  /* texto sobre fondos amarillos claros */
+
+  /* Verde (éxito) */
+  --green-50:  #E6F7EC;
+  --green-100: #C4EBD2;
+  --green-500: #1FA55A;
+  --green-600: #138A45;   /* éxito */
+  --green-700: #0D6B35;   /* texto sobre fondos verdes claros */
+
+  /* Neutros */
+  --ink:        #1B1D24;  /* títulos */
+  --text:       #3A3F4B;  /* cuerpo */
+  --muted:      #5F6675;  /* secundario */
+  --line:       #E6E8EE;  /* bordes */
+  --bg:         #F6F7FA;  /* fondo de página */
+  --surface:    #FFFFFF;  /* tarjetas */
+  --surface-2:  #F1F3F7;  /* inputs, chips inactivos */
+
+  /* Semánticos */
+  --primary: var(--red-600);
+  --primary-hover: var(--red-700);
+  --accent: var(--yellow-500);
+  --success: var(--green-600);
+  --danger: var(--red-600);
+  --warning: var(--yellow-500);
+  --focus-ring: 0 0 0 3px rgba(245, 179, 1, .45);
+
+  /* Gradientes (solo marca y hero) */
+  --grad-brand: linear-gradient(90deg, var(--red-600) 0%, #E8731A 55%, var(--yellow-500) 100%);
+  --grad-hero:  linear-gradient(135deg, #D6212F 0%, #B30D26 100%);
+  --grad-btn:   linear-gradient(135deg, #D6212F 0%, #B30D26 100%);
+
+  /* Tipografía */
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: .75rem;   --fs-sm: .875rem;  --fs-base: 1rem;
+  --fs-lg: 1.125rem; --fs-xl: 1.375rem; --fs-2xl: 1.75rem;
+  --fs-3xl: 2.25rem; --fs-hero: clamp(2rem, 4vw + 1rem, 3.25rem);
+
+  /* Espaciado (base 4px) */
+  --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem; --sp-4: 1rem;
+  --sp-5: 1.5rem; --sp-6: 2rem; --sp-7: 3rem; --sp-8: 4rem;
+
+  /* Radios */
+  --r-sm: 8px;    /* inputs, chips pequeños */
+  --r-md: 12px;   /* botones, tarjetas de producto */
+  --r-lg: 20px;   /* paneles, modales, login */
+  --r-pill: 999px;/* chips, badges, búsqueda */
+
+  /* Sombras */
+  --sh-1: 0 1px 2px rgba(27,29,36,.06), 0 1px 3px rgba(27,29,36,.08);
+  --sh-2: 0 6px 18px rgba(27,29,36,.08);
+  --sh-3: 0 18px 40px rgba(27,29,36,.14);
+  --sh-red: 0 8px 20px rgba(200,16,46,.28);
+
+  --container: 1440px;
+  --nav-h: 56px;
+}
+
+*,*::before,*::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; font-family: var(--font); font-size: var(--fs-base);
+  line-height: 1.55; color: var(--text); background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4 { color: var(--ink); line-height: 1.2; margin: 0 0 var(--sp-3); letter-spacing: -.015em; }
+h1 { font-size: var(--fs-2xl); font-weight: 800; }
+h2 { font-size: var(--fs-xl);  font-weight: 700; }
+h3 { font-size: var(--fs-lg);  font-weight: 700; }
+.price, .num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.container { width: min(100% - 2rem, var(--container)); margin-inline: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

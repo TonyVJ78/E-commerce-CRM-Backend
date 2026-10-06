@@ -1,37 +1,151 @@
-<div class="page-container">
-  <div class="admin-card">
-    <div class="admin-badge">Panel de Administracion</div>
-    <h1>Panel de Control — Kantu Market</h1>
-    <p class="admin-text">
-      Bienvenido al modulo administrativo global de la plataforma multitenant.
-    </p>
+<div class="layout admin-dashboard-page">
+  <!-- Cabecera Ejecutiva con Estado en Vivo -->
+  <header class="page-head">
+    <div>
+      <h1>Panel de Control de Administracion</h1>
+      <p>Supervision de plataforma multitenant, infraestructura, auditoria y gobernanza de seguridad.</p>
+    </div>
+    <div class="head-status-group">
+      <span class="status">Sistema operativo</span>
+      <span class="badge badge--admin">Administrador</span>
+    </div>
+  </header>
 
-    <div class="info-grid">
-      <div class="info-item">
-        <h4>Bitacora y Auditoria</h4>
-        <p>Historial de accesos (login) y registro de cambios en la plataforma. <a routerLink="/auditoria">Abrir bitacora</a>.</p>
-      </div>
-      <div class="info-item">
-        <h4>Roles y permisos</h4>
-        <p>Gestiona los roles del sistema, los permisos de cada rol y el rol asignado a cada usuario. <a routerLink="/accesos">Abrir accesos</a>.</p>
-      </div>
-      <div class="info-item">
-        <h4>Copias de Seguridad</h4>
-        <p>Gestion y descarga de respaldos de base de datos del sistema. <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/backups/')" style="cursor: pointer;">Gestionar Backups</a>.</p>
-      </div>
-      <div class="info-item">
-        <h4>Panel Django Admin</h4>
-        <p>Acceso administrativo completo a la base de datos disponible en <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/')" style="cursor: pointer;">/admin/</a>.</p>
-      </div>
+  <!-- Cuadricula Simetrica Bento Grid -->
+  <div class="bento">
+    <!-- Modulo 1: Copias de Seguridad (col-6) -->
+    <div class="col-6">
+      <section class="card admin-card">
+        <div class="card__header">
+          <div class="card-icon-title">
+            <div class="admin-icon-box icon-danger" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+              </svg>
+            </div>
+            <h2 class="card__title">Copias de Seguridad</h2>
+          </div>
+          <span class="badge badge--success">Disaster Recovery</span>
+        </div>
+        <div class="card__body">
+          <p class="card-desc">
+            Gestion y descarga de respaldos de base de datos del sistema. Generacion bajo demanda, verificacion de integridad sha256 y rotacion autonoma.
+          </p>
+          <div class="card-actions">
+            <button
+              type="button"
+              class="btn btn--primary btn-external"
+              (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/backups/')"
+            >
+              <span>Gestionar Copias</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <div class="quick-actions">
-      <a routerLink="/auditoria" class="btn btn-primary">Ver Bitacora</a>
-      <a routerLink="/accesos" class="btn btn-primary">Roles y permisos</a>
-      <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/backups/')" class="btn btn-primary" style="cursor: pointer;">Gestionar Backups</a>
-      <a routerLink="/perfil" class="btn btn-secondary">Mi Perfil</a>
-      <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/')" class="btn btn-secondary" style="cursor: pointer;">Django Admin</a>
+    <!-- Modulo 2: Sitio Administrativo Django (col-6) -->
+    <div class="col-6">
+      <section class="card admin-card">
+        <div class="card__header">
+          <div class="card-icon-title">
+            <div class="admin-icon-box" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </div>
+            <h2 class="card__title">Sitio Administrativo Django</h2>
+          </div>
+          <span class="badge badge--neutral">Core ORM</span>
+        </div>
+        <div class="card__body">
+          <p class="card-desc">
+            Acceso administrativo directo al panel Django Admin para gestion de tablas, esquemas, sesiones de autenticacion y control integral de base de datos.
+          </p>
+          <div class="card-actions">
+            <button
+              type="button"
+              class="btn btn--ghost btn-external"
+              (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/')"
+            >
+              <span>Abrir Django Admin</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Modulo 3: Bitacora Forense de Auditoria (col-6) -->
+    <div class="col-6">
+      <section class="card admin-card">
+        <div class="card__header">
+          <div class="card-icon-title">
+            <div class="admin-icon-box icon-emerald" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+            </div>
+            <h2 class="card__title">Bitacora de Auditoria</h2>
+          </div>
+          <span class="badge badge--neutral">Trazabilidad</span>
+        </div>
+        <div class="card__body">
+          <p class="card-desc">
+            Registro forense de eventos del sistema, trazabilidad de inicios de sesion, creacion de tiendas y modificaciones de registros con sello de tiempo.
+          </p>
+          <div class="card-actions">
+            <a routerLink="/auditoria" class="btn btn--ghost">
+              <span>Consultar Bitacora</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Modulo 4: Control de Acceso y Roles RBAC (col-6) -->
+    <div class="col-6">
+      <section class="card admin-card">
+        <div class="card__header">
+          <div class="card-icon-title">
+            <div class="admin-icon-box icon-amber" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <h2 class="card__title">Control de Acceso y Roles</h2>
+          </div>
+          <span class="badge badge--warning">Seguridad RBAC</span>
+        </div>
+        <div class="card__body">
+          <p class="card-desc">
+            Administracion de roles del sistema, asignacion de permisos granulares por perfil y control de acceso basado en roles para vendedores y usuarios.
+          </p>
+          <div class="card-actions">
+            <a routerLink="/accesos" class="btn btn--ghost">
+              <span>Configurar Roles y Permisos</span>
+            </a>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </div>
-

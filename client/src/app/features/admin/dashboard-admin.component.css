@@ -1,109 +1,77 @@
-.admin-card {
-  background: var(--surface);
-  border-radius: var(--radius-xl);
-  padding: 3rem 2.5rem;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border);
-  text-align: center;
-  max-width: 800px;
-  margin: 2rem auto;
-  animation: fadeUp 0.4s ease-out;
+.admin-dashboard-page {
+  width: 100%;
 }
 
-.admin-badge {
-  display: inline-block;
-  background: var(--primary-light);
-  color: var(--primary);
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 0.35rem 1rem;
-  border-radius: 20px;
-  margin-bottom: 1.25rem;
-}
-
-h1 {
-  font-size: 2.2rem;
-  font-weight: 800;
-  margin-bottom: 0.75rem;
-  color: var(--text-primary);
-}
-
-.admin-text {
-  font-size: 1.05rem;
-  color: var(--text-secondary);
-  margin-bottom: 2rem;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  text-align: left;
-}
-
-.info-item {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
-}
-
-.info-icon {
-  font-size: 1.75rem;
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-.info-item h4 {
-  font-size: 1rem;
-  color: var(--text-primary);
-  margin-bottom: 0.25rem;
-}
-
-.info-item p {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.info-item a {
-  color: var(--primary);
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.quick-actions {
+.head-status-group {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: var(--sp-3);
   flex-wrap: wrap;
-  gap: 0.75rem;
 }
 
-
-@media (max-width: 600px) {
-  .admin-card {
-    padding: 1.75rem 1.25rem;
-    margin: 1rem auto;
-  }
-
-  h1 {
-    font-size: 1.6rem;
-  }
-
-  .info-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .quick-actions {
-    flex-direction: column;
-  }
-
-  .quick-actions .btn {
-    width: 100%;
-    text-align: center;
-  }
+.admin-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
+.admin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-2);
+  border-color: #CBD0DB;
+}
+
+.card-icon-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.admin-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.admin-icon-box.icon-danger {
+  background: var(--red-50);
+  color: var(--red-600);
+}
+
+.admin-icon-box.icon-amber {
+  background: var(--yellow-50);
+  color: var(--yellow-700);
+}
+
+.admin-icon-box.icon-emerald {
+  background: var(--green-50);
+  color: var(--green-700);
+}
+
+.card-desc {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0 0 var(--sp-5);
+  flex: 1;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: auto;
+  padding-top: var(--sp-3);
+}
+
+.btn-external {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

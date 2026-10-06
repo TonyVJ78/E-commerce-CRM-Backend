@@ -1,4 +1,5 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, computed } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Subscription, firstValueFrom } from 'rxjs';
@@ -20,6 +21,13 @@ export class NavbarComponent implements OnInit, OnDestroy {
   public readonly authService = inject(AuthService);
   public readonly carritoService = inject(CarritoService);
 
+  readonly currentUser = toSignal(this.authService.currentUser$, { initialValue: this.authService.currentUser });
+  readonly cartData = toSignal(this.carritoService.cartData$, { initialValue: null });
+  readonly cartCount = toSignal(this.carritoService.cartCount$, { initialValue: 0 });
+
+  readonly esCliente = computed(() => this.currentUser()?.rol?.toLowerCase() === 'cliente');
+  readonly userRole = computed(() => this.currentUser()?.rol?.toLowerCase() ?? '');
+
   menuOpen = false;
   cartOpen = false;
   checkoutSuccess = false;
@@ -38,11 +46,6 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private stripeMontado = false;
   private stripePreload: Promise<{ stripe: Stripe; clientSecret: string }> | null = null;
   private authSub?: Subscription;
-
-  get esCliente(): boolean {
-    const rol = this.authService.currentUser?.rol?.toLowerCase();
-    return rol === 'cliente';
-  }
 
   ngOnInit(): void {
     // Cargar carrito inicial exclusivamente para usuarios con rol cliente
@@ -69,7 +72,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   toggleCart(): void {
-    if (!this.esCliente) {
+    if (!this.esCliente()) {
       return;
     }
     this.setCartOpen(!this.cartOpen);
@@ -77,7 +80,6 @@ export class NavbarComponent implements OnInit, OnDestroy {
       this.checkoutSuccess = false;
       this.carritoService.obtenerCarrito().subscribe({
         next: (data) => {
-          // Precarga en segundo plano mientras el usuario revisa el carrito
           if (data && data.total_items > 0) {
             this.precargarStripe();
           }
@@ -94,19 +96,12 @@ export class NavbarComponent implements OnInit, OnDestroy {
     this.resetPagoStripe();
   }
 
-  /**
-   * Abre/cierra el drawer lateral y bloquea el scroll del viewport para evitar desplazamientos accidentales de fondo.
-   */
   private setCartOpen(open: boolean): void {
     this.cartOpen = open;
     if (typeof document !== 'undefined' && document.body) {
       document.body.style.overflow = open ? 'hidden' : '';
     }
   }
-
-  // --- Operaciones de Ítems en Carrito ---
-  // Cualquier cambio en cantidades invalida el monto del PaymentIntent previo,
-  // por lo que se invoca resetPagoStripe() para forzar un nuevo intento con el monto exacto.
 
   incrementar(item: ItemCarritoDetalle): void {
     this.resetPagoStripe();
@@ -128,15 +123,12 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   vaciar(): void {
-    if (confirm('¿Deseas vaciar todos los productos de tu carrito?')) {
+    if (confirm('Deseas vaciar todos los productos de tu carrito?')) {
       this.resetPagoStripe();
       this.carritoService.vaciarCarrito().subscribe();
     }
   }
 
-  /**
-   * Cambia el método de pago activo. Si se selecciona tarjeta, monta el elemento seguro de Stripe.
-   */
   seleccionarMetodoPago(metodo: MetodoPago): void {
     if (this.metodoPago === metodo) return;
     this.metodoPago = metodo;
@@ -148,9 +140,6 @@ export class NavbarComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Crea el PaymentIntent en el backend y descarga Stripe.js anticipadamente.
-   */
   private precargarStripe(): Promise<{ stripe: Stripe; clientSecret: string }> {
     const preload = firstValueFrom(this.carritoService.crearIntentoPagoStripe()).then(async (intento) => {
       const stripe = await loadStripe(intento.publishable_key);
@@ -161,7 +150,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     });
 
     this.stripePreload = preload;
-    preload.catch(() => {}); // Previene errores no capturados en consola
+    preload.catch(() => {});
     return preload;
   }
 
@@ -186,19 +175,13 @@ export class NavbarComponent implements OnInit, OnDestroy {
       });
   }
 
-  /**
-   * Limpia y destruye meticulosamente la instancia de Stripe y el nodo del DOM.
-   * Evita memory leaks, iframes huérfanos o colisiones al reabrir el drawer.
-   */
   private resetPagoStripe(): void {
     this.metodoPago = 'efectivo';
     if (this.paymentElement) {
       try {
         this.paymentElement.unmount();
         this.paymentElement.destroy();
-      } catch {
-        // Ignora posibles excepciones si el elemento ya fue destruido
-      }
+      } catch {}
       this.paymentElement = null;
     }
     this.stripe = null;
@@ -216,9 +199,6 @@ export class NavbarComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Confirma el pago en Stripe con confirmPayment() y ejecuta el checkout en el Backend.
-   */
   async pagarConStripe(): Promise<void> {
     if (!this.stripe || !this.elements || this.pagandoStripe) return;
     this.pagandoStripe = true;
@@ -237,7 +217,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
       }
 
       if (paymentIntent?.status !== 'succeeded') {
-        this.stripeError = `El pago con tarjeta no se completó (estado: ${paymentIntent?.status}).`;
+        this.stripeError = `El pago con tarjeta no se completo (estado: ${paymentIntent?.status}).`;
         this.pagandoStripe = false;
         return;
       }
@@ -249,7 +229,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.pagandoStripe = false;
-          this.stripeError = err.error?.error || 'El pago se debitó pero ocurrió un error al registrar el pedido. Contacta a soporte.';
+          this.stripeError = err.error?.error || 'El pago se debito pero ocurrio un error al registrar el pedido. Contacta a soporte.';
         }
       });
     } catch (err: any) {
@@ -258,9 +238,6 @@ export class NavbarComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Checkout tradicional para pago en efectivo o contra entrega.
-   */
   procederCheckout(): void {
     if (this.isCheckingOut) return;
     this.isCheckingOut = true;

@@ -1,5 +1,5 @@
-﻿/* =========================================================================
-   CU-22 ÔÇö Pedidos Recibidos (Empresa) - Kant├║ Market
+/* =========================================================================
+   CU-22 - Pedidos Recibidos (Empresa) - Kantu Market
    ========================================================================= */
 
 .pedidos-page {
@@ -14,9 +14,9 @@
   --estado-cancelado: var(--text-secondary);
   --estado-cancelado-bg: #F1F2F4;
 
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 4rem;
+  padding: 1.5rem 1.25rem 4rem;
   color: var(--text-primary);
 }
 
@@ -377,7 +377,7 @@
   color: var(--text-primary);
 }
 
-/* L├¡nea de tiempo */
+/* Linea de tiempo */
 .timeline {
   list-style: none;
   display: grid;

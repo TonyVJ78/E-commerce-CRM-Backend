@@ -1,206 +1,331 @@
-<div class="brand-page page-container">
-  <header class="page-heading">
+<div class="layout brand-page">
+  <!-- Cabecera de Pagina -->
+  <header class="page-head">
     <div>
-      <span class="eyebrow">CU-13 · Configuración</span>
+      <span class="eyebrow">CU-13 &middot; Modulo de Empresa</span>
       <h1>Identidad de Marca</h1>
-      <p>Personaliza el logotipo, el color principal y el slug público de cada tienda.</p>
+      <p>Personaliza el logotipo, color distintivo y direccion web publica de tu tienda.</p>
     </div>
-    <span class="security-chip">Acceso Empresa</span>
+    <span class="badge badge--empresa">Acceso Empresa</span>
   </header>
 
-  <section class="store-selector" aria-labelledby="store-selector-title">
+  <!-- Selector de Tienda (Multitenant) -->
+  <section class="card store-selector-card" aria-labelledby="store-selector-title">
     <div class="selector-copy">
-      <span class="step-number">1</span>
+      <div class="step-badge">1</div>
       <div>
-        <h2 id="store-selector-title">Selecciona una tienda</h2>
-        <p>Solo se muestran las tiendas asociadas a tu cuenta (aislamiento multitenant).</p>
+        <h2 id="store-selector-title" class="selector-title">Selecciona una tienda</h2>
+        <p class="selector-desc">Solo se muestran las tiendas asociadas a tu cuenta (aislamiento multitenant).</p>
       </div>
     </div>
 
-    <div class="selector-control" *ngIf="!loadingStores && tiendas.length">
-      <label for="store">Tienda</label>
-      <select id="store" [value]="selectedStoreId ?? ''" (change)="onStoreChange($event)">
-        <option value="" disabled>Elige una tienda</option>
-        <option *ngFor="let store of tiendas" [value]="store.id">
-          {{ store.nombre }} · /{{ store.slug }}
-        </option>
-      </select>
-    </div>
-
-    <div class="inline-loading" *ngIf="loadingStores" aria-live="polite">
-      <span class="loader dark"></span> Cargando tus tiendas...
-    </div>
-  </section>
-
-  <div class="alert success" *ngIf="successMessage" role="status">
-    {{ successMessage }}
-  </div>
-  <div class="alert error" *ngIf="errorMessage" role="alert">
-    <span>!</span>{{ errorMessage }}
-  </div>
-
-  <section class="empty-panel" *ngIf="!loadingStores && tiendas.length === 0">
-    <div class="empty-mark">KM</div>
-    <h2>Aún no tienes tiendas</h2>
-    <p>Crea una tienda primero para poder configurar su identidad de marca.</p>
-  </section>
-
-  <section class="choose-panel" *ngIf="!loadingStores && tiendas.length > 1 && !selectedStoreId">
-    <div class="choose-icon">↗</div>
-    <h2>Elige la tienda que quieres personalizar</h2>
-    <p>Cada tienda conserva su propia identidad y configuración visual.</p>
-  </section>
-
-  <section class="identity-loading" *ngIf="loadingIdentity" aria-live="polite">
-    <span class="loader dark"></span>
-    <p>Cargando identidad de marca...</p>
-  </section>
-
-  <form
-    *ngIf="selectedStoreId && identidad && !loadingIdentity"
-    class="identity-form"
-    [formGroup]="identityForm"
-    (ngSubmit)="save()"
-  >
-    <div class="store-context">
-      <div class="store-monogram" [style.background-color]="colorControl.value">
-        {{ identidad.nombre.slice(0, 2).toUpperCase() }}
+    @if (!loadingStores && tiendas.length) {
+      <div class="selector-control">
+        <label for="store" class="field-label-sm">Tienda activa:</label>
+        <select id="store" class="field-input" [value]="selectedStoreId ?? ''" (change)="onStoreChange($event)">
+          <option value="" disabled>Elige una tienda</option>
+          @for (store of tiendas; track store.id) {
+            <option [value]="store.id">
+              {{ store.nombre }} &middot; /{{ store.slug }}
+            </option>
+          }
+        </select>
       </div>
-      <div>
-        <span>Editando identidad de</span>
-        <strong>{{ identidad.nombre }}</strong>
-      </div>
-    </div>
+    }
 
-    <div class="identity-grid">
-      <section class="form-card logo-section">
-        <div class="section-title">
-          <span class="step-number">2</span>
-          <div>
-            <h2>Logotipo</h2>
-            <p>JPEG, PNG o WebP. Máximo 5 MB.</p>
+    @if (loadingStores) {
+      <div class="inline-loading" aria-live="polite">
+        <div class="spinner"></div>
+        <span>Cargando tus tiendas...</span>
+      </div>
+    }
+  </section>
+
+  @if (successMessage) {
+    <div class="alert alert--success" role="status" style="margin-top: var(--sp-4);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span>{{ successMessage }}</span>
+    </div>
+  }
+
+  @if (errorMessage) {
+    <div class="alert alert--danger" role="alert" style="margin-top: var(--sp-4);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span>{{ errorMessage }}</span>
+    </div>
+  }
+
+  @if (!loadingStores && tiendas.length === 0) {
+    <div class="kantu-empty-state card" style="margin-top: var(--sp-5);">
+      <svg class="empty__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <h3>Aun no tienes tiendas registradas</h3>
+      <p>Crea una tienda primero para poder configurar su identidad de marca corporativa.</p>
+      <a routerLink="/tiendas/nueva" class="btn btn--primary">Crear Mi Tienda</a>
+    </div>
+  }
+
+  @if (!loadingStores && tiendas.length > 1 && !selectedStoreId) {
+    <div class="kantu-empty-state card" style="margin-top: var(--sp-5);">
+      <svg class="empty__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M12 2a7 7 0 0 0 0 14c1.66 0 3-1.34 3-3 0-.8-.32-1.52-.84-2.04"></path>
+      </svg>
+      <h3>Elige la tienda que deseas personalizar</h3>
+      <p>Cada tienda conserva su propia identidad corporativa, logotipo y configuracion visual.</p>
+    </div>
+  }
+
+  @if (loadingIdentity) {
+    <div class="kantu-empty-state card" style="margin-top: var(--sp-5);">
+      <div class="spinner"></div>
+      <p style="margin-top: var(--sp-3);">Cargando identidad de marca...</p>
+    </div>
+  }
+
+  <!-- Maquetacion en Dos Columnas: Formulario a la Izquierda y Previsualizacion a la Derecha -->
+  @if (selectedStoreId && identidad && !loadingIdentity) {
+    <form [formGroup]="identityForm" (ngSubmit)="save()" class="brand-two-cols" style="margin-top: var(--sp-5);">
+      <!-- COLUMNA IZQUIERDA: Formulario de Configuracion -->
+      <div class="brand-form-col">
+        <div class="card">
+          <div class="card__header">
+            <h2 class="card__title">Configuracion de Marca: {{ identidad.nombre }}</h2>
+            <span class="badge badge--neutral">Paso 2 y 3</span>
           </div>
-        </div>
 
-        <div class="logo-comparison">
-          <div class="logo-block">
-            <span class="image-label">Logo actual</span>
-            <div class="logo-frame">
-              <img *ngIf="identidad.logo_url; else currentPlaceholder" [src]="identidad.logo_url" [alt]="'Logo actual de ' + identidad.nombre" />
-              <ng-template #currentPlaceholder>
-                <span class="logo-placeholder" [style.color]="colorControl.value">
-                  {{ identidad.nombre.slice(0, 2).toUpperCase() }}
-                </span>
-              </ng-template>
+          <div class="card__body">
+            <!-- 1. Logotipo de Marca -->
+            <section class="form-sub-section">
+              <h3 class="section-label">Logotipo de la Tienda</h3>
+              <p class="section-hint">Formatos: JPEG, PNG o WebP. Tamano maximo recomendado 5 MB.</p>
+
+              <div class="logo-config-box">
+                <div class="logo-current-frame">
+                  @if (logoPreviewUrl) {
+                    <img [src]="logoPreviewUrl" alt="Vista previa del nuevo logotipo" class="logo-img-render" />
+                  } @else if (identidad.logo_url) {
+                    <img [src]="identidad.logo_url" [alt]="'Logotipo de ' + identidad.nombre" class="logo-img-render" />
+                  } @else {
+                    <div class="logo-monogram" [style.background-color]="colorControl.value">
+                      {{ identidad.nombre.slice(0, 2).toUpperCase() }}
+                    </div>
+                  }
+                </div>
+
+                <div class="logo-upload-actions">
+                  <label class="btn btn--outline btn-upload" for="logo-file">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span>{{ selectedLogo ? 'Cambiar archivo' : 'Subir nuevo logotipo' }}</span>
+                  </label>
+                  <input
+                    #logoInput
+                    id="logo-file"
+                    class="file-input-hidden"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                    (change)="onLogoSelected($event)"
+                  />
+                  @if (selectedLogo) {
+                    <p class="file-name-text">
+                      {{ selectedLogo.name }} ({{ selectedLogo.size / 1024 | number:'1.0-0' }} KB)
+                    </p>
+                  }
+                  @if (logoError) {
+                    <p class="field__error">{{ logoError }}</p>
+                  }
+                </div>
+              </div>
+            </section>
+
+            <hr class="section-divider" />
+
+            <!-- 2. Color Distintivo -->
+            <section class="form-sub-section">
+              <h3 class="section-label">Color Principal Corporativo</h3>
+              <p class="section-hint">Define el color caracteristico de botones, acentos y perfil publico.</p>
+
+              <div class="field">
+                <div class="color-picker-row">
+                  <input
+                    id="brand-color"
+                    class="color-native-input"
+                    type="color"
+                    formControlName="color_primario"
+                    aria-label="Selector de color"
+                  />
+                  <input
+                    class="input color-hex-input"
+                    type="text"
+                    maxlength="7"
+                    formControlName="color_primario"
+                    (blur)="onColorBlur()"
+                    placeholder="#C8102E"
+                    aria-label="Color principal hexadecimal"
+                  />
+                  <span
+                    class="color-sample-pill"
+                    [style.background-color]="colorControl.valid ? colorControl.value : '#C8102E'"
+                  ></span>
+                </div>
+                @if (colorControl.touched && colorControl.invalid) {
+                  <span class="field__error">
+                    Ingresa un codigo hexadecimal valido de 6 caracteres (ejemplo: #C8102E).
+                  </span>
+                }
+              </div>
+            </section>
+
+            <hr class="section-divider" />
+
+            <!-- 3. Direccion Web / Slug -->
+            <section class="form-sub-section">
+              <h3 class="section-label">Direccion Web (Slug)</h3>
+              <p class="section-hint">Identificador unico amigable para la URL publica de tu tienda.</p>
+
+              <div class="field">
+                <div class="slug-input-row">
+                  <span class="slug-prefix">kantu.bo/tienda/</span>
+                  <input
+                    id="store-slug"
+                    type="text"
+                    class="input slug-field"
+                    maxlength="100"
+                    formControlName="slug"
+                    (input)="slugStatus = null"
+                    (blur)="onSlugBlur()"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="mi-tienda"
+                  />
+                </div>
+                @if (slugStatus === 'checking') {
+                  <span class="field__hint">Comprobando disponibilidad del slug...</span>
+                } @else if (slugStatus === 'available') {
+                  <span class="field__hint" style="color: var(--green-700);">Slug disponible para uso.</span>
+                } @else if (slugStatus === 'occupied') {
+                  <span class="field__error">Este slug ya esta ocupado por otra tienda.</span>
+                }
+
+                @if (slugControl.touched && slugControl.hasError('required')) {
+                  <span class="field__error">El slug es obligatorio.</span>
+                }
+                @if (slugControl.touched && slugControl.hasError('pattern')) {
+                  <span class="field__error">Usa unicamente letras minusculas, numeros y guiones simples.</span>
+                }
+              </div>
+            </section>
+
+            <!-- Boton de Guardar -->
+            <div class="form-submit-row">
+              <button
+                type="submit"
+                class="btn btn--primary btn--block btn--lg"
+                [disabled]="identityForm.invalid || saving || slugStatus === 'occupied' || slugStatus === 'checking'"
+              >
+                @if (saving) {
+                  <div class="spinner"></div>
+                  <span>Guardando cambios...</span>
+                } @else {
+                  <span>Guardar Identidad de Marca</span>
+                }
+              </button>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div class="logo-arrow" aria-hidden="true">→</div>
+      <!-- COLUMNA DERECHA: Tarjeta de Previsualizacion en Vivo -->
+      <div class="brand-preview-col">
+        <div class="card preview-card">
+          <div class="card__header">
+            <h2 class="card__title">Previsualizacion en Vivo</h2>
+            <span class="badge badge--success">
+              <span class="badge__dot"></span>En tiempo real
+            </span>
+          </div>
 
-          <div class="logo-block">
-            <span class="image-label">Vista previa local</span>
-            <div class="logo-frame preview" [class.empty]="!logoPreviewUrl">
-              <img *ngIf="logoPreviewUrl" [src]="logoPreviewUrl" alt="Vista previa del nuevo logotipo" />
-              <span *ngIf="!logoPreviewUrl" class="preview-copy">Selecciona un nuevo archivo</span>
+          <div class="card__body">
+            <p class="preview-lead">Asi es como tus clientes veran el perfil y productos de tu tienda:</p>
+
+            <!-- Store Showcase Mockup -->
+            <div class="storefront-mockup">
+              <!-- Header banner con color corporativo -->
+              <div
+                class="mockup-banner"
+                [style.background]="'linear-gradient(135deg, ' + (colorControl.valid ? colorControl.value : '#C8102E') + ' 0%, #1B1D24 100%)'"
+              >
+                <div class="mockup-logo-frame">
+                  @if (logoPreviewUrl) {
+                    <img [src]="logoPreviewUrl" alt="Previsualizacion del logo" class="mockup-logo-img" />
+                  } @else if (identidad.logo_url) {
+                    <img [src]="identidad.logo_url" [alt]="identidad.nombre" class="mockup-logo-img" />
+                  } @else {
+                    <div class="mockup-monogram" [style.background-color]="colorControl.value">
+                      {{ identidad.nombre.slice(0, 2).toUpperCase() }}
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- Info de la tienda en preview -->
+              <div class="mockup-store-info">
+                <div class="mockup-store-name-row">
+                  <h3 class="mockup-store-name">{{ identidad.nombre }}</h3>
+                  <span class="badge badge--empresa">Tienda Verificada</span>
+                </div>
+                <div class="mockup-store-url">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                  </svg>
+                  <span>kantu.bo/tienda/{{ slugControl.value || identidad.slug }}</span>
+                </div>
+              </div>
+
+              <!-- Muestra de Producto con Acento de Marca -->
+              <div class="mockup-sample-product">
+                <div class="sample-product-info">
+                  <span class="badge badge--neutral">Producto de muestra</span>
+                  <div class="sample-title">Poncho Tradicional Andino</div>
+                  <div class="sample-price">Bs 280,00</div>
+                </div>
+                <button
+                  type="button"
+                  class="btn sample-action-btn"
+                  [style.background-color]="colorControl.valid ? colorControl.value : '#C8102E'"
+                  style="color: #fff;"
+                >
+                  Comprar
+                </button>
+              </div>
+            </div>
+
+            <!-- Caja Informativa -->
+            <div class="preview-notice-box">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              <span>El color principal y logotipo seran aplicados en la navegacion, tarjetas y recibos de tus clientes.</span>
             </div>
           </div>
         </div>
-
-        <label class="upload-button" for="logo-file">
-          <span>↑</span>{{ selectedLogo ? 'Cambiar archivo' : 'Seleccionar nuevo logo' }}
-        </label>
-        <input
-          #logoInput
-          id="logo-file"
-          class="file-input"
-          type="file"
-          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-          (change)="onLogoSelected($event)"
-        />
-        <p class="selected-file" *ngIf="selectedLogo">
-          {{ selectedLogo.name }} · {{ selectedLogo.size / 1024 | number:'1.0-0' }} KB
-        </p>
-        <p class="field-error" *ngIf="logoError">{{ logoError }}</p>
-      </section>
-
-      <section class="form-card settings-section">
-        <div class="section-title">
-          <span class="step-number">3</span>
-          <div>
-            <h2>Color y dirección</h2>
-            <p>Define cómo se reconoce públicamente tu tienda.</p>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <label for="brand-color">Color principal (#RRGGBB)</label>
-          <div class="color-row">
-            <input id="brand-color" class="color-picker" type="color" formControlName="color_primario" />
-            <input
-              class="color-text"
-              type="text"
-              maxlength="7"
-              formControlName="color_primario"
-              (blur)="onColorBlur()"
-              aria-label="Color principal en formato hexadecimal"
-              placeholder="#C8102E"
-            />
-            <span class="color-swatch" [style.background-color]="colorControl.valid ? colorControl.value : '#E5E7EB'"></span>
-          </div>
-          <p class="field-error" *ngIf="colorControl.touched && colorControl.invalid">
-            Usa un formato hexadecimal estricto de 6 dígitos, por ejemplo #C8102E.
-          </p>
-        </div>
-
-        <div class="field-group">
-          <label for="store-slug">Slug de la tienda</label>
-          <div class="slug-input">
-            <span>/</span>
-            <input
-              id="store-slug"
-              type="text"
-              maxlength="100"
-              formControlName="slug"
-              (input)="slugStatus = null"
-              (blur)="onSlugBlur()"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </div>
-          <div class="slug-feedback" aria-live="polite">
-            <span class="checking" *ngIf="slugStatus === 'checking'">Comprobando disponibilidad...</span>
-            <span class="available" *ngIf="slugStatus === 'available'">Slug disponible</span>
-            <span class="occupied" *ngIf="slugStatus === 'occupied'">Este slug ya está en uso.</span>
-          </div>
-          <p class="field-error" *ngIf="slugControl.touched && slugControl.hasError('required')">
-            El slug es obligatorio.
-          </p>
-          <p class="field-error" *ngIf="slugControl.touched && slugControl.hasError('pattern')">
-            Usa letras minúsculas, números y guiones simples.
-          </p>
-          <p class="field-help">Vista pública: /{{ slugControl.value || 'mi-tienda' }}</p>
-        </div>
-
-        <div class="brand-sample" [style.border-left-color]="colorControl.valid ? colorControl.value : '#C8102E'">
-          <span>Vista de marca</span>
-          <strong [style.color]="colorControl.valid ? colorControl.value : '#C8102E'">
-            {{ identidad.nombre }}
-          </strong>
-          <small>Tu color principal se aplicará a elementos destacados y temas.</small>
-        </div>
-      </section>
-    </div>
-
-    <footer class="form-actions">
-      <p>Los cambios se aplicarán únicamente a <strong>{{ identidad.nombre }}</strong>.</p>
-      <button
-        type="submit"
-        class="save-button"
-        [disabled]="identityForm.invalid || saving || slugStatus === 'occupied' || slugStatus === 'checking'"
-      >
-        <span class="loader" *ngIf="saving"></span>
-        {{ saving ? 'Guardando...' : 'Guardar cambios' }}
-      </button>
-    </footer>
-  </form>
+      </div>
+    </form>
+  }
 </div>

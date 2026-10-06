@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -20,7 +20,6 @@ export class GestionProductosComponent implements OnInit, OnDestroy {
   productos: Producto[] = [];
   tiendas: Tienda[] = [];
   tiendaSeleccionadaId: number | null = null;
-  editForm: FormGroup;
 
   cargando = false;
   procesandoImagen = false;
@@ -56,20 +55,18 @@ export class GestionProductosComponent implements OnInit, OnDestroy {
 
   private readonly subs = new Subscription();
 
-  constructor(
-    private readonly fb: FormBuilder,
-    private readonly productoService: ProductoService,
-    private readonly tiendaService: TiendaService,
-    private readonly carritoService: CarritoService
-  ) {
-    this.editForm = this.fb.group({
-      nombre: ['', [Validators.required, Validators.maxLength(200)]],
-      precio: [0, [Validators.required, Validators.min(0.01)]],
-      categoria: [''],
-      imagen_url: [''],
-      descripcion: ['']
-    });
-  }
+  private readonly fb = inject(FormBuilder);
+  private readonly productoService = inject(ProductoService);
+  private readonly tiendaService = inject(TiendaService);
+  private readonly carritoService = inject(CarritoService);
+
+  editForm: FormGroup = this.fb.group({
+    nombre: ['', [Validators.required, Validators.maxLength(200)]],
+    precio: [0, [Validators.required, Validators.min(0.01)]],
+    categoria: [''],
+    imagen_url: [''],
+    descripcion: ['']
+  });
 
   ngOnInit(): void {
     this.cargarDatos();
