@@ -39,10 +39,15 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private stripePreload: Promise<{ stripe: Stripe; clientSecret: string }> | null = null;
   private authSub?: Subscription;
 
+  get esCliente(): boolean {
+    const rol = this.authService.currentUser?.rol?.toLowerCase();
+    return rol === 'cliente';
+  }
+
   ngOnInit(): void {
-    // Cargar carrito inicial para cualquier usuario autenticado
+    // Cargar carrito inicial exclusivamente para usuarios con rol cliente
     this.authSub = this.authService.currentUser$.subscribe((user) => {
-      if (user) {
+      if (user && user.rol?.toLowerCase() === 'cliente') {
         this.carritoService.cargarCarritoSilencioso();
       }
     });
@@ -59,6 +64,9 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   toggleCart(): void {
+    if (!this.esCliente) {
+      return;
+    }
     this.setCartOpen(!this.cartOpen);
     if (this.cartOpen) {
       this.checkoutSuccess = false;

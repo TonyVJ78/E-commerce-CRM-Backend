@@ -47,6 +47,20 @@ class CategoriaListView(OwnedStoreMixin, generics.ListAPIView):
         return Categoria.objects.filter(tienda=self.get_tienda()).order_by('nombre', 'id')
 
 
+class ProductoVendedorGlobalListView(generics.ListAPIView):
+    """
+    GET /api/tiendas/productos/
+    Lista todos los productos de las tiendas pertenecientes al usuario autenticado.
+    """
+    serializer_class = ProductoSerializer
+    permission_classes = [permissions.IsAuthenticated, IsEmpresa]
+
+    def get_queryset(self):
+        return Producto.objects.filter(
+            tienda__propietario=self.request.user
+        ).prefetch_related('variantes').order_by('-creado', '-id')
+
+
 class ProductoListCreateView(OwnedStoreMixin, generics.ListCreateAPIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 

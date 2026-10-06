@@ -197,4 +197,5 @@ class DashboardVendedorView(APIView):
             'ingresos_totales': float(ingresos_totales),
             'productos_bajo_stock': productos_bajo_stock,
             'ventas_semana': ventas_semana,
+            'grafico_ventas': ventas_semana,
         })

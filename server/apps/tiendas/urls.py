@@ -18,6 +18,7 @@ urlpatterns = [
         views.TiendaIdentidadView.as_view(),
         name='tienda_identidad',
     ),
+    path('<int:tienda_id>/crm/', include('apps.crm.urls')),
     path('', include('apps.catalogo.urls')),
     path('', views.TiendaListCreateView.as_view(), name='tienda_list_create'),
 ]

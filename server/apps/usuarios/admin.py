@@ -59,15 +59,21 @@ class RespaldoBaseDatos(Usuario):
 @admin.register(RespaldoBaseDatos)
 class RespaldoBaseDatosAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
-        from .admin_backup_views import admin_backups_dashboard_view
-        return admin_backups_dashboard_view(request)
+        from django.shortcuts import redirect
+        return redirect('admin_backups_dashboard')
+
+    def has_module_permission(self, request):
+        return bool(request.user and request.user.is_superuser)
+
+    def has_view_permission(self, request, obj=None):
+        return bool(request.user and request.user.is_superuser)
+
+    def has_change_permission(self, request, obj=None):
+        return bool(request.user and request.user.is_superuser)
 
     def has_add_permission(self, request):
         return False
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser
 

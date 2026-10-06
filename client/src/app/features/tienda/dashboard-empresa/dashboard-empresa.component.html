@@ -2,13 +2,13 @@
   <div class="section-header">
     <div>
       <h2>Panel del Vendedor</h2>
-      <p style="color: var(--text-secondary); margin-top: 0.25rem; font-size: 0.9rem;">Resumen y métricas de tu tienda.</p>
+      <p style="color: var(--text-secondary); margin-top: 0.25rem; font-size: 0.9rem;">Resumen y metricas de tu tienda.</p>
     </div>
   </div>
 
   <div *ngIf="loading" class="loading-state">
     <div class="spinner"></div>
-    <p>Cargando métricas...</p>
+    <p>Cargando metricas...</p>
   </div>
 
   <div *ngIf="error" class="error-state">
@@ -23,28 +23,28 @@
       <p class="metric-value">Bs {{ metrics.ingresos_totales | number:'1.2-2' }}</p>
     </div>
 
-    <div class="metric-card">
+    <div class="metric-card clickable" routerLink="/tiendas/pedidos" tabindex="0" role="link">
       <div class="metric-header">
         <h3>Pedidos Pendientes</h3>
       </div>
       <p class="metric-value">{{ metrics.pedidos_pendientes }}</p>
     </div>
 
-    <div class="metric-card">
+    <div class="metric-card clickable" routerLink="/tiendas/pedidos" tabindex="0" role="link">
       <div class="metric-header">
         <h3>Total Pedidos</h3>
       </div>
       <p class="metric-value">{{ metrics.total_pedidos }}</p>
     </div>
 
-    <div class="metric-card">
+    <div class="metric-card clickable" routerLink="/tiendas/productos" tabindex="0" role="link">
       <div class="metric-header">
         <h3>Productos Activos</h3>
       </div>
       <p class="metric-value">{{ metrics.productos_activos }} <span class="metric-subtext">/ {{ metrics.total_productos }}</span></p>
     </div>
 
-    <div class="metric-card">
+    <div class="metric-card clickable" routerLink="/tiendas/productos" tabindex="0" role="link">
       <div class="metric-header">
         <h3>Bajo Stock</h3>
       </div>
@@ -54,11 +54,27 @@
     </div>
   </div>
 
-  <!-- Gráfico de Ventas -->
+  <!-- Grafico de Ventas -->
   <div *ngIf="!loading && metrics" class="chart-container" style="position: relative;">
-    <h3>Productos Vendidos (Últimos 7 días)</h3>
-    <div style="position: relative; height: 85%; width: 100%;">
+    <h3>Productos Vendidos (Ultimos 7 dias)</h3>
+    <div *ngIf="!usarFallback" style="position: relative; height: 85%; width: 100%;">
       <canvas #ventasChart></canvas>
+    </div>
+
+    <!-- Fallback Visual en CSS puro si Chart.js falla o no esta disponible -->
+    <div *ngIf="usarFallback" class="fallback-chart-container">
+      <div class="fallback-bars-grid">
+        <div *ngFor="let dia of ventasSemana" class="fallback-bar-col">
+          <div class="fallback-bar-track">
+            <div
+              class="fallback-bar-fill"
+              [style.height.%]="(dia.cantidad / maxVentaSemana) * 100">
+            </div>
+          </div>
+          <span class="fallback-bar-val">{{ dia.cantidad }}</span>
+          <span class="fallback-bar-label">{{ dia.fecha }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>

@@ -6,16 +6,20 @@
       <span class="brand-text">Kantu <span class="brand-accent">Market</span></span>
     </a>
 
-    <!-- Acciones en barra móvil (Carrito y Toggle) -->
+    <!-- Acciones en barra movil (Carrito y Toggle) -->
     <div class="navbar-actions-mobile">
-      <button class="cart-trigger-btn mobile-cart-btn" (click)="toggleCart()" aria-label="Abrir carrito de compras">
-        <span class="cart-icon">🛒</span>
+      <button
+        *ngIf="esCliente"
+        class="cart-trigger-btn mobile-cart-btn"
+        (click)="toggleCart()"
+        aria-label="Abrir carrito de compras">
+        <span class="cart-icon">[Carrito]</span>
         <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">
           {{ count }}
         </span>
       </button>
 
-      <button class="menu-toggle" (click)="toggleMenu()" [class.active]="menuOpen" aria-label="Menú principal">
+      <button class="menu-toggle" (click)="toggleMenu()" [class.active]="menuOpen" aria-label="Menu principal">
         <span></span>
         <span></span>
         <span></span>
@@ -43,13 +47,19 @@
         <!-- Enlaces para Administradores -->
         <ng-container *ngIf="(authService.currentUser$ | async)?.rol === 'administrador'">
           <a routerLink="/dashboard" routerLinkActive="active" (click)="menuOpen = false">Dashboard</a>
-          <a routerLink="/auditoria" routerLinkActive="active" (click)="menuOpen = false">Auditoría</a>
+          <a routerLink="/auditoria" routerLinkActive="active" (click)="menuOpen = false">Auditoria</a>
           <a routerLink="/accesos" routerLinkActive="active" (click)="menuOpen = false">Roles y Permisos</a>
+          <a href="http://127.0.0.1:8000/admin/backups/" target="_blank" rel="noopener noreferrer" (click)="menuOpen = false">Backups</a>
+          <a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noopener noreferrer" (click)="menuOpen = false">Django Admin</a>
         </ng-container>
 
-        <!-- Botón de Carrito (Desktop) -->
-        <button class="cart-trigger-btn desktop-only" (click)="toggleCart()" aria-label="Abrir carrito de compras">
-          <span class="cart-icon">🛒</span>
+        <!-- Boton de Carrito (Desktop) -->
+        <button
+          *ngIf="esCliente"
+          class="cart-trigger-btn desktop-only"
+          (click)="toggleCart()"
+          aria-label="Abrir carrito de compras">
+          <span class="cart-icon">[Carrito]</span>
           <span class="cart-label">Carrito</span>
           <span class="cart-badge" *ngIf="(carritoService.cartCount$ | async) as count">
             {{ count }}
@@ -84,6 +94,7 @@
 <!-- ========================================================================= -->
 <!-- SLIDE-OVER DRAWER DEL CARRITO DE COMPRAS CON PASARELA STRIPE -->
 <!-- ========================================================================= -->
+<ng-container *ngIf="esCliente">
 <div class="cart-backdrop" *ngIf="cartOpen" (click)="closeCart()"></div>
 
 <aside class="cart-drawer" [class.open]="cartOpen">
@@ -240,3 +251,4 @@
     </ng-template>
   </div>
 </aside>
+</ng-container>
