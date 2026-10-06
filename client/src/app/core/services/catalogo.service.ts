@@ -29,16 +29,40 @@ export class CatalogoService {
     return this.http.get<CategoriaCatalogo[]>(`${this.apiUrl}/categorias/`, { params });
   }
 
-  listarTodosLosProductos(filtros?: { categoria?: number; tienda?: number; q?: string }): Observable<ProductoCatalogo[]> {
+  listarTodosLosProductos(filtros?: {
+    categoria?: number;
+    categoria_nombre?: string;
+    tienda?: number;
+    q?: string;
+    precio_min?: number;
+    precio_max?: number;
+    en_stock?: boolean;
+    orden?: string;
+  }): Observable<ProductoCatalogo[]> {
     let params = new HttpParams();
     if (filtros?.categoria) {
       params = params.set('categoria', filtros.categoria.toString());
+    }
+    if (filtros?.categoria_nombre) {
+      params = params.set('categoria_nombre', filtros.categoria_nombre.trim());
     }
     if (filtros?.tienda) {
       params = params.set('tienda', filtros.tienda.toString());
     }
     if (filtros?.q) {
       params = params.set('q', filtros.q.trim());
+    }
+    if (filtros?.precio_min !== undefined && filtros?.precio_min !== null) {
+      params = params.set('precio_min', filtros.precio_min.toString());
+    }
+    if (filtros?.precio_max !== undefined && filtros?.precio_max !== null) {
+      params = params.set('precio_max', filtros.precio_max.toString());
+    }
+    if (filtros?.en_stock) {
+      params = params.set('en_stock', 'true');
+    }
+    if (filtros?.orden) {
+      params = params.set('orden', filtros.orden);
     }
     return this.http.get<ProductoCatalogo[]>(`${this.apiUrl}/productos/`, { params });
   }
