@@ -8,16 +8,18 @@
         Textiles de alpaca, gastronomía tradicional, tecnología y artesanías auténticas directo de productores bolivianos.
       </p>
 
-      <!-- Barra de Búsqueda Principal -->
+      <!-- Barra de Búsqueda Principal con Debounce y Acciones -->
       <div class="search-bar-wrapper">
         <span class="search-icon">🔍</span>
         <input
           type="text"
           class="search-input"
           placeholder="Busca por producto, café, aguayo, cerámica..."
-          [(ngModel)]="terminoBusqueda"
+          [ngModel]="terminoBusqueda"
+          (ngModelChange)="onBusquedaInput($event)"
           (keyup.enter)="aplicarFiltros()"
         />
+        <button *ngIf="terminoBusqueda" type="button" class="btn-clear-search" (click)="terminoBusqueda = ''; aplicarFiltros()">✕</button>
         <button class="btn-search" (click)="aplicarFiltros()">Buscar</button>
       </div>
     </div>
@@ -34,6 +36,70 @@
 
     <!-- Barra de Filtros: Tiendas y Categorías -->
     <section class="filters-section">
+      <!-- Barra de Control: Ordenamiento y Botón de Filtros Avanzados -->
+      <div class="filter-controls-bar">
+        <div class="controls-left">
+          <button type="button" class="btn-toggle-filters" [class.active]="panelFiltrosAbierto" (click)="togglePanelFiltros()">
+            <span class="filter-icon">⚙️</span>
+            <span>Filtros avanzados</span>
+            <span class="filter-badge" *ngIf="cantidadFiltrosActivos > 0">{{ cantidadFiltrosActivos }}</span>
+          </button>
+          <span class="results-count-text">{{ productos.length }} productos encontrados</span>
+        </div>
+
+        <div class="controls-right">
+          <label class="sort-label" for="selectOrden">Ordenar por:</label>
+          <select id="selectOrden" class="select-sort" [(ngModel)]="ordenSeleccionado" (change)="aplicarFiltros()">
+            <option value="recientes">Más recientes</option>
+            <option value="precio_asc">Menor precio</option>
+            <option value="precio_desc">Mayor precio</option>
+            <option value="nombre_asc">Nombre (A - Z)</option>
+            <option value="nombre_desc">Nombre (Z - A)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Panel Desplegable de Filtros Dinámicos -->
+      <div class="filters-drawer" *ngIf="panelFiltrosAbierto">
+        <div class="drawer-grid">
+          <!-- Rango de Precios -->
+          <div class="drawer-column">
+            <h4>Rango de Precio (Bs.)</h4>
+            <div class="price-range-inputs">
+              <div class="price-input-group">
+                <span>Min:</span>
+                <input type="number" min="0" step="1" [(ngModel)]="precioMinimo" placeholder="0" (keyup.enter)="aplicarFiltros()">
+              </div>
+              <span class="range-dash">—</span>
+              <div class="price-input-group">
+                <span>Max:</span>
+                <input type="number" min="0" step="1" [(ngModel)]="precioMaximo" placeholder="1000" (keyup.enter)="aplicarFiltros()">
+              </div>
+            </div>
+            <div class="price-presets">
+              <button type="button" class="preset-btn" (click)="precioMinimo = 0; precioMaximo = 50; aplicarFiltros()">Hasta 50 Bs</button>
+              <button type="button" class="preset-btn" (click)="precioMinimo = 50; precioMaximo = 200; aplicarFiltros()">50 a 200 Bs</button>
+              <button type="button" class="preset-btn" (click)="precioMinimo = 200; precioMaximo = null; aplicarFiltros()">+200 Bs</button>
+            </div>
+          </div>
+
+          <!-- Disponibilidad y Opciones -->
+          <div class="drawer-column">
+            <h4>Disponibilidad</h4>
+            <label class="checkbox-option">
+              <input type="checkbox" [(ngModel)]="soloEnStock" (change)="aplicarFiltros()">
+              <span>Solo productos con stock disponible</span>
+            </label>
+          </div>
+
+          <!-- Acciones del Panel -->
+          <div class="drawer-column drawer-actions">
+            <button type="button" class="btn btn-primary btn-sm" (click)="aplicarFiltros()">Aplicar Filtros</button>
+            <button type="button" class="btn btn-outline btn-sm" (click)="limpiarFiltros()">Restablecer todo</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Selector de Tiendas -->
       <div class="filter-row store-filters">
         <span class="filter-label">🏬 Tienda:</span>
@@ -82,11 +148,34 @@
         </div>
       </div>
 
-      <!-- Resumen de Filtros Activos -->
-      <div class="active-filters-bar" *ngIf="categoriaSeleccionadaId || tiendaSeleccionadaId || terminoBusqueda">
-        <span class="active-count">Mostrando resultados filtrados ({{ productos.length }} productos)</span>
+      <!-- Resumen de Filtros Activos con chips descartables -->
+      <div class="active-filters-bar" *ngIf="cantidadFiltrosActivos > 0">
+        <div class="active-chips">
+          <span class="active-label">Filtros activos:</span>
+
+          <span class="applied-chip" *ngIf="terminoBusqueda">
+            Búsqueda: "{{ terminoBusqueda }}"
+            <button type="button" (click)="terminoBusqueda = ''; aplicarFiltros()">✕</button>
+          </span>
+
+          <span class="applied-chip" *ngIf="precioMinimo !== null || precioMaximo !== null">
+            Precio: Bs. {{ precioMinimo ?? 0 }} — {{ precioMaximo ? ('Bs. ' + precioMaximo) : 'Sin límite' }}
+            <button type="button" (click)="limpiarPrecio()">✕</button>
+          </span>
+
+          <span class="applied-chip" *ngIf="soloEnStock">
+            En Stock
+            <button type="button" (click)="soloEnStock = false; aplicarFiltros()">✕</button>
+          </span>
+
+          <span class="applied-chip" *ngIf="ordenSeleccionado !== 'recientes'">
+            Orden: {{ ordenSeleccionado }}
+            <button type="button" (click)="ordenSeleccionado = 'recientes'; aplicarFiltros()">✕</button>
+          </span>
+        </div>
+
         <button type="button" class="btn-clear-filters" (click)="limpiarFiltros()">
-          ✕ Limpiar filtros
+          ✕ Limpiar todos los filtros
         </button>
       </div>
     </section>

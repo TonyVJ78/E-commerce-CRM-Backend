@@ -201,7 +201,7 @@ def _productos_publicos():
 
 
 class ProductoCatalogoGeneralListView(generics.ListAPIView):
-    """GET /api/catalogo/productos/ — Catálogo general de todas las tiendas con filtros."""
+    """GET /api/catalogo/productos/ — Catálogo general de todas las tiendas con filtros avanzados."""
 
     serializer_class = ProductoCatalogoSerializer
     permission_classes = [permissions.AllowAny]
@@ -217,16 +217,56 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
         if categoria_id:
             queryset = queryset.filter(categoria_id=categoria_id)
 
+        categoria_nombre = self.request.query_params.get('categoria_nombre')
+        if categoria_nombre and categoria_nombre.strip():
+            queryset = queryset.filter(categoria__nombre__iexact=categoria_nombre.strip())
+
         q = self.request.query_params.get('q')
-        if q:
+        if q and q.strip():
+            q_clean = q.strip()
             queryset = queryset.filter(
-                models.Q(nombre__icontains=q) |
-                models.Q(descripcion__icontains=q) |
-                models.Q(categoria__nombre__icontains=q) |
-                models.Q(tienda__nombre__icontains=q)
+                models.Q(nombre__icontains=q_clean) |
+                models.Q(descripcion__icontains=q_clean) |
+                models.Q(categoria__nombre__icontains=q_clean) |
+                models.Q(tienda__nombre__icontains=q_clean)
             )
 
-        return queryset.order_by('-id')
+        # Filtro de stock disponible (en_stock=true)
+        en_stock = self.request.query_params.get('en_stock')
+        if en_stock in ('true', '1', 'True'):
+            queryset = queryset.filter(variantes__activa=True, variantes__stock__gt=0).distinct()
+
+        # Filtro de rango de precios sobre variantes activas
+        precio_min = self.request.query_params.get('precio_min')
+        if precio_min is not None:
+            try:
+                p_min = float(precio_min)
+                queryset = queryset.filter(variantes__activa=True, variantes__precio__gte=p_min).distinct()
+            except (ValueError, TypeError):
+                pass
+
+        precio_max = self.request.query_params.get('precio_max')
+        if precio_max is not None:
+            try:
+                p_max = float(precio_max)
+                queryset = queryset.filter(variantes__activa=True, variantes__precio__lte=p_max).distinct()
+            except (ValueError, TypeError):
+                pass
+
+        # Ordenamiento
+        orden = self.request.query_params.get('orden', 'recientes')
+        if orden == 'precio_asc':
+            queryset = queryset.order_by('variantes__precio', '-id').distinct()
+        elif orden == 'precio_desc':
+            queryset = queryset.order_by('-variantes__precio', '-id').distinct()
+        elif orden == 'nombre_asc':
+            queryset = queryset.order_by('nombre', '-id')
+        elif orden == 'nombre_desc':
+            queryset = queryset.order_by('-nombre', '-id')
+        else:
+            queryset = queryset.order_by('-creado', '-id')
+
+        return queryset
 
 
 class ProductoCatalogoDetailView(generics.RetrieveAPIView):

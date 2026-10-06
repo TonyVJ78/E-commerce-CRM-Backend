@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import {
   ProductoCatalogo,
   TiendaCatalogo,
@@ -34,6 +34,13 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
   categoriaSeleccionadaId: number | null = null;
   tiendaSeleccionadaId: number | null = null;
   terminoBusqueda = '';
+  precioMinimo: number | null = null;
+  precioMaximo: number | null = null;
+  soloEnStock = false;
+  ordenSeleccionado = 'recientes';
+  panelFiltrosAbierto = false;
+
+  private readonly busquedaSubject = new Subject<string>();
 
   // Estados de carga
   cargando = false;
@@ -48,6 +55,17 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
   private readonly subs = new Subscription();
 
   ngOnInit(): void {
+    // Configurar búsqueda reactiva con debounce de 350ms
+    this.subs.add(
+      this.busquedaSubject.pipe(
+        debounceTime(350),
+        distinctUntilChanged()
+      ).subscribe(termino => {
+        this.terminoBusqueda = termino;
+        this.aplicarFiltros(true);
+      })
+    );
+
     this.cargarFiltrosYCatalogoGeneral();
 
     // Escuchar cuando el usuario hace checkout en el carrito
@@ -98,11 +116,40 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
     this.aplicarFiltros(false);
   }
 
+  onBusquedaInput(valor: string): void {
+    this.busquedaSubject.next(valor);
+  }
+
+  togglePanelFiltros(): void {
+    this.panelFiltrosAbierto = !this.panelFiltrosAbierto;
+  }
+
+  get cantidadFiltrosActivos(): number {
+    let count = 0;
+    if (this.categoriaSeleccionadaId) count++;
+    if (this.tiendaSeleccionadaId) count++;
+    if (this.terminoBusqueda.trim()) count++;
+    if (this.precioMinimo !== null) count++;
+    if (this.precioMaximo !== null) count++;
+    if (this.soloEnStock) count++;
+    if (this.ordenSeleccionado !== 'recientes') count++;
+    return count;
+  }
+
   aplicarFiltros(registrarBusqueda = true): void {
     this.cargando = true;
     this.limpiarMensajes();
 
-    const filtros: { categoria?: number; tienda?: number; q?: string } = {};
+    const filtros: {
+      categoria?: number;
+      tienda?: number;
+      q?: string;
+      precio_min?: number;
+      precio_max?: number;
+      en_stock?: boolean;
+      orden?: string;
+    } = {};
+
     if (this.categoriaSeleccionadaId) {
       filtros.categoria = this.categoriaSeleccionadaId;
     }
@@ -119,6 +166,18 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
           termino_busqueda: this.terminoBusqueda
         });
       }
+    }
+    if (this.precioMinimo !== null && this.precioMinimo >= 0) {
+      filtros.precio_min = this.precioMinimo;
+    }
+    if (this.precioMaximo !== null && this.precioMaximo >= 0) {
+      filtros.precio_max = this.precioMaximo;
+    }
+    if (this.soloEnStock) {
+      filtros.en_stock = true;
+    }
+    if (this.ordenSeleccionado) {
+      filtros.orden = this.ordenSeleccionado;
     }
 
     this.catalogoService.listarTodosLosProductos(filtros).subscribe({
@@ -271,6 +330,16 @@ export class HomeClienteComponent implements OnInit, OnDestroy {
     this.categoriaSeleccionadaId = null;
     this.tiendaSeleccionadaId = null;
     this.terminoBusqueda = '';
+    this.precioMinimo = null;
+    this.precioMaximo = null;
+    this.soloEnStock = false;
+    this.ordenSeleccionado = 'recientes';
+    this.aplicarFiltros();
+  }
+
+  limpiarPrecio(): void {
+    this.precioMinimo = null;
+    this.precioMaximo = null;
     this.aplicarFiltros();
   }
 
