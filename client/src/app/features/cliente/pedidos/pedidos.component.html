@@ -21,21 +21,19 @@
 
   <!-- Notificaciones de Alerta -->
   <div class="alert-box alert-error" *ngIf="error" role="alert">
-    <span class="alert-icon">⚠️</span>
     <div class="alert-content">
       <strong>Atención</strong>
       <p>{{ error }}</p>
     </div>
-    <button class="alert-close" type="button" (click)="error = ''" aria-label="Cerrar">✕</button>
+    <button class="alert-close" type="button" (click)="error = ''" aria-label="Cerrar">X</button>
   </div>
 
   <div class="alert-box alert-success" *ngIf="mensaje" role="status">
-    <span class="alert-icon">🎉</span>
     <div class="alert-content">
       <strong>¡Operación exitosa!</strong>
       <p>{{ mensaje }}</p>
     </div>
-    <button class="alert-close" type="button" (click)="mensaje = ''" aria-label="Cerrar">✕</button>
+    <button class="alert-close" type="button" (click)="mensaje = ''" aria-label="Cerrar">X</button>
   </div>
 
   <!-- Contenedor Maestro-Detalle -->
@@ -54,7 +52,6 @@
 
       <!-- Estado vacío -->
       <div class="empty-orders-card" *ngIf="!cargando && pedidos.length === 0">
-        <span class="empty-icon">🛍️</span>
         <h3>Aún no tienes pedidos</h3>
         <p>Explora nuestro catálogo artesanal y realiza tu primera compra.</p>
         <a routerLink="/inicio" class="btn-primary-sm">Ir al Catálogo</a>
@@ -73,12 +70,11 @@
           <div class="order-card-top">
             <span class="order-id">Pedido #{{ pedido.id }}</span>
             <span class="badge" [ngClass]="claseBadgeEstado(pedido.estado)">
-              {{ iconoEstado(pedido.estado) }} {{ etiquetaEstado(pedido.estado) }}
+              {{ etiquetaEstado(pedido.estado) }}
             </span>
           </div>
 
           <div class="order-card-store">
-            <span class="store-icon">🏬</span>
             <span class="store-name">{{ pedido.tienda_nombre }}</span>
           </div>
 
@@ -88,7 +84,7 @@
               <strong class="order-product-name">{{ item.producto_nombre }}</strong>
               <span class="order-product-meta">{{ item.variante_nombre }} · {{ item.cantidad }} unidad(es)</span>
               <span class="order-product-state" [ngClass]="claseBadgeEstado(pedido.estado)">
-                {{ iconoEstado(pedido.estado) }} {{ etiquetaEstado(pedido.estado) }}
+                {{ etiquetaEstado(pedido.estado) }}
               </span>
             </div>
           </div>
@@ -115,11 +111,11 @@
         <div class="detail-hero-card">
           <div class="hero-header">
             <div>
-              <span class="store-pill">🏬 {{ pedido.tienda_nombre }}</span>
+              <span class="store-pill">Tienda: {{ pedido.tienda_nombre }}</span>
               <h2 class="hero-title">Detalle del Pedido #{{ pedido.id }}</h2>
             </div>
             <span class="badge badge-lg" [ngClass]="claseBadgeEstado(pedido.estado)">
-              {{ iconoEstado(pedido.estado) }} {{ etiquetaEstado(pedido.estado) }}
+              {{ etiquetaEstado(pedido.estado) }}
             </span>
           </div>
 
@@ -142,7 +138,7 @@
         <!-- Sección de Artículos Comprados -->
         <div class="section-card">
           <h3 class="section-title">
-            <span class="section-icon">📦</span> Artículos en este Pedido
+            Artículos en este Pedido
           </h3>
           <div class="items-table-wrapper">
             <table class="items-table">
@@ -158,7 +154,6 @@
               <tbody>
                 <tr *ngFor="let item of pedido.items">
                   <td class="product-cell">
-                    <span class="product-tag-icon">🏷️</span>
                     <strong>{{ item.producto_nombre }}</strong>
                   </td>
                   <td><span class="variant-chip">{{ item.variante_nombre }}</span></td>
@@ -174,7 +169,7 @@
         <!-- Sección de Trazabilidad / Timeline (CU-20) -->
         <div class="section-card">
           <h3 class="section-title">
-            <span class="section-icon">⏱️</span> Línea de Tiempo y Seguimiento
+            Línea de Tiempo y Seguimiento
           </h3>
 
           <div class="timeline-container" *ngIf="pedido.historial?.length; else emptyTimeline">
@@ -186,7 +181,7 @@
               >
                 <div class="step-indicator">
                   <div class="step-dot" [ngClass]="claseBadgeEstado(evento.estado)">
-                    {{ last ? '📍' : '✓' }}
+                    {{ idx + 1 }}
                   </div>
                   <div class="step-line" *ngIf="!last"></div>
                 </div>
@@ -194,12 +189,11 @@
                 <div class="step-content">
                   <div class="step-header">
                     <span class="badge" [ngClass]="claseBadgeEstado(evento.estado)">
-                      {{ iconoEstado(evento.estado) }} {{ etiquetaEstado(evento.estado) }}
+                      {{ etiquetaEstado(evento.estado) }}
                     </span>
                     <time class="step-time">{{ evento.fecha | date:'d MMM y, HH:mm:ss' }}</time>
                   </div>
                   <div class="observation-box" *ngIf="evento.observacion">
-                    <span class="obs-icon">💬</span>
                     <p class="obs-text">{{ evento.observacion }}</p>
                   </div>
                 </div>
@@ -209,7 +203,6 @@
 
           <ng-template #emptyTimeline>
             <div class="empty-state-notice">
-              <span class="empty-icon">⏳</span>
               <p>Tu pedido está siendo procesado por el vendedor. El historial de estados se actualizará en breve.</p>
             </div>
           </ng-template>
@@ -218,7 +211,7 @@
         <!-- Sección de Reseñas y Experiencia (CU-21) -->
         <div class="section-card review-experience-card">
           <h3 class="section-title">
-            <span class="section-icon">⭐</span> Calificaciones y Reseñas
+            Calificaciones y Reseñas
           </h3>
 
           <!-- Reseñas ya registradas -->
@@ -228,14 +221,14 @@
               <div class="review-item-card" *ngFor="let res of pedido.resenas">
                 <div class="review-item-header">
                   <span class="target-type-badge" [class.badge-store]="res.tipo === 'tienda'">
-                    {{ res.tipo === 'tienda' ? '🏬 Tienda' : '🏷️ Producto' }}
+                    {{ res.tipo === 'tienda' ? 'Tienda' : 'Producto' }}
                   </span>
                   <div class="star-rating-display" [attr.aria-label]="res.calificacion + ' de 5 estrellas'">
                     <span
                       class="star"
                       *ngFor="let s of [1, 2, 3, 4, 5]"
                       [class.filled]="s <= res.calificacion"
-                    >★</span>
+                    >&#9733;</span>
                   </div>
                 </div>
                 <h5 class="reviewed-target-name">
@@ -269,7 +262,7 @@
                     [class.selected]="resenaForm.get('tipo')?.value === 'producto'"
                     (click)="resenaForm.patchValue({ tipo: 'producto' })"
                   >
-                    🏷️ Producto Específico
+                    Producto Específico
                   </button>
                   <button
                     type="button"
@@ -277,7 +270,7 @@
                     [class.selected]="resenaForm.get('tipo')?.value === 'tienda'"
                     (click)="resenaForm.patchValue({ tipo: 'tienda' })"
                   >
-                    🏬 La Tienda (Atención / Envío)
+                    La Tienda (Atención / Envío)
                   </button>
                 </div>
               </div>
@@ -325,7 +318,7 @@
                     (click)="setCalificacion(star)"
                     [attr.aria-label]="star + ' estrellas'"
                   >
-                    ★
+                    &#9733;
                   </button>
                   <span class="rating-label">
                     {{ resenaForm.get('calificacion')?.value }} de 5 estrellas
@@ -369,7 +362,6 @@
           <!-- Mensaje cuando el pedido no está entregado -->
           <ng-template #notDeliverableNotice>
             <div class="pending-review-notice">
-              <span class="notice-icon">ℹ️</span>
               <div>
                 <strong>Calificaciones deshabilitadas temporalmente</strong>
                 <p>Podrás registrar tu reseña de la tienda y productos una vez que el pedido figure con estado <em>"Entregado"</em> o <em>"Completado"</em>.</p>
@@ -382,7 +374,6 @@
       <!-- Pantalla de Selección Inicial (Si no hay pedido seleccionado) -->
       <ng-template #chooseOrderPrompt>
         <div class="no-selection-card">
-          <div class="no-selection-icon">📦</div>
           <h2>Selecciona un Pedido</h2>
           <p>Elige cualquier compra del panel izquierdo para inspeccionar su trazabilidad, productos y calificaciones.</p>
         </div>

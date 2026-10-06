@@ -3,7 +3,7 @@
     <h2>Mis Tiendas</h2>
     <div class="section-actions">
       <a routerLink="/tiendas/productos" class="btn btn-secondary">
-        📦 Administrar Productos
+        Administrar Productos
       </a>
       <button class="btn btn-primary" (click)="toggleForm()">
         {{ showForm ? 'Cancelar' : '+ Nueva Tienda' }}
@@ -83,7 +83,6 @@
   </div>
 
   <div class="empty-state" *ngIf="tiendas.length === 0 && !showForm">
-    <div class="empty-icon">🏪</div>
     <h3>Aún no tienes tiendas</h3>
     <p>Crea tu primera tienda para empezar a vender en Kantu Market.</p>
     <button class="btn btn-primary" (click)="toggleForm()">Crear mi primera tienda</button>

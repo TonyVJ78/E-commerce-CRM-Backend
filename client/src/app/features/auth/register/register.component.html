@@ -1,7 +1,7 @@
 <div class="auth-container">
   <div class="auth-card">
     <div class="auth-header">
-      <h1 class="auth-logo">🛍️ Kantu Market</h1>
+      <h1 class="auth-logo">Kantu Market</h1>
       <p class="auth-subtitle">Crea tu cuenta</p>
     </div>
 
@@ -61,7 +61,7 @@
             (click)="togglePasswordVisibility()"
             [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Ver contraseña'"
           >
-            {{ showPassword ? '👁️' : '👁️‍🗨️' }}
+            {{ showPassword ? 'Ocultar' : 'Ver' }}
           </button>
         </div>
 
@@ -70,19 +70,19 @@
           <p class="req-title">Requisitos de la contraseña:</p>
           <ul class="req-list">
             <li [class.req-met]="hasMinLength">
-              <span class="req-icon">{{ hasMinLength ? '✔' : '○' }}</span>
+              <span class="req-icon">{{ hasMinLength ? '[OK]' : '[-]' }}</span>
               Mínimo 8 caracteres
             </li>
             <li [class.req-met]="hasLetter">
-              <span class="req-icon">{{ hasLetter ? '✔' : '○' }}</span>
+              <span class="req-icon">{{ hasLetter ? '[OK]' : '[-]' }}</span>
               Al menos una letra (A-Z o a-z)
             </li>
             <li [class.req-met]="hasNumber">
-              <span class="req-icon">{{ hasNumber ? '✔' : '○' }}</span>
+              <span class="req-icon">{{ hasNumber ? '[OK]' : '[-]' }}</span>
               Al menos un número (0-9)
             </li>
             <li [class.req-met]="hasSpecial">
-              <span class="req-icon">{{ hasSpecial ? '✔' : '○' }}</span>
+              <span class="req-icon">{{ hasSpecial ? '[OK]' : '[-]' }}</span>
               Al menos un carácter especial (ej. !&#64;#$%^&*?)
             </li>
           </ul>
@@ -105,7 +105,7 @@
             (click)="togglePasswordConfirmVisibility()"
             [attr.aria-label]="showPasswordConfirm ? 'Ocultar confirmación' : 'Ver confirmación'"
           >
-            {{ showPasswordConfirm ? '👁️' : '👁️‍🗨️' }}
+            {{ showPasswordConfirm ? 'Ocultar' : 'Ver' }}
           </button>
         </div>
         <span class="error-text" *ngIf="registerForm.get('password_confirm')?.touched && registerForm.hasError('passwordMismatch')">

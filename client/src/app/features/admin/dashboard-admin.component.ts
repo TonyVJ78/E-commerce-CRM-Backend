@@ -12,4 +12,8 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class DashboardAdminComponent {
   constructor(public readonly authService: AuthService) {}
+
+  abrirEnlaceExterno(ruta: string): void {
+    window.open(ruta, '_blank', 'noopener,noreferrer');
+  }
 }

@@ -2,7 +2,6 @@
   <div class="navbar-container">
     <!-- Brand / Logo -->
     <a routerLink="/" class="navbar-brand">
-      <span class="brand-icon">🏪</span>
       <span class="brand-text">Kantu <span class="brand-accent">Market</span></span>
     </a>
 
@@ -49,8 +48,8 @@
           <a routerLink="/dashboard" routerLinkActive="active" (click)="menuOpen = false">Dashboard</a>
           <a routerLink="/auditoria" routerLinkActive="active" (click)="menuOpen = false">Auditoria</a>
           <a routerLink="/accesos" routerLinkActive="active" (click)="menuOpen = false">Roles y Permisos</a>
-          <a href="http://127.0.0.1:8000/admin/backups/" target="_blank" rel="noopener noreferrer" (click)="menuOpen = false">Backups</a>
-          <a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noopener noreferrer" (click)="menuOpen = false">Django Admin</a>
+          <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/backups/')" style="cursor: pointer;">Backups</a>
+          <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/')" style="cursor: pointer;">Django Admin</a>
         </ng-container>
 
         <!-- Boton de Carrito (Desktop) -->
@@ -69,7 +68,6 @@
         <!-- Menú de Usuario -->
         <div class="navbar-user">
           <a routerLink="/perfil" class="user-chip" (click)="menuOpen = false">
-            <span class="user-avatar">👤</span>
             <span class="user-name">
               {{ (authService.currentUser$ | async)?.first_name || (authService.currentUser$ | async)?.email }}
             </span>
@@ -100,16 +98,14 @@
 <aside class="cart-drawer" [class.open]="cartOpen">
   <div class="cart-drawer-header">
     <div class="cart-header-title">
-      <span class="header-cart-icon">🛒</span>
       <h3>Mi Carrito de Compras</h3>
     </div>
-    <button class="btn-close-drawer" (click)="closeCart()" aria-label="Cerrar carrito">✕</button>
+    <button class="btn-close-drawer" (click)="closeCart()" aria-label="Cerrar carrito">X</button>
   </div>
 
   <div class="cart-drawer-body">
     <!-- Mensaje de éxito de Checkout -->
     <div class="checkout-alert-success" *ngIf="checkoutSuccess">
-      <span class="success-icon">🎉</span>
       <h4>¡Pedido realizado con éxito!</h4>
       <p>Tu orden ha sido registrada. La tienda comenzará a procesarla.</p>
     </div>
@@ -118,7 +114,6 @@
     <ng-container *ngIf="carritoService.cartData$ | async as cartData; else cargandoCart">
       <!-- Carrito Vacío -->
       <div class="cart-empty-state" *ngIf="!checkoutSuccess && (!cartData.carritos || cartData.carritos.length === 0 || cartData.total_items === 0)">
-        <div class="empty-icon">🛍️</div>
         <h4>Tu carrito está vacío</h4>
         <p>Aún no has agregado productos. Explora nuestras tiendas y descubre lo mejor de Bolivia.</p>
         <button class="btn btn-primary btn-sm" (click)="closeCart()" routerLink="/inicio">Explorar Catálogo</button>
@@ -128,7 +123,6 @@
       <div class="cart-stores-list" *ngIf="!checkoutSuccess && cartData.total_items > 0">
         <div class="cart-store-group" *ngFor="let tiendaCart of cartData.carritos">
           <div class="cart-store-header" *ngIf="tiendaCart.items.length > 0">
-            <span class="store-pin">🏬</span>
             <strong>{{ tiendaCart.tienda_nombre }}</strong>
             <span class="store-subtotal">Subtotal: Bs {{ tiendaCart.total }}</span>
           </div>
@@ -158,7 +152,7 @@
                   <div class="item-subtotal">Bs {{ item.subtotal }}</div>
 
                   <button type="button" class="btn-remove-item" (click)="eliminar(item.id)" title="Eliminar del carrito">
-                    🗑️
+                    Eliminar
                   </button>
                 </div>
               </div>
@@ -179,7 +173,7 @@
         </div>
 
         <div class="checkout-error-alert" *ngIf="checkoutError" style="margin-bottom: 0.75rem; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 0.82rem;">
-          ⚠️ {{ checkoutError }}
+          {{ checkoutError }}
         </div>
 
         <!-- Selector de método de pago (CU-19) -->
@@ -190,7 +184,7 @@
             [class.selected]="metodoPago === 'efectivo'"
             (click)="seleccionarMetodoPago('efectivo')"
           >
-            <span>💵</span> Efectivo / QR contra entrega
+            Efectivo / QR contra entrega
           </button>
           <button
             type="button"
@@ -198,7 +192,7 @@
             [class.selected]="metodoPago === 'stripe'"
             (click)="seleccionarMetodoPago('stripe')"
           >
-            <span>💳</span> Tarjeta (Stripe)
+            Tarjeta (Stripe)
           </button>
         </div>
 
@@ -212,7 +206,7 @@
           <div id="stripe-payment-element" [hidden]="cargandoStripe"></div>
 
           <div class="checkout-error-alert" *ngIf="stripeError" style="margin: 0.6rem 0; padding: 0.6rem 0.8rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 0.82rem;">
-            ⚠️ {{ stripeError }}
+            {{ stripeError }}
           </div>
 
           <div class="cart-footer-buttons">

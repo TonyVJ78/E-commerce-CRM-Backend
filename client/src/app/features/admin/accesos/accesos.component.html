@@ -52,15 +52,15 @@
               </span>
             </div>
             <div class="rol-acciones" *ngIf="!rol.es_semilla">
-              <button class="icono" title="Renombrar" (click)="$event.stopPropagation(); empezarEdicion(rol)">✎</button>
-              <button class="icono danger" title="Eliminar" (click)="$event.stopPropagation(); eliminarRol(rol)">🗑</button>
+              <button class="btn btn-outline btn-sm" title="Renombrar" (click)="$event.stopPropagation(); empezarEdicion(rol)">Editar</button>
+              <button class="btn btn-danger btn-sm" title="Eliminar" (click)="$event.stopPropagation(); eliminarRol(rol)">Eliminar</button>
             </div>
           </ng-container>
           <ng-template #editRol>
             <div class="edit-rol" (click)="$event.stopPropagation()">
               <input type="text" [(ngModel)]="editNombre" name="editNombre" (keyup.enter)="guardarNombre(rol)" />
-              <button class="btn btn-primary btn-sm" (click)="guardarNombre(rol)">✓</button>
-              <button class="btn btn-secondary btn-sm" (click)="cancelarEdicion()">✕</button>
+              <button class="btn btn-primary btn-sm" (click)="guardarNombre(rol)">Guardar</button>
+              <button class="btn btn-secondary btn-sm" (click)="cancelarEdicion()">Cancelar</button>
             </div>
           </ng-template>
         </li>

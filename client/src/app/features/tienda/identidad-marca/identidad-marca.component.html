@@ -33,7 +33,7 @@
   </section>
 
   <div class="alert success" *ngIf="successMessage" role="status">
-    <span>✓</span>{{ successMessage }}
+    {{ successMessage }}
   </div>
   <div class="alert error" *ngIf="errorMessage" role="alert">
     <span>!</span>{{ errorMessage }}
@@ -169,8 +169,8 @@
           </div>
           <div class="slug-feedback" aria-live="polite">
             <span class="checking" *ngIf="slugStatus === 'checking'">Comprobando disponibilidad...</span>
-            <span class="available" *ngIf="slugStatus === 'available'">✓ Slug disponible</span>
-            <span class="occupied" *ngIf="slugStatus === 'occupied'">⚠️ Este slug ya está en uso.</span>
+            <span class="available" *ngIf="slugStatus === 'available'">Slug disponible</span>
+            <span class="occupied" *ngIf="slugStatus === 'occupied'">Este slug ya está en uso.</span>
           </div>
           <p class="field-error" *ngIf="slugControl.touched && slugControl.hasError('required')">
             El slug es obligatorio.

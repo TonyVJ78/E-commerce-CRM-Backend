@@ -108,7 +108,7 @@ export class ChatbotService {
 
   private mensajeError(error: HttpErrorResponse): string {
     if (error.status === 429) {
-      return 'Vas muy rápido 😅. Espera un momento y vuelve a intentarlo.';
+      return 'Vas muy rápido. Espera un momento y vuelve a intentarlo.';
     }
     if (error.status === 0) {
       return 'No pude conectarme con el servidor. Revisa tu conexión e intenta de nuevo.';

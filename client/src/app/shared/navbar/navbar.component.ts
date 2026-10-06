@@ -63,6 +63,11 @@ export class NavbarComponent implements OnInit, OnDestroy {
     this.menuOpen = !this.menuOpen;
   }
 
+  abrirEnlaceExterno(ruta: string): void {
+    this.menuOpen = false;
+    window.open(ruta, '_blank', 'noopener,noreferrer');
+  }
+
   toggleCart(): void {
     if (!this.esCliente) {
       return;

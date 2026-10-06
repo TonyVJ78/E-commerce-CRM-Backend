@@ -1,7 +1,7 @@
 <div class="auth-container">
   <div class="auth-card">
     <div class="auth-header">
-      <h1 class="auth-logo">🛍️ Kantu Market</h1>
+      <h1 class="auth-logo">Kantu Market</h1>
       <p class="auth-subtitle">Inicia sesión en tu cuenta</p>
     </div>
 
@@ -39,7 +39,7 @@
             (click)="togglePasswordVisibility()"
             [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Ver contraseña'"
           >
-            {{ showPassword ? '👁️' : '👁️‍🗨️' }}
+            {{ showPassword ? 'Ocultar' : 'Ver' }}
           </button>
         </div>
         <span class="error-text" *ngIf="loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched">

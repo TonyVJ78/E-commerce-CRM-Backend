@@ -2,7 +2,7 @@
   <!-- Hero Banner -->
   <header class="home-hero">
     <div class="hero-content">
-      <span class="hero-badge">🇧🇴 Mercado Digital Boliviano</span>
+      <span class="hero-badge">Mercado Digital Boliviano</span>
       <h1>Explora lo mejor de nuestras tiendas</h1>
       <p class="hero-subtext">
         Textiles de alpaca, gastronomía tradicional, tecnología y artesanías auténticas directo de productores bolivianos.
@@ -10,7 +10,6 @@
 
       <!-- Barra de Búsqueda Principal con Debounce y Acciones -->
       <div class="search-bar-wrapper">
-        <span class="search-icon">🔍</span>
         <input
           type="text"
           class="search-input"
@@ -19,7 +18,7 @@
           (ngModelChange)="onBusquedaInput($event)"
           (keyup.enter)="aplicarFiltros()"
         />
-        <button *ngIf="terminoBusqueda" type="button" class="btn-clear-search" (click)="terminoBusqueda = ''; aplicarFiltros()">✕</button>
+        <button *ngIf="terminoBusqueda" type="button" class="btn-clear-search" (click)="terminoBusqueda = ''; aplicarFiltros()">X</button>
         <button class="btn-search" (click)="aplicarFiltros()">Buscar</button>
       </div>
     </div>
@@ -28,10 +27,10 @@
   <div class="main-container">
     <!-- Notificaciones Toast -->
     <div class="alert alert-success" *ngIf="mensajeExito">
-      <span>✓</span> {{ mensajeExito }}
+      {{ mensajeExito }}
     </div>
     <div class="alert alert-error" *ngIf="mensajeError">
-      <span>⚠</span> {{ mensajeError }}
+      {{ mensajeError }}
     </div>
 
     <!-- Barra de Filtros: Tiendas y Categorías -->
@@ -40,7 +39,6 @@
       <div class="filter-controls-bar">
         <div class="controls-left">
           <button type="button" class="btn-toggle-filters" [class.active]="panelFiltrosAbierto" (click)="togglePanelFiltros()">
-            <span class="filter-icon">⚙️</span>
             <span>Filtros avanzados</span>
             <span class="filter-badge" *ngIf="cantidadFiltrosActivos > 0">{{ cantidadFiltrosActivos }}</span>
           </button>
@@ -102,7 +100,7 @@
 
       <!-- Selector de Tiendas -->
       <div class="filter-row store-filters">
-        <span class="filter-label">🏬 Tienda:</span>
+        <span class="filter-label">Tienda:</span>
         <div class="chips-container">
           <button
             type="button"
@@ -126,7 +124,7 @@
 
       <!-- Selector de Categorías -->
       <div class="filter-row category-filters" *ngIf="categorias.length > 0">
-        <span class="filter-label">🏷️ Categoría:</span>
+        <span class="filter-label">Categoría:</span>
         <div class="chips-container scrollable-chips">
           <button
             type="button"
@@ -155,27 +153,27 @@
 
           <span class="applied-chip" *ngIf="terminoBusqueda">
             Búsqueda: "{{ terminoBusqueda }}"
-            <button type="button" (click)="terminoBusqueda = ''; aplicarFiltros()">✕</button>
+            <button type="button" (click)="terminoBusqueda = ''; aplicarFiltros()">X</button>
           </span>
 
           <span class="applied-chip" *ngIf="precioMinimo !== null || precioMaximo !== null">
             Precio: Bs. {{ precioMinimo ?? 0 }} — {{ precioMaximo ? ('Bs. ' + precioMaximo) : 'Sin límite' }}
-            <button type="button" (click)="limpiarPrecio()">✕</button>
+            <button type="button" (click)="limpiarPrecio()">X</button>
           </span>
 
           <span class="applied-chip" *ngIf="soloEnStock">
             En Stock
-            <button type="button" (click)="soloEnStock = false; aplicarFiltros()">✕</button>
+            <button type="button" (click)="soloEnStock = false; aplicarFiltros()">X</button>
           </span>
 
           <span class="applied-chip" *ngIf="ordenSeleccionado !== 'recientes'">
             Orden: {{ ordenSeleccionado }}
-            <button type="button" (click)="ordenSeleccionado = 'recientes'; aplicarFiltros()">✕</button>
+            <button type="button" (click)="ordenSeleccionado = 'recientes'; aplicarFiltros()">X</button>
           </span>
         </div>
 
         <button type="button" class="btn-clear-filters" (click)="limpiarFiltros()">
-          ✕ Limpiar todos los filtros
+          Limpiar todos los filtros
         </button>
       </div>
     </section>
@@ -197,7 +195,6 @@
 
     <!-- Estado Vacío -->
     <div class="empty-state" *ngIf="!cargando && productos.length === 0">
-      <div class="empty-emoji">📦</div>
       <h3>No se encontraron productos</h3>
       <p>Intenta cambiar o limpiar los filtros de búsqueda y categoría.</p>
       <button class="btn btn-primary btn-sm" (click)="limpiarFiltros()">Ver todos los productos</button>
@@ -279,7 +276,7 @@
               Agregando...
             </span>
             <span *ngIf="agregandoVarianteId !== obtenerVarianteActual(producto)?.id">
-              🛒 Agregar al Carrito
+              Agregar al Carrito
             </span>
           </button>
         </div>
@@ -290,7 +287,7 @@
   <!-- Modal Diálogo de Detalle del Producto -->
   <div class="product-detail-backdrop" *ngIf="productoEnDetalle as producto" (click)="cerrarDetalle()">
     <section class="product-detail-dialog" role="dialog" aria-modal="true" [attr.aria-label]="producto.nombre" (click)="$event.stopPropagation()">
-      <button type="button" class="detail-close" (click)="cerrarDetalle()" aria-label="Cerrar detalle">✕</button>
+      <button type="button" class="detail-close" (click)="cerrarDetalle()" aria-label="Cerrar detalle">X</button>
       <img [src]="obtenerImagenProducto(producto)" [alt]="producto.nombre" />
       <div class="detail-copy">
         <small>{{ producto.tienda_nombre }}<span *ngIf="producto.categoria_nombre"> · {{ producto.categoria_nombre }}</span></small>
@@ -298,7 +295,7 @@
         <p>{{ producto.descripcion || 'Producto disponible en el catálogo de esta tienda.' }}</p>
         <strong>Desde Bs {{ producto.precio_base || obtenerVarianteActual(producto)?.precio || '0.00' }}</strong>
         <button type="button" class="btn-add-cart" (click)="agregarAlCarrito(producto)">
-          🛒 Agregar al carrito
+          Agregar al carrito
         </button>
       </div>
     </section>

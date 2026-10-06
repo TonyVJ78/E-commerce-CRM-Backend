@@ -7,7 +7,6 @@
   </div>
 
   <div class="empty-state" *ngIf="!cargando && noEncontrado">
-    <div class="empty-emoji">🔎</div>
     <h3>Este producto ya no está disponible</h3>
     <p>Puede que la tienda lo haya retirado del catálogo.</p>
     <a routerLink="/inicio" class="btn btn-primary btn-sm">Ver el catálogo</a>
@@ -36,7 +35,7 @@
     <!-- Información -->
     <section class="info">
       <div class="etiquetas">
-        <span class="tag tag-tienda" *ngIf="p.tienda_nombre">🏬 {{ p.tienda_nombre }}</span>
+        <span class="tag tag-tienda" *ngIf="p.tienda_nombre">Tienda: {{ p.tienda_nombre }}</span>
         <span class="tag" *ngIf="p.categoria_nombre">{{ p.categoria_nombre }}</span>
       </div>
 
@@ -78,8 +77,8 @@
         <span *ngIf="(variante?.stock || 0) <= 0">Agotado</span>
       </div>
 
-      <div class="alert alert-success" *ngIf="mensajeExito"><span>✓</span> {{ mensajeExito }}</div>
-      <div class="alert alert-error" *ngIf="mensajeError"><span>⚠</span> {{ mensajeError }}</div>
+      <div class="alert alert-success" *ngIf="mensajeExito">{{ mensajeExito }}</div>
+      <div class="alert alert-error" *ngIf="mensajeError">{{ mensajeError }}</div>
 
       <button
         type="button"
@@ -87,7 +86,7 @@
         [disabled]="agregando || (variante?.stock || 0) <= 0"
         (click)="agregarAlCarrito()"
       >
-        {{ agregando ? 'Agregando...' : '🛒 Agregar al carrito' }}
+        {{ agregando ? 'Agregando...' : 'Agregar al carrito' }}
       </button>
     </section>
   </article>

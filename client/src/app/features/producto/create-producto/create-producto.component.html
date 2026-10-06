@@ -10,7 +10,7 @@
   </header>
 
   <div class="success-banner" *ngIf="message">
-    <span>✓</span> {{ message }}
+    {{ message }}
     <a routerLink="/tiendas">Volver a tiendas</a>
   </div>
   <div class="error-banner" *ngIf="errorMessage">{{ errorMessage }}</div>

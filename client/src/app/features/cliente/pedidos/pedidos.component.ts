@@ -212,12 +212,6 @@ export class PedidosClienteComponent implements OnInit {
   }
 
   iconoEstado(estado: string): string {
-    const s = (estado || '').toLowerCase();
-    if (s === 'entregado' || s === 'completado') return '✨';
-    if (s === 'en_preparacion') return '📦';
-    if (s === 'enviado') return '🚚';
-    if (s === 'pendiente') return '⏳';
-    if (s === 'cancelado') return '⚠️';
-    return '📋';
+    return '';
   }
 }

@@ -71,6 +71,7 @@ h1 {
   color: var(--primary);
   font-weight: 600;
   text-decoration: underline;
+  cursor: pointer;
 }
 
 .quick-actions {
@@ -80,31 +81,6 @@ h1 {
   gap: 0.75rem;
 }
 
-.backup-featured-card {
-  background: linear-gradient(135deg, rgba(200, 16, 46, 0.06), rgba(200, 16, 46, 0.02));
-  border: 1.5px solid var(--primary);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  text-align: left;
-  gap: 1.5rem;
-}
-
-.backup-info h3 {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.25rem;
-}
-
-.backup-info p {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
 
 @media (max-width: 600px) {
   .admin-card {

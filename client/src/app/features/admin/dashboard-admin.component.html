@@ -6,15 +6,6 @@
       Bienvenido al modulo administrativo global de la plataforma multitenant.
     </p>
 
-    <!-- Tarjeta Destacada de Copias de Seguridad (Disaster Recovery) -->
-    <div class="backup-featured-card">
-      <div class="backup-info">
-        <h3>Copias de Seguridad (Disaster Recovery)</h3>
-        <p>Generacion y descarga de respaldos de base de datos a costo cero.</p>
-      </div>
-      <a href="http://127.0.0.1:8000/admin/backups/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Gestionar Backups</a>
-    </div>
-
     <div class="info-grid">
       <div class="info-item">
         <h4>Bitacora y Auditoria</h4>
@@ -26,20 +17,20 @@
       </div>
       <div class="info-item">
         <h4>Copias de Seguridad</h4>
-        <p>Panel y descarga directa de respaldos PostgreSQL. <a href="http://127.0.0.1:8000/admin/backups/" target="_blank" rel="noopener noreferrer">Abrir panel</a>.</p>
+        <p>Gestion y descarga de respaldos de base de datos del sistema. <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/backups/')" style="cursor: pointer;">Gestionar Backups</a>.</p>
       </div>
       <div class="info-item">
         <h4>Panel Django Admin</h4>
-        <p>Acceso administrativo completo a la base de datos disponible en <a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noopener noreferrer">/admin/</a>.</p>
+        <p>Acceso administrativo completo a la base de datos disponible en <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/')" style="cursor: pointer;">/admin/</a>.</p>
       </div>
     </div>
 
     <div class="quick-actions">
       <a routerLink="/auditoria" class="btn btn-primary">Ver Bitacora</a>
       <a routerLink="/accesos" class="btn btn-primary">Roles y permisos</a>
-      <a href="http://127.0.0.1:8000/admin/backups/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Gestionar Backups</a>
+      <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/backups/')" class="btn btn-primary" style="cursor: pointer;">Gestionar Backups</a>
       <a routerLink="/perfil" class="btn btn-secondary">Mi Perfil</a>
-      <a href="http://127.0.0.1:8000/admin/" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Django Admin</a>
+      <a (click)="abrirEnlaceExterno('http://127.0.0.1:8000/admin/')" class="btn btn-secondary" style="cursor: pointer;">Django Admin</a>
     </div>
   </div>
 </div>

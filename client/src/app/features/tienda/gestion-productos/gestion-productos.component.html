@@ -48,15 +48,13 @@
   </div>
 
   <div *ngIf="mensajeExito" class="custom-alert alert-success">
-    <span class="alert-icon">✓</span>
     <p>{{ mensajeExito }}</p>
-    <button type="button" class="alert-close" (click)="mensajeExito = ''">✕</button>
+    <button type="button" class="alert-close" (click)="mensajeExito = ''">X</button>
   </div>
 
   <div *ngIf="mensajeError" class="custom-alert alert-danger">
-    <span class="alert-icon">⚠️</span>
     <p>{{ mensajeError }}</p>
-    <button type="button" class="alert-close" (click)="mensajeError = ''">✕</button>
+    <button type="button" class="alert-close" (click)="mensajeError = ''">X</button>
   </div>
 
   <!-- MODAL DE EDICIÓN DE PRODUCTO (CU09) -->
@@ -69,7 +67,7 @@
           <p class="modal-sub">Actualiza los detalles, precio e imagen para el catálogo público.</p>
         </div>
         <button type="button" class="btn-close-modal" (click)="cancelarEdicion()" aria-label="Cerrar modal">
-          ✕
+          X
         </button>
       </div>
 
@@ -197,7 +195,7 @@
           <h3 id="stock-dialog-title">Gestión de Stock: {{ productoInventario.nombre }}</h3>
           <p class="modal-sub">Ajuste manual auditado de existencias por variante con registro histórico.</p>
         </div>
-        <button type="button" class="btn-close-modal" (click)="cerrarInventario()" [disabled]="guardandoStock" aria-label="Cerrar inventario">✕</button>
+        <button type="button" class="btn-close-modal" (click)="cerrarInventario()" [disabled]="guardandoStock" aria-label="Cerrar inventario">X</button>
       </header>
       <div class="modal-body-content stock-content">
         <label class="field-label" for="variantSelect">Variante a gestionar</label>
@@ -299,10 +297,10 @@
               <strong class="projection-value">{{ stockProyectado !== null ? stockProyectado : '—' }}</strong>
             </div>
             <p *ngIf="stockProyectado !== null && stockProyectado < 0" class="stock-error" role="alert">
-              ⚠️ El stock resultante no puede ser negativo.
+              El stock resultante no puede ser negativo.
             </p>
             <p *ngIf="alertaStockBajoProyectado && (stockProyectado !== null && stockProyectado >= 0)" class="stock-warning" role="alert">
-              ⚠️ Atención: El stock resultante quedará por debajo o igual al stock mínimo configurado ({{ variante.stock_minimo || 5 }} uds.).
+              Atención: El stock resultante quedará por debajo o igual al stock mínimo configurado ({{ variante.stock_minimo || 5 }} uds.).
             </p>
           </div>
 
@@ -355,7 +353,6 @@
       </div>
 
       <div *ngIf="!cargando && productos.length === 0" class="empty-state-box">
-        <div class="empty-icon">📦</div>
         <h4>No tienes productos registrados</h4>
         <p>Comienza agregando tu primer producto para empezar a vender.</p>
         <a *ngIf="tiendaSeleccionadaId" [routerLink]="['/tiendas', tiendaSeleccionadaId, 'productos', 'nuevo']" class="btn-create-first">
@@ -382,7 +379,7 @@
               <div class="product-thumb-frame">
                 <img *ngIf="p.imagen_url" [src]="p.imagen_url" [alt]="p.nombre" class="product-thumbnail" (error)="p.imagen_url = ''" />
                 <div *ngIf="!p.imagen_url" class="thumbnail-placeholder">
-                  <span>🛍️</span>
+                  <span>IMG</span>
                 </div>
               </div>
             </td>
