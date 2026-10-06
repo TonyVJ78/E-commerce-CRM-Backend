@@ -10,7 +10,9 @@ from rest_framework.views import APIView
 
 from apps.catalogo.models import Producto
 from apps.usuarios.permissions import IsClienteUser
+from . import estados
 from .models import Carrito, HistorialEstadoPedido, ItemCarrito, ItemPedido, MetodoPago, Pago, Pedido, Resena
+from .presentacion import envio_a_dict, historial_a_dict
 from .serializers import (
     AgregarItemCarritoSerializer,
     CrearResenaSerializer,
@@ -342,11 +344,16 @@ class MisPedidosView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsClienteUser]
 
     def get(self, request):
-        pedidos = Pedido.objects.filter(cliente=request.user).order_by('-fecha')[:20]
+        pedidos = (
+            Pedido.objects.filter(cliente=request.user)
+            .select_related('tienda')
+            .prefetch_related('items__variante__producto', 'historial_estados', 'envios__direccion_envio')
+            .order_by('-fecha')[:20]
+        )
         data = []
         for p in pedidos:
             items = []
-            for it in p.items.select_related('variante__producto').all():
+            for it in p.items.all():
                 subtot = float(it.cantidad) * float(it.precio_unitario)
                 items.append({
                     'id': it.id,
@@ -357,15 +364,22 @@ class MisPedidosView(APIView):
                     'precio_unitario': str(it.precio_unitario),
                     'subtotal': f"{subtot:.2f}",
                 })
+            envio = max(p.envios.all(), key=lambda e: e.id, default=None)
             data.append({
                 'id': p.id,
                 'tienda_id': p.tienda_id,
                 'tienda_nombre': p.tienda.nombre if p.tienda else 'Tienda',
-                'estado': p.estado_actual,
+                'estado': estados.normalizar(p.estado_actual),
+                'estado_etiqueta': estados.etiqueta(p.estado_actual),
                 'subtotal': str(p.subtotal),
                 'total': str(p.total),
                 'fecha': p.fecha.isoformat() if p.fecha else None,
                 'items': items,
+                'historial': [
+                    historial_a_dict(h)
+                    for h in sorted(p.historial_estados.all(), key=lambda h: (h.fecha, h.id))
+                ],
+                'envio': envio_a_dict(envio),
             })
         return Response({'pedidos': data}, status=status.HTTP_200_OK)
 

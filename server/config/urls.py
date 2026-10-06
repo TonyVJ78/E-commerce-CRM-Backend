@@ -26,6 +26,7 @@ api_patterns = [
     path('auditoria/', include('apps.usuarios.urls_auditoria')),
     path('', include('apps.usuarios.urls_accesos')),
     path('tiendas/', include('apps.tiendas.urls')),
+    path('tiendas/', include('apps.pedidos.urls_empresa')),
     path('catalogo/', include('apps.catalogo.urls_cliente')),
     path('pedidos/', include('apps.pedidos.urls')),
     path('ia/', include('apps.ia.urls')),
