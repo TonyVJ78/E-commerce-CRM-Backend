@@ -261,3 +261,55 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save()
         return user
+
+
+class CambiarPasswordSerializer(serializers.Serializer):
+    """Validador para cambio de contraseña de usuario autenticado (CU-05)."""
+    password_actual = serializers.CharField(
+        required=True,
+        style={'input_type': 'password'},
+    )
+    password_nuevo = serializers.CharField(
+        required=True,
+        style={'input_type': 'password'},
+    )
+    password_confirm = serializers.CharField(
+        required=False,
+        style={'input_type': 'password'},
+    )
+
+    def validate_password_actual(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('La contraseña actual ingresada es incorrecta.')
+        return value
+
+    def validate(self, attrs):
+        if attrs.get('password_confirm') and attrs['password_nuevo'] != attrs['password_confirm']:
+            raise serializers.ValidationError({'password_confirm': 'Las contraseñas no coinciden.'})
+
+        password_nuevo = attrs['password_nuevo']
+        if attrs['password_actual'] == password_nuevo:
+            raise serializers.ValidationError({'password_nuevo': 'La nueva contraseña debe ser diferente a la actual.'})
+
+        if len(password_nuevo) < 8:
+            raise serializers.ValidationError({'password_nuevo': 'La contraseña debe tener al menos 8 caracteres.'})
+        if not any(c.isalpha() for c in password_nuevo):
+            raise serializers.ValidationError({'password_nuevo': 'La contraseña debe contener al menos una letra.'})
+        if not any(c.isdigit() for c in password_nuevo):
+            raise serializers.ValidationError({'password_nuevo': 'La contraseña debe contener al menos un número.'})
+        if not any(not c.isalnum() for c in password_nuevo):
+            raise serializers.ValidationError({'password_nuevo': 'La contraseña debe contener al menos un carácter especial.'})
+
+        try:
+            validate_password(password_nuevo, user=self.context['request'].user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({'password_nuevo': list(e.messages)})
+
+        return attrs
+
+    def save(self):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['password_nuevo'])
+        user.save()
+        return user

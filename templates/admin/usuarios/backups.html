@@ -1,0 +1,367 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  :root {
+    --km-primary: #1e3a8a;
+    --km-primary-hover: #1e40af;
+    --km-success: #059669;
+    --km-warning: #d97706;
+    --km-info: #0284c7;
+    --km-dark: #1e293b;
+    --km-card-bg: #ffffff;
+    --km-border: #e2e8f0;
+  }
+
+  .km-dashboard-container {
+    padding: 10px 0 30px 0;
+    max-width: 1200px;
+  }
+
+  .km-grid-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .km-card {
+    background: var(--km-card-bg);
+    border: 1px solid var(--km-border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .km-card-stat {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .km-card-stat .km-stat-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .km-card-stat .km-stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--km-dark);
+  }
+
+  .km-card-stat .km-stat-sub {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  .km-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .km-section-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--km-dark);
+  }
+
+  .km-action-panel {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 28px;
+  }
+
+  .km-form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+  }
+
+  .km-form-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    flex: 1;
+  }
+
+  .km-form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #334155;
+  }
+
+  .km-form-group input, .km-form-group select {
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #ffffff;
+  }
+
+  .km-btn-generate {
+    background: var(--km-primary);
+    color: #ffffff !important;
+    padding: 10px 22px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+  }
+
+  .km-btn-generate:hover {
+    background: var(--km-primary-hover);
+  }
+
+  .km-table-wrapper {
+    background: #ffffff;
+    border: 1px solid var(--km-border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .km-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+  }
+
+  .km-table th {
+    background: #f1f5f9;
+    padding: 12px 16px;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 1px solid #cbd5e1;
+  }
+
+  .km-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+
+  .km-table tr:hover {
+    background: #f8fafc;
+  }
+
+  .km-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .km-badge-gz {
+    background: #e0f2fe;
+    color: #0369a1;
+  }
+
+  .km-badge-tag {
+    background: #fef3c7;
+    color: #b45309;
+  }
+
+  .km-badge-size {
+    background: #dcfce7;
+    color: #15803d;
+    font-weight: 700;
+  }
+
+  .km-badge-engine {
+    background: #f3e8ff;
+    color: #7e22ce;
+  }
+
+  .km-btn-download {
+    background: #0284c7;
+    color: #ffffff !important;
+    padding: 6px 14px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s ease;
+  }
+
+  .km-btn-download:hover {
+    background: #0369a1;
+  }
+
+  .km-callout {
+    background: #f0fdf4;
+    border-left: 4px solid var(--km-success);
+    padding: 14px 18px;
+    margin-top: 24px;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    color: #166534;
+  }
+
+  .km-empty {
+    padding: 40px;
+    text-align: center;
+    color: #64748b;
+  }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label='usuarios' %}">Usuarios</a>
+  &rsaquo; Copias de Seguridad (Disaster Recovery)
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="km-dashboard-container">
+
+  <!-- TARJETAS DE MÉTRICAS -->
+  <div class="km-grid-stats">
+    <div class="km-card km-card-stat">
+      <div class="km-stat-title">Base de Datos Activa</div>
+      <div class="km-stat-value" style="font-size: 20px;">{{ creds.name }}</div>
+      <div class="km-stat-sub">Neon Cloud (SSL Requerido)</div>
+    </div>
+
+    <div class="km-card km-card-stat">
+      <div class="km-stat-title">Motor de Respaldo</div>
+      <div class="km-stat-value" style="font-size: 18px; color: #0284c7;">
+        {% if pg_dump_available %}Nativo (pg_dump){% else %}Python Psycopg{% endif %}
+      </div>
+      <div class="km-stat-sub">Compresión streaming Gzip</div>
+    </div>
+
+    <div class="km-card km-card-stat">
+      <div class="km-stat-title">Copias Disponibles</div>
+      <div class="km-stat-value">{{ total_backups }}</div>
+      <div class="km-stat-sub">Almacenamiento: {{ total_storage_human }}</div>
+    </div>
+
+    <div class="km-card km-card-stat">
+      <div class="km-stat-title">Salvaguarda Triggers</div>
+      <div class="km-stat-value" style="font-size: 18px; color: #059669;">USER Triggers</div>
+      <div class="km-stat-sub">Stock e inventario protegido</div>
+    </div>
+  </div>
+
+  <!-- FORMULARIO GENERAR NUEVO RESPALDO -->
+  <div class="km-action-panel">
+    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #1e293b;">⚡ Generar Nueva Copia de Seguridad</h2>
+    <form method="post" action="{% url 'admin_backups_dashboard' %}">
+      {% csrf_token %}
+      <div class="km-form-row">
+        <div class="km-form-group">
+          <label for="tag">Etiqueta descriptiva (opcional):</label>
+          <input type="text" id="tag" name="tag" placeholder="ej: pre-despliegue, hito-sprint4, demo">
+        </div>
+        <div class="km-form-group" style="max-width: 180px;">
+          <label for="keep">Retención (copias):</label>
+          <select id="keep" name="keep">
+            <option value="5">Últimas 5 copias</option>
+            <option value="7" selected>Últimas 7 copias (Recomendado)</option>
+            <option value="15">Últimas 15 copias</option>
+            <option value="30">Últimas 30 copias</option>
+          </select>
+        </div>
+        <div>
+          <button type="submit" class="km-btn-generate">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Generar Backup Ahora
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- TABLA DE COPIAS DISPONIBLES -->
+  <div class="km-section-header">
+    <h2>Archivos de Respaldo en Almacenamiento Local</h2>
+  </div>
+
+  <div class="km-table-wrapper">
+    {% if backups %}
+    <table class="km-table">
+      <thead>
+        <tr>
+          <th>Archivo de Respaldo</th>
+          <th>Etiqueta</th>
+          <th>Tamaño</th>
+          <th>Fecha de Creación</th>
+          <th style="text-align: right;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in backups %}
+        <tr>
+          <td>
+            <div style="font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+              <span class="km-badge km-badge-gz">.sql.gz</span>
+              <span>{{ b.filename }}</span>
+            </div>
+          </td>
+          <td>
+            {% if b.tag %}
+            <span class="km-badge km-badge-tag">{{ b.tag }}</span>
+            {% else %}
+            <span style="color: #94a3b8;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="km-badge km-badge-size">{{ b.size_human }}</span>
+          </td>
+          <td>
+            <span style="color: #475569;">{{ b.created_at|slice:":19"|default:b.created_at }} UTC</span>
+          </td>
+          <td style="text-align: right;">
+            <a href="{% url 'admin_backup_download' filename=b.filename %}" class="km-btn-download" title="Descargar copia íntegra">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Descargar
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="km-empty">
+      <p style="font-size: 16px; margin: 0 0 8px 0;">No se encontraron copias de seguridad en el servidor.</p>
+      <p style="font-size: 13px; margin: 0;">Utilice el botón superior para generar la primera copia de seguridad.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- NOTA DE SEGURIDAD Y ARQUITECTURA -->
+  <div class="km-callout">
+    <strong>Arquitectura de Respaldo a Costo Cero:</strong>
+    Esta herramienta opera de forma 100% autónoma sin costos adicionales de Neon Tech. Durante cualquier proceso de restauración, el sistema suprime temporalmente los triggers de stock (<code>trg_actualizar_stock_item_pedido</code>) y recalcula dinámicamente las secuencias de base de datos con <code>setval</code> para garantizar integridad total. Cada descarga y generación queda asentada en la bitácora de auditoría.
+  </div>
+
+</div>
+{% endblock %}

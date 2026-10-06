@@ -43,7 +43,7 @@ def pago_a_dict(pago):
     if pago is None:
         return None
     return {
-        'metodo': pago.metodo_pago.nombre,
+        'metodo': pago.metodo_pago.nombre if pago.metodo_pago else 'Efectivo',
         'estado': pago.estado,
         'monto': str(pago.monto),
         'referencia': pago.referencia_transaccion,

@@ -14,6 +14,7 @@ urlpatterns = [
         name='catalogo_producto_detalle',
     ),
     path('categorias/', views.CategoriaCatalogoListView.as_view(), name='catalogo_categorias'),
+
     path(
         'tiendas/<int:tienda_id>/productos/',
         views.ProductoTiendaListView.as_view(),

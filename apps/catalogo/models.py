@@ -118,3 +118,31 @@ class Variante(models.Model):
 
     def __str__(self):
         return f'{self.producto.nombre} - {self.nombre}'
+
+
+class VarianteStockMovimiento(models.Model):
+    """Registro inmutable de un ajuste manual de stock de variante."""
+    variante = models.ForeignKey(
+        Variante,
+        on_delete=models.PROTECT,
+        related_name='stock_movimientos',
+    )
+    previous_stock = models.IntegerField()
+    delta = models.IntegerField()
+    resulting_stock = models.IntegerField()
+    actor = models.ForeignKey(
+        'usuarios.Usuario',
+        on_delete=models.PROTECT,
+        related_name='ajustes_stock_catalogo',
+    )
+    reason = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'variante_stock_movimiento'
+        ordering = ['-created_at', '-id']
+        constraints = [
+            models.CheckConstraint(condition=~models.Q(delta=0), name='stock_mov_delta_no_cero'),
+            models.CheckConstraint(condition=models.Q(previous_stock__gte=0), name='stock_mov_anterior_no_negativo'),
+            models.CheckConstraint(condition=models.Q(resulting_stock__gte=0), name='stock_mov_resultante_no_negativo'),
+        ]

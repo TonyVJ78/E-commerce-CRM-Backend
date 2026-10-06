@@ -7,6 +7,16 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    if sys.platform == 'win32':
+        for candidate in [
+            r'C:\Program Files\LibreOffice\program',
+            r'C:\Program Files\PostgreSQL\17\bin',
+            r'C:\Program Files\PostgreSQL\16\bin',
+            r'C:\Program Files\PostgreSQL\15\bin',
+        ]:
+            if os.path.isdir(candidate) and candidate not in os.environ.get('PATH', ''):
+                os.environ['PATH'] = candidate + os.pathsep + os.environ.get('PATH', '')
+        os.environ.setdefault('PSYCOPG_IMPL', 'python')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

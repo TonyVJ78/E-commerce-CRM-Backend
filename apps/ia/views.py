@@ -14,7 +14,7 @@ from .serializers import (
     InteraccionRegistradaSerializer,
     RecomendacionQuerySerializer,
 )
-from .services import obtener_recomendaciones_hibridas
+from .services import obtener_recomendaciones_hibridas, obtener_recomendaciones_cliente
 
 
 class RecomendacionesTiendaView(APIView):
@@ -24,11 +24,14 @@ class RecomendacionesTiendaView(APIView):
         tienda = get_object_or_404(Tienda, pk=tienda_id, activa=True)
         query = RecomendacionQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
-        products = obtener_recomendaciones_hibridas(
-            cliente=request.user,
-            tienda=tienda,
-            limit=query.validated_data['limit'],
-        )
+        try:
+            products = obtener_recomendaciones_hibridas(
+                cliente=request.user,
+                tienda=tienda,
+                limit=query.validated_data['limit'],
+            )
+        except Exception:
+            products = []
         return Response(
             ProductoCatalogoSerializer(products, many=True).data,
             status=status.HTTP_200_OK,
@@ -48,11 +51,14 @@ class RecomendacionesView(APIView):
             )
         tienda = get_object_or_404(Tienda, pk=tienda_id, activa=True)
         limit = int(request.query_params.get('limit', 8))
-        products = obtener_recomendaciones_hibridas(
-            cliente=request.user,
-            tienda=tienda,
-            limit=limit,
-        )
+        try:
+            products = obtener_recomendaciones_cliente(
+                cliente=request.user,
+                tienda=tienda,
+                limit=limit,
+            )
+        except Exception:
+            products = []
         return Response(
             ProductoCatalogoSerializer(products, many=True).data,
             status=status.HTTP_200_OK,
