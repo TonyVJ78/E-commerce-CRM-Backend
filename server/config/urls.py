@@ -22,6 +22,7 @@ def health_check(request):
     })
 
 api_patterns = [
+    path('health/', health_check, name='api_health'),
     path('auth/', include('apps.usuarios.urls')),
     path('auditoria/', include('apps.usuarios.urls_auditoria')),
     path('', include('apps.usuarios.urls_accesos')),
