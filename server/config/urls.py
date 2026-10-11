@@ -25,6 +25,7 @@ api_patterns = [
     path('health/', health_check, name='api_health'),
     path('auth/', include('apps.usuarios.urls')),
     path('auditoria/', include('apps.usuarios.urls_auditoria')),
+    path('admin/backups/', include('apps.usuarios.urls_backup_api')),
     path('', include('apps.usuarios.urls_accesos')),
     path('tiendas/', include('apps.tiendas.urls')),
     path('tiendas/', include('apps.pedidos.urls_empresa')),
