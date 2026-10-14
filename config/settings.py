@@ -230,6 +230,9 @@ EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@kantumarket.com')
+# El recibo de compra (CU-33) se envía dentro de la petición de checkout: sin
+# tope, un SMTP colgado dejaría la compra esperando indefinidamente.
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=15)
 
 # URL base del frontend para links de recuperación de contraseña
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:4200')

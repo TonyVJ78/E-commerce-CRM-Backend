@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import stripe
 from django.conf import settings
 from django.db import transaction
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -10,7 +11,7 @@ from rest_framework.views import APIView
 
 from apps.catalogo.models import Producto
 from apps.usuarios.permissions import IsClienteUser
-from . import estados
+from . import estados, recibo
 from .models import Carrito, HistorialEstadoPedido, ItemCarrito, ItemPedido, MetodoPago, Pago, Pedido, Resena
 from .presentacion import envio_a_dict, historial_a_dict, item_a_dict
 from .serializers import (
@@ -436,12 +437,18 @@ class CheckoutView(APIView):
                 )
             return Response(cuerpo, status=status.HTTP_400_BAD_REQUEST)
 
+        # CU-33: factura en PDF al correo del cliente. Va fuera de la transacción:
+        # si el SMTP falla la compra ya está hecha y el recibo se puede reenviar.
+        recibo_enviado = recibo.enviar_recibos(request.user, pedidos_creados)
+
         return Response(
             {
                 'mensaje': 'Compra realizada con éxito. Tu pedido ha sido procesado.',
                 'pedidos': pedidos_creados,
                 'items_comprados': items_comprados,
                 'metodo_pago': metodo_pago_nombre,
+                'recibo_enviado': recibo_enviado,
+                'recibo_email': request.user.email,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -555,6 +562,41 @@ class PedidoDetalleView(APIView):
             'resenas': [_serializar_resena(resena) for resena in resenas.select_related('producto', 'tienda')]
                 + [_serializar_resena(resena) for resena in resena_tienda.select_related('tienda')],
         }, status=status.HTTP_200_OK)
+
+
+def _pedido_recibo(request, pedido_id):
+    pedidos = recibo.pedidos_para_recibo([pedido_id], request.user)
+    if not pedidos:
+        raise Http404('Pedido no encontrado.')
+    return pedidos[0]
+
+
+class ReciboPedidoView(APIView):
+    """GET /api/pedidos/mis-pedidos/<id>/recibo/ — Descarga la factura en PDF (CU-33)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pedido_id):
+        pedido = _pedido_recibo(request, pedido_id)
+        respuesta = HttpResponse(recibo.generar_recibo_pdf(pedido), content_type='application/pdf')
+        respuesta['Content-Disposition'] = f'attachment; filename="{recibo.nombre_archivo(pedido)}"'
+        return respuesta
+
+
+class ReenviarReciboView(APIView):
+    """POST /api/pedidos/mis-pedidos/<id>/recibo/enviar/ — Reenvía la factura al correo (CU-33)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pedido_id):
+        pedido = _pedido_recibo(request, pedido_id)
+        if not recibo.enviar_recibos(request.user, [pedido.id]):
+            return Response(
+                {'error': 'No se pudo enviar el correo en este momento. Intenta de nuevo más tarde.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(
+            {'mensaje': f'Enviamos la factura a {request.user.email}.', 'email': request.user.email},
+            status=status.HTTP_200_OK,
+        )
 
 
 class ResenasPedidoView(APIView):

@@ -9,3 +9,4 @@ gunicorn==23.0.0
 cloudinary==1.44.1
 stripe==15.6.0
 anthropic==1.11.0
+fpdf2==2.8.7

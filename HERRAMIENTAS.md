@@ -21,6 +21,8 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | Gunicorn | 23.0.0 | Servidor WSGI para producción (no usado en dev, incluido para futura referencia) |
 | stripe | 15.6.0 | SDK de Stripe para crear y confirmar `PaymentIntent` en el checkout con tarjeta (CU-19) |
 | anthropic | 1.11.0 | SDK oficial de la API de Claude; el chatbot de recomendaciones usa Claude Haiku 4.5 (`claude-haiku-4-5`) con tool use sobre el catálogo |
+| fpdf2 | 2.8.7 | Generación en Python puro del PDF de la factura/recibo de compra que se envía por correo al cliente (CU-33) |
+| Gmail SMTP | — | Servidor de salida (`smtp.gmail.com:587`, TLS, contraseña de aplicación) para el correo con la factura PDF (CU-33) y la recuperación de contraseña |
 
 ## Frontend
 

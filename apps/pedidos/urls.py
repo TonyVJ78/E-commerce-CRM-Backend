@@ -38,6 +38,16 @@ urlpatterns = [
         name='pedido_detalle_cliente',
     ),
     path(
+        'mis-pedidos/<int:pedido_id>/recibo/',
+        views.ReciboPedidoView.as_view(),
+        name='recibo_pedido',
+    ),
+    path(
+        'mis-pedidos/<int:pedido_id>/recibo/enviar/',
+        views.ReenviarReciboView.as_view(),
+        name='reenviar_recibo_pedido',
+    ),
+    path(
         'mis-pedidos/<int:pedido_id>/resenas/',
         views.ResenasPedidoView.as_view(),
         name='resenas_pedido',
