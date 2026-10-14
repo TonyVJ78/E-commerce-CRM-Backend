@@ -40,7 +40,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | marked | 18.0.14 | Convierte a HTML el Markdown de las respuestas del chatbot de recomendaciones |
 | DOMPurify | 3.4.16 | Sanitiza el HTML generado desde Markdown antes de insertarlo en el DOM (evita XSS) |
 | Chart.js | 4.5.1 | Gráficos del panel del vendedor (CU-10) y de los informes con IA (barras o líneas según el informe, CU-34) |
-| Web Speech API (navegador) | — | Dictado por voz del pedido de informe en Chrome/Edge (`SpeechRecognition`, es-BO); sin dependencia ni costo (CU-34) |
+| Web Speech API (navegador) | — | Dictado por voz del pedido de informe (CU-34) y de los mensajes al chatbot en Chrome/Edge (`SpeechRecognition`, es-BO), y lectura en voz alta de las respuestas del chatbot (`speechSynthesis`); sin dependencia ni costo |
 
 ## App móvil
 
@@ -56,7 +56,8 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | flutter_stripe | 11.5.0 | SDK de Stripe para Flutter: `CardField` embebido y confirmación del pago con tarjeta (CU-19) |
 | intl | 0.20.2 | Formato de fechas y números en es-BO |
 | flutter_markdown_plus | 1.0.12 | Renderiza el Markdown de las respuestas del chatbot (continuación mantenida de `flutter_markdown`, descontinuado) |
-| speech_to_text | 7.5.0 | Dictado por voz del pedido de informe con el reconocedor del teléfono (permiso `RECORD_AUDIO`, CU-34) |
+| speech_to_text | 7.5.0 | Dictado por voz del pedido de informe (CU-34) y de los mensajes al chatbot con el reconocedor del teléfono (permiso `RECORD_AUDIO`) |
+| flutter_tts | 4.2.5 | Lectura en voz alta de las respuestas del chatbot cuando el cliente le habla (motor TTS del teléfono) |
 | path_provider | 2.1.6 | Carpeta temporal donde se guarda el PDF/Excel exportado antes de abrirlo o compartirlo (CU-34) |
 | open_filex | 4.7.0 | Abre el PDF/Excel exportado con la app instalada en el teléfono (CU-34) |
 | share_plus | 13.3.1 | Hoja de compartir del sistema para enviar o guardar el informe exportado (WhatsApp, correo, Drive, CU-34) |
