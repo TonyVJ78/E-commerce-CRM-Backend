@@ -189,6 +189,7 @@ REST_FRAMEWORK = {
     # chatbot llama a una API de pago por cada mensaje.
     'DEFAULT_THROTTLE_RATES': {
         'chatbot': env('CHATBOT_THROTTLE_RATE', default='20/min'),
+        'informes': env('INFORMES_THROTTLE_RATE', default='10/min'),
     },
 }
 
@@ -263,6 +264,9 @@ STRIPE_USD_BOB_RATE = env.float('STRIPE_USD_BOB_RATE', default=10.99)
 ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')
 ANTHROPIC_MODEL = env('ANTHROPIC_MODEL', default='claude-haiku-4-5')
 CHATBOT_MODEL = env('CHATBOT_MODEL', default=ANTHROPIC_MODEL)
+# Informes de tienda con IA (CU-34): mismo modelo que el chatbot salvo que se
+# indique otro.
+INFORMES_MODEL = env('INFORMES_MODEL', default=ANTHROPIC_MODEL)
 
 # =============================================================================
 # OPENAI / MOTOR DE IA (CU-14)
