@@ -33,7 +33,7 @@ class ChatbotView(APIView):
         except ChatbotNoConfigurado as exc:
             logger.error('Chatbot sin configurar: %s', exc)
             return Response(
-                {'detail': 'El asistente no est├í disponible en este momento.'},
+                {'detail': 'El asistente no está disponible en este momento.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except ChatbotNoDisponible as exc:
