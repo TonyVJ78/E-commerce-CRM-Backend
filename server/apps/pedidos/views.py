@@ -4,6 +4,7 @@ import stripe
 from django.conf import settings
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -95,6 +96,7 @@ class CarritoDetalleView(APIView):
 
     def delete(self, request):
         ItemCarrito.objects.filter(carrito__cliente=request.user).delete()
+        Carrito.objects.filter(cliente=request.user).update(ultima_actividad=timezone.now())
         return Response({'mensaje': 'Carrito vaciado exitosamente.'}, status=status.HTTP_200_OK)
 
 
@@ -314,6 +316,10 @@ class CheckoutView(APIView):
                         referencia_transaccion=payment_intent_id if es_stripe else '',
                     )
                     pedidos_creados.append(pedido.id)
+                    from apps.crm.models import RegistroRecuperacionCarrito
+                    RegistroRecuperacionCarrito.objects.filter(
+                        carrito=carrito, cliente=request.user, recuperado=False,
+                    ).update(recuperado=True, pedido_resultante=pedido)
 
         except Exception as exc:
             err_msg = str(exc)

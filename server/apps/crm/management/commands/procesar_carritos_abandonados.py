@@ -43,19 +43,17 @@ class Command(BaseCommand):
 
             # Buscar carritos con fecha menor o igual al umbral de inactividad
             carritos = (
-                Carrito.objects.filter(tienda=tienda, fecha_creacion__lte=tiempo_limite)
+                Carrito.objects.filter(tienda=tienda, ultima_actividad__lte=tiempo_limite)
                 .select_related('cliente')
                 .prefetch_related('items', 'items__variante', 'items__variante__producto')
                 .distinct()
             )
 
-            # IDs de carritos ya notificados para no spamear
-            ya_notificados = set(
-                RegistroRecuperacionCarrito.objects.filter(campana=campana).values_list('carrito_id', flat=True)
-            )
-
             for carrito in carritos:
-                if carrito.id in ya_notificados:
+                if RegistroRecuperacionCarrito.objects.filter(
+                    campana=campana, carrito=carrito,
+                    fecha_envio__gte=carrito.ultima_actividad,
+                ).exists():
                     continue
 
                 items = list(carrito.items.all())
@@ -68,7 +66,7 @@ class Command(BaseCommand):
                 pedido_posterior = Pedido.objects.filter(
                     cliente=carrito.cliente,
                     tienda=tienda,
-                    fecha__gte=carrito.fecha_creacion,
+                    fecha__gte=carrito.ultima_actividad,
                 ).exists()
 
                 if pedido_posterior:

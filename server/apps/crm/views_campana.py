@@ -16,6 +16,7 @@ from apps.crm.models import CampanaCarrito, RegistroRecuperacionCarrito
 from apps.crm.serializers import CampanaCarritoSerializer
 from apps.tiendas.models import Tienda
 from apps.pedidos.models import Carrito
+from apps.usuarios.permissions import IsEmpresa
 from apps.usuarios.audit import ACCION_ACTUALIZAR, registrar_auditoria
 
 
@@ -51,7 +52,7 @@ class TiendaCampanaCarritoView(APIView):
     PUT/PATCH /api/tiendas/<tienda_id>/campana-carrito/
     Consulta y actualización de la campaña de carrito abandonado con resumen métrico.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsEmpresa]
 
     def get(self, request, tienda_id):
         tienda = _get_tienda_vendedor(request, tienda_id)
@@ -60,7 +61,7 @@ class TiendaCampanaCarritoView(APIView):
         # Cálculo de métricas
         limite_tiempo = timezone.now() - timezone.timedelta(hours=campana.horas_inactividad)
         carritos_queryset = (
-            Carrito.objects.filter(tienda=tienda, fecha_creacion__lte=limite_tiempo)
+            Carrito.objects.filter(tienda=tienda, ultima_actividad__lte=limite_tiempo)
             .prefetch_related('items', 'items__variante')
             .distinct()
         )
@@ -142,14 +143,15 @@ class TiendaCarritosAbandonadosListView(APIView):
     GET /api/tiendas/<tienda_id>/carritos-abandonados/
     Lista detallada de carritos inactivos detectados con productos de la tienda.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsEmpresa]
 
     def get(self, request, tienda_id):
         tienda = _get_tienda_vendedor(request, tienda_id)
         campana = _get_or_create_campana(tienda)
 
         carritos = (
-            Carrito.objects.filter(tienda=tienda)
+            Carrito.objects.filter(tienda=tienda, ultima_actividad__lte=(
+                timezone.now() - timezone.timedelta(hours=campana.horas_inactividad)))
             .select_related('cliente')
             .prefetch_related(
                 'items',
@@ -186,10 +188,11 @@ class TiendaCarritosAbandonadosListView(APIView):
 
             horas_inactivo = max(
                 0.1,
-                round((timezone.now() - c.fecha_creacion).total_seconds() / 3600, 1)
+                round((timezone.now() - c.ultima_actividad).total_seconds() / 3600, 1)
             )
 
-            notificacion = c.registros_recuperacion.filter(campana=campana).first()
+            notificacion = c.registros_recuperacion.filter(
+                campana=campana, fecha_envio__gte=c.ultima_actividad).order_by('-fecha_envio').first()
 
             cliente_nombre = f"{c.cliente.first_name} {c.cliente.last_name}".strip() or c.cliente.email
 
@@ -218,7 +221,7 @@ class TiendaDispararPruebaCampanaView(APIView):
     POST /api/tiendas/<tienda_id>/campana-carrito/disparar-prueba/
     Envía un correo de prueba de la campaña a la dirección de correo de la tienda.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsEmpresa]
 
     def post(self, request, tienda_id):
         tienda = _get_tienda_vendedor(request, tienda_id)
