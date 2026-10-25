@@ -114,9 +114,25 @@
               <span class="store-pill">Tienda: {{ pedido.tienda_nombre }}</span>
               <h2 class="hero-title">Detalle del Pedido #{{ pedido.id }}</h2>
             </div>
-            <span class="badge badge-lg" [ngClass]="claseBadgeEstado(pedido.estado)">
-              {{ etiquetaEstado(pedido.estado) }}
-            </span>
+            <div class="hero-actions-group" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span class="badge badge-lg" [ngClass]="claseBadgeEstado(pedido.estado)">
+                {{ etiquetaEstado(pedido.estado) }}
+              </span>
+              <a
+                class="btn btn--outline btn-sm"
+                [routerLink]="['/cliente/soporte']"
+                [queryParams]="{ pedido_id: pedido.id }"
+                title="Reportar consulta o reclamo sobre este pedido"
+                style="display: inline-flex; align-items: center; gap: 4px; text-decoration: none;"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Reportar Problema / Consulta</span>
+              </a>
+            </div>
           </div>
 
           <div class="hero-stats-row">

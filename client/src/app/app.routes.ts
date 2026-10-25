@@ -47,6 +47,17 @@ export const routes: Routes = [
     pathMatch: 'full'
   },
   {
+    path: 'cliente/soporte',
+    canActivate: [clienteGuard],
+    loadComponent: () =>
+      import('./features/cliente/soporte/soporte-cliente.component').then(m => m.SoporteClienteComponent)
+  },
+  {
+    path: 'soporte',
+    redirectTo: 'cliente/soporte',
+    pathMatch: 'full'
+  },
+  {
     path: 'producto/:id',
     loadComponent: () =>
       import('./features/producto/detalle-producto/detalle-producto.component').then(
@@ -112,6 +123,18 @@ export const routes: Routes = [
     canActivate: [empresaGuard],
     loadComponent: () =>
       import('./features/tienda/identidad-marca/identidad-marca.component').then(m => m.IdentidadMarcaComponent)
+  },
+  {
+    path: 'tiendas/tickets',
+    canActivate: [empresaGuard],
+    loadComponent: () =>
+      import('./features/tienda/tickets-soporte/tickets-tienda.component').then(m => m.TicketsTiendaComponent)
+  },
+  {
+    path: 'tiendas/campana-carrito',
+    canActivate: [empresaGuard],
+    loadComponent: () =>
+      import('./features/tienda/campana-carrito/campana-carrito.component').then(m => m.CampanaCarritoComponent)
   },
   {
     path: 'tiendas/:tiendaId/productos/nuevo',

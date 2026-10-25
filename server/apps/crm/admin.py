@@ -1,6 +1,16 @@
 from django.contrib import admin
 
-from .models import FichaCliente, InteraccionCliente, ItemListaDeseos, ListaDeseos, Segmento
+from .models import (
+    FichaCliente,
+    InteraccionCliente,
+    ItemListaDeseos,
+    ListaDeseos,
+    Segmento,
+    TicketSoporte,
+    MensajeTicket,
+    CampanaCarrito,
+    RegistroRecuperacionCarrito,
+)
 
 
 @admin.register(Segmento)
@@ -36,3 +46,32 @@ class ItemListaDeseosAdmin(admin.ModelAdmin):
     list_display = ['id', 'tienda', 'lista_deseos', 'producto']
     list_filter = ['tienda']
     search_fields = ['producto__nombre', 'lista_deseos__ficha_cliente__cliente__email']
+
+
+@admin.register(TicketSoporte)
+class TicketSoporteAdmin(admin.ModelAdmin):
+    list_display = ['codigo_ticket', 'cliente', 'tienda', 'tipo', 'prioridad', 'estado', 'fecha_creacion']
+    list_filter = ['estado', 'prioridad', 'tipo', 'tienda']
+    search_fields = ['codigo_ticket', 'asunto', 'descripcion', 'cliente__email']
+
+
+@admin.register(MensajeTicket)
+class MensajeTicketAdmin(admin.ModelAdmin):
+    list_display = ['id', 'ticket', 'autor', 'fecha_envio']
+    list_filter = ['fecha_envio']
+    search_fields = ['contenido', 'autor__email', 'ticket__codigo_ticket']
+
+
+@admin.register(CampanaCarrito)
+class CampanaCarritoAdmin(admin.ModelAdmin):
+    list_display = ['tienda', 'activo', 'horas_inactividad', 'descuento_porcentaje', 'codigo_cupon']
+    list_filter = ['activo']
+    search_fields = ['tienda__nombre', 'codigo_cupon']
+
+
+@admin.register(RegistroRecuperacionCarrito)
+class RegistroRecuperacionCarritoAdmin(admin.ModelAdmin):
+    list_display = ['id', 'campana', 'carrito', 'cliente', 'recuperado', 'fecha_envio']
+    list_filter = ['recuperado', 'fecha_envio']
+    search_fields = ['cliente__email', 'carrito__id']
+

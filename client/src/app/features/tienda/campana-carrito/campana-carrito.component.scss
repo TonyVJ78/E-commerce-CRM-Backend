@@ -1,0 +1,217 @@
+/* =========================================================================
+   Estilos SCSS para Campaña de Carrito Abandonado (CU-27)
+   ========================================================================= */
+
+.campana-carrito-page {
+  padding-top: var(--sp-4);
+  padding-bottom: var(--sp-8);
+}
+
+.head-store-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+
+  .store-label {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .select-store {
+    min-height: 38px;
+    padding: 0 var(--sp-3);
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+.mb-3 { margin-bottom: var(--sp-3); }
+.mb-4 { margin-bottom: var(--sp-4); }
+.mb-5 { margin-bottom: var(--sp-5); }
+.mt-2 { margin-top: var(--sp-2); }
+.p-0 { padding: 0 !important; }
+
+.toggle-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+
+  .toggle-text {
+    strong {
+      display: block;
+      color: var(--ink);
+      font-size: var(--fs-sm);
+    }
+    p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: var(--fs-xs);
+    }
+  }
+}
+
+/* Switch Toggle */
+.switch-container {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+
+    &:checked + .switch-slider {
+      background-color: var(--green-600);
+    }
+
+    &:checked + .switch-slider:before {
+      transform: translateX(20px);
+    }
+
+    &:focus + .switch-slider {
+      box-shadow: var(--focus-ring);
+    }
+  }
+
+  .switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #D1D5DB;
+    transition: background-color 0.2s ease;
+    border-radius: var(--r-pill);
+
+    &:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #FFFFFF;
+      transition: transform 0.2s ease;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+  }
+}
+
+.incentive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+}
+
+.form-btn-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+
+/* Monitoreo Lateral */
+.monitor-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.monitor-scroll-list {
+  max-height: 580px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-abandoned-card {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--surface-2);
+  }
+}
+
+.cart-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.client-ident {
+  strong {
+    display: block;
+    color: var(--ink);
+    font-size: var(--fs-sm);
+  }
+  .client-sub {
+    font-size: var(--fs-xs);
+    color: var(--muted);
+  }
+}
+
+.cart-meta-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+
+  .cart-amount {
+    color: var(--ink);
+    font-size: var(--fs-sm);
+    strong { color: var(--red-600); }
+  }
+}
+
+.cart-items-preview {
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cart-item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+
+  .item-name {
+    color: var(--ink);
+    max-width: 70%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .item-sub {
+    color: var(--muted);
+    font-weight: 600;
+  }
+}
+
+@media (max-width: 900px) {
+  .incentive-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-btn-actions {
+    flex-direction: column-reverse;
+    button { width: 100%; }
+  }
+}

@@ -1,0 +1,337 @@
+<div class="layout campana-carrito-page">
+  <!-- Cabecera Ejecutiva -->
+  <header class="page-head">
+    <div class="head-titles">
+      <nav class="breadcrumb-nav" aria-label="Migas de pan">
+        <a routerLink="/panel-vendedor" class="breadcrumb-link">Panel Vendedor</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">Recuperacion de Ventas</span>
+      </nav>
+      <h1>Campana de Carrito Abandonado</h1>
+      <p>Configura automatizaciones por email para recuperar compras inconclusas y aumentar tu conversion.</p>
+    </div>
+
+    <!-- Selector de Tienda Activa -->
+    <div class="head-store-picker">
+      @if (tiendas().length > 1) {
+        <label for="tiendaSelectCampana" class="store-label">Tienda Activa:</label>
+        <select
+          id="tiendaSelectCampana"
+          class="input select-store"
+          [value]="tiendaSeleccionadaId()"
+          (change)="seleccionarTienda(+$any($event.target).value)"
+        >
+          @for (t of tiendas(); track t.id) {
+            <option [value]="t.id">{{ t.nombre }}</option>
+          }
+        </select>
+      }
+    </div>
+  </header>
+
+  <!-- Notificaciones de Exito / Error -->
+  @if (mensajeExito()) {
+    <div class="alert alert--success mb-4" role="alert">
+      <span>{{ mensajeExito() }}</span>
+      <button type="button" class="btn-close-alert" (click)="limpiarMensajes()" aria-label="Cerrar aviso">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  }
+
+  @if (mensajeError()) {
+    <div class="alert alert--danger mb-4" role="alert">
+      <span>{{ mensajeError() }}</span>
+      <button type="button" class="btn-close-alert" (click)="limpiarMensajes()" aria-label="Cerrar aviso">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  }
+
+  <!-- KPIs Superiores (3 Tarjetas) -->
+  <section class="bento mb-5" aria-label="Metricas clave de carritos abandonados">
+    <!-- KPI 1: Carritos Abandonados Totales -->
+    <div class="col-4">
+      <article class="kpi kpi--brand">
+        <div class="kpi__top">
+          <div>
+            <div class="kpi__label">Carritos Abandonados</div>
+            <div class="kpi__value">{{ carritosTotales() }}</div>
+          </div>
+          <div class="kpi__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi__foot"><span>Inactivos segun umbral</span></div>
+      </article>
+    </div>
+
+    <!-- KPI 2: Valor en Riesgo (Bs) -->
+    <div class="col-4">
+      <article class="kpi kpi--pending">
+        <div class="kpi__top">
+          <div>
+            <div class="kpi__label">Valor en Riesgo</div>
+            <div class="kpi__value">{{ valorRiesgoFormateado() }}</div>
+          </div>
+          <div class="kpi__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi__foot"><span class="kpi__trend is-down">Oportunidades pendientes</span></div>
+      </article>
+    </div>
+
+    <!-- KPI 3: Tasa de Recuperacion (%) -->
+    <div class="col-4">
+      <article class="kpi kpi--money">
+        <div class="kpi__top">
+          <div>
+            <div class="kpi__label">Tasa de Recuperacion</div>
+            <div class="kpi__value">{{ tasaRecuperacion() }}</div>
+          </div>
+          <div class="kpi__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi__foot"><span class="kpi__trend is-up">{{ metricas().carritos_recuperados }} pedidos concretados</span></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- Bento Grid: Configuracion (col-8) vs Monitoreo (col-4) -->
+  <div class="bento">
+    <!-- Columna Izquierda: Configuracion de la Campana (col-8) -->
+    <section class="col-8">
+      <div class="card config-card">
+        <header class="card__header">
+          <div class="card-header-with-icon">
+            <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <h2 class="card__title">Parametros de Automatizacion</h2>
+          </div>
+          <span class="badge" [ngClass]="campana().activo ? 'badge--success' : 'badge--neutral'">
+            <span class="badge__dot"></span>
+            {{ campana().activo ? 'Campana Activa' : 'Campana Inactiva' }}
+          </span>
+        </header>
+
+        <div class="card__body">
+          <form (ngSubmit)="guardarCampana()">
+            <!-- Switch Toggle Activar/Desactivar -->
+            <div class="toggle-box mb-4">
+              <div class="toggle-text">
+                <strong>Activar Automatizacion de Carritos Abandonados</strong>
+                <p>El sistema detectara compradores con carritos inactivos y enviara recordatorios por correo.</p>
+              </div>
+              <label class="switch-container">
+                <input
+                  type="checkbox"
+                  [checked]="campana().activo"
+                  (change)="actualizarActivo($any($event.target).checked)"
+                />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+
+            <!-- Horas de inactividad -->
+            <div class="field mb-3">
+              <label for="horasSelect">Horas de Inactividad para Disparar Envio</label>
+              <select
+                id="horasSelect"
+                class="input"
+                [value]="campana().horas_inactividad"
+                (change)="actualizarHoras(+$any($event.target).value)"
+              >
+                <option [value]="1">1 hora despues de abandonar</option>
+                <option [value]="2">2 horas despues (Recomendado)</option>
+                <option [value]="4">4 horas despues</option>
+                <option [value]="12">12 horas despues</option>
+                <option [value]="24">24 horas despues (1 dia)</option>
+                <option [value]="48">48 horas despues (2 dias)</option>
+              </select>
+              <span class="field__hint">Tiempo que debe transcurrir sin compra para considerar el carrito en abandono.</span>
+            </div>
+
+            <!-- Asunto del Correo -->
+            <div class="field mb-3">
+              <label for="asuntoEmailInput">Asunto del Correo Electronico</label>
+              <input
+                id="asuntoEmailInput"
+                type="text"
+                class="input"
+                [value]="campana().asunto_email"
+                (input)="actualizarAsunto($any($event.target).value)"
+                maxlength="200"
+                required
+              />
+            </div>
+
+            <!-- Mensaje del Correo -->
+            <div class="field mb-3">
+              <label for="mensajeEmailTextarea">Cuerpo del Mensaje (Plantilla)</label>
+              <textarea
+                id="mensajeEmailTextarea"
+                class="input"
+                rows="4"
+                [value]="campana().mensaje_email"
+                (input)="actualizarMensaje($any($event.target).value)"
+                required
+              ></textarea>
+              <span class="field__hint">Los articulos del carrito y el boton directo de checkout se insertaran automaticamente al final del correo.</span>
+            </div>
+
+            <!-- Incentivo / Descuento Opcional (2 Columnas) -->
+            <div class="incentive-grid mb-4">
+              <div class="field">
+                <label for="descuentoInput">Incentivo de Descuento (%)</label>
+                <input
+                  id="descuentoInput"
+                  type="number"
+                  min="0"
+                  max="50"
+                  class="input"
+                  [value]="campana().descuento_porcentaje"
+                  (input)="actualizarDescuento(+$any($event.target).value)"
+                />
+                <span class="field__hint">0 para no ofrecer descuento. Maximo 50%.</span>
+              </div>
+
+              <div class="field">
+                <label for="cuponInput">Codigo de Cupon Asociado</label>
+                <input
+                  id="cuponInput"
+                  type="text"
+                  class="input"
+                  placeholder="Ej. KANTU10 o VUELVE"
+                  [value]="campana().codigo_cupon || ''"
+                  (input)="actualizarCupon($any($event.target).value)"
+                />
+                <span class="field__hint">Codigo que el cliente ingresara en el carrito.</span>
+              </div>
+            </div>
+
+            <!-- Botones de Accion -->
+            <div class="form-btn-actions">
+              <button
+                type="button"
+                class="btn btn--outline"
+                [disabled]="enviandoPrueba()"
+                (click)="dispararPrueba()"
+                title="Envia un email de verificacion a tu correo de vendedor"
+              >
+                @if (enviandoPrueba()) {
+                  <span>Enviando prueba...</span>
+                } @else {
+                  <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                  <span>Enviar Correo de Prueba</span>
+                }
+              </button>
+
+              <button
+                type="submit"
+                class="btn btn--primary"
+                [disabled]="guardando()"
+              >
+                @if (guardando()) {
+                  <span>Guardando...</span>
+                } @else {
+                  <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                  </svg>
+                  <span>Guardar Campana</span>
+                }
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Columna Derecha: Monitoreo de Carritos Detectados (col-4) -->
+    <section class="col-4">
+      <div class="card monitor-card">
+        <header class="card__header">
+          <div class="card-header-with-icon">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <h2 class="card__title">Carritos Inactivos</h2>
+          </div>
+          <span class="badge badge--neutral">{{ carritosAbandonados().length }} detectados</span>
+        </header>
+
+        <div class="card__body p-0">
+          <div class="monitor-scroll-list">
+            @for (c of carritosAbandonados(); track c.id) {
+              <div class="cart-abandoned-card">
+                <div class="cart-card-head">
+                  <div class="client-ident">
+                    <strong>{{ c.cliente.nombre }}</strong>
+                    <span class="client-sub">{{ c.cliente.email }}</span>
+                  </div>
+                  @if (c.recuperado) {
+                    <span class="badge badge--success">
+                      <span class="badge__dot"></span>
+                      Recuperado
+                    </span>
+                  } @else if (c.notificado) {
+                    <span class="badge badge--warning">
+                      <span class="badge__dot"></span>
+                      Notificado
+                    </span>
+                  } @else {
+                    <span class="badge badge--neutral">Pendiente</span>
+                  }
+                </div>
+
+                <div class="cart-meta-info mt-2">
+                  <span>Inactividad: <strong>{{ c.horas_inactivo }}h</strong></span>
+                  <span class="cart-amount">Total: <strong>Bs {{ c.monto_total | number:'1.2-2' }}</strong></span>
+                </div>
+
+                <!-- Lista condensada de items -->
+                <div class="cart-items-preview mt-2">
+                  @for (it of c.items; track it.id) {
+                    <div class="cart-item-row">
+                      <span class="item-name">{{ it.cantidad }}x {{ it.producto_nombre }} ({{ it.variante }})</span>
+                      <span class="item-sub">Bs {{ it.subtotal }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            } @empty {
+              <div class="kantu-empty-state">
+                <svg class="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="9" cy="21" r="1"></circle>
+                  <circle cx="20" cy="21" r="1"></circle>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <h3>Sin carritos abandonados</h3>
+                <p>Todos los clientes han concretado sus pedidos o no hay carritos que superen el umbral de inactividad.</p>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

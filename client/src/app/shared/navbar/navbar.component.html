@@ -50,6 +50,7 @@
         @if (user.rol === 'cliente') {
           <a routerLink="/inicio" routerLinkActive="active" (click)="menuOpen = false">Catalogo</a>
           <a routerLink="/pedidos" routerLinkActive="active" (click)="menuOpen = false">Mis Pedidos</a>
+          <a routerLink="/cliente/soporte" routerLinkActive="active" (click)="menuOpen = false">Soporte y Reclamos</a>
         }
 
         <!-- Enlaces para Empresas / Vendedores -->
@@ -58,6 +59,8 @@
           <a routerLink="/tiendas" routerLinkActive="active" (click)="menuOpen = false">Mis Tiendas</a>
           <a routerLink="/tiendas/productos" routerLinkActive="active" (click)="menuOpen = false">Inventario</a>
           <a routerLink="/tiendas/pedidos" routerLinkActive="active" (click)="menuOpen = false">Pedidos Recibidos</a>
+          <a routerLink="/tiendas/tickets" routerLinkActive="active" (click)="menuOpen = false">Atencion al Cliente</a>
+          <a routerLink="/tiendas/campana-carrito" routerLinkActive="active" (click)="menuOpen = false">Recuperacion Carrito</a>
           <a routerLink="/tiendas/identidad" routerLinkActive="active" (click)="menuOpen = false">Identidad de Marca</a>
         }
 

@@ -9,3 +9,5 @@ export * from './auditoria.model';
 export * from './chatbot.model';
 export * from './pedido.model';
 export * from './backup.model';
+export * from './soporte.model';
+export * from './campana-carrito.model';

@@ -1,0 +1,375 @@
+<div class="layout tickets-empresa-page">
+  <!-- Cabecera Ejecutiva -->
+  <header class="page-head">
+    <div class="head-titles">
+      <nav class="breadcrumb-nav" aria-label="Migas de pan">
+        <a routerLink="/panel-vendedor" class="breadcrumb-link">Panel Vendedor</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">Atencion al Cliente</span>
+      </nav>
+      <h1>Tickets y Reclamos Postventa</h1>
+      <p>Supervisa consultas de compradores, atiende devoluciones y gestiona garantias por tienda.</p>
+    </div>
+
+    <!-- Selector de Tienda Activa -->
+    <div class="head-store-picker">
+      @if (tiendas().length > 1) {
+        <label for="tiendaSelectTop" class="store-label">Tienda Activa:</label>
+        <select
+          id="tiendaSelectTop"
+          class="input select-store"
+          [value]="tiendaSeleccionadaId()"
+          (change)="seleccionarTienda(+$any($event.target).value)"
+        >
+          @for (t of tiendas(); track t.id) {
+            <option [value]="t.id">{{ t.nombre }}</option>
+          }
+        </select>
+      }
+    </div>
+  </header>
+
+  <!-- Notificaciones -->
+  @if (mensajeExito()) {
+    <div class="alert alert--success mb-4" role="alert">
+      <span>{{ mensajeExito() }}</span>
+      <button type="button" class="btn-close-alert" (click)="limpiarMensajes()" aria-label="Cerrar aviso">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  }
+
+  @if (mensajeError()) {
+    <div class="alert alert--danger mb-4" role="alert">
+      <span>{{ mensajeError() }}</span>
+      <button type="button" class="btn-close-alert" (click)="limpiarMensajes()" aria-label="Cerrar aviso">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+  }
+
+  <!-- KPIs Superiores (3 Tarjetas) -->
+  <section class="bento mb-5" aria-label="Metricas de atencion al cliente">
+    <div class="col-4">
+      <article class="kpi kpi--alert">
+        <div class="kpi__top">
+          <div>
+            <div class="kpi__label">Tickets Abiertos</div>
+            <div class="kpi__value">{{ kpis().total_abiertos }}</div>
+          </div>
+          <div class="kpi__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi__foot"><span class="kpi__trend is-down">Pendientes de respuesta</span></div>
+      </article>
+    </div>
+
+    <div class="col-4">
+      <article class="kpi kpi--pending">
+        <div class="kpi__top">
+          <div>
+            <div class="kpi__label">En Proceso</div>
+            <div class="kpi__value">{{ kpis().total_en_proceso }}</div>
+          </div>
+          <div class="kpi__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi__foot"><span>Conversacion activa</span></div>
+      </article>
+    </div>
+
+    <div class="col-4">
+      <article class="kpi kpi--money">
+        <div class="kpi__top">
+          <div>
+            <div class="kpi__label">Resueltos / Cerrados</div>
+            <div class="kpi__value">{{ kpis().total_resueltos }}</div>
+          </div>
+          <div class="kpi__icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="kpi__foot"><span class="kpi__trend is-up">Casos concluidos</span></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- Tabla Principal de Tickets con Filtros -->
+  <section class="card table-card mb-5">
+    <header class="card__header table-header-flex">
+      <div class="filters-group">
+        <div class="filter-item">
+          <label for="fEstado" class="filter-label">Estado:</label>
+          <select
+            id="fEstado"
+            class="input filter-select"
+            [value]="filtroEstado()"
+            (change)="filtroEstado.set($any($event.target).value); cargarTickets()"
+          >
+            <option value="">Todos los estados</option>
+            <option value="abierto">Abiertos</option>
+            <option value="en_proceso">En Proceso</option>
+            <option value="resuelto">Resueltos</option>
+            <option value="cerrado">Cerrados</option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label for="fPrioridad" class="filter-label">Prioridad:</label>
+          <select
+            id="fPrioridad"
+            class="input filter-select"
+            [value]="filtroPrioridad()"
+            (change)="filtroPrioridad.set($any($event.target).value); cargarTickets()"
+          >
+            <option value="">Todas las prioridades</option>
+            <option value="urgente">Urgente</option>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="btn btn--ghost btn-refresh"
+        (click)="cargarTickets()"
+        [disabled]="cargando()"
+        aria-label="Actualizar listado de tickets"
+      >
+        <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Actualizar</span>
+      </button>
+    </header>
+
+    <div class="card__body p-0">
+      @if (cargando()) {
+        <div class="p-4" aria-busy="true">
+          <div class="kantu-skeleton mb-2" style="height: 48px;"></div>
+          <div class="kantu-skeleton mb-2" style="height: 48px;"></div>
+          <div class="kantu-skeleton" style="height: 48px;"></div>
+        </div>
+      } @else {
+        <div class="kantu-table-wrap">
+          <table class="kantu-table" aria-label="Tabla de tickets de soporte recibidos">
+            <thead>
+              <tr>
+                <th scope="col">Codigo</th>
+                <th scope="col">Cliente</th>
+                <th scope="col">Tipo / Asunto</th>
+                <th scope="col">Prioridad</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Fecha</th>
+                <th scope="col" class="text-right">Accion</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (ticket of tickets(); track ticket.id) {
+                <tr>
+                  <!-- Codigo -->
+                  <td>
+                    <strong class="ticket-code">{{ ticket.codigo_ticket }}</strong>
+                    @if (ticket.pedido_codigo) {
+                      <div class="order-ref">Ref: {{ ticket.pedido_codigo }}</div>
+                    }
+                  </td>
+
+                  <!-- Cliente -->
+                  <td>
+                    <div class="client-name">{{ ticket.cliente.nombre }}</div>
+                    <div class="client-email">{{ ticket.cliente.email }}</div>
+                  </td>
+
+                  <!-- Tipo y Asunto -->
+                  <td class="subject-cell">
+                    <span class="type-pill">{{ ticket.tipo_display }}</span>
+                    <div class="subject-text" [title]="ticket.asunto">{{ ticket.asunto }}</div>
+                  </td>
+
+                  <!-- Prioridad -->
+                  <td>
+                    <span class="badge" [ngClass]="claseBadgePrioridad(ticket.prioridad)">
+                      {{ ticket.prioridad_display }}
+                    </span>
+                  </td>
+
+                  <!-- Estado con selector rapido -->
+                  <td>
+                    <select
+                      class="input status-select"
+                      [value]="ticket.estado"
+                      (change)="cambiarEstado(ticket, $any($event.target).value)"
+                      [disabled]="actualizandoEstado()"
+                    >
+                      <option value="abierto">Abierto</option>
+                      <option value="en_proceso">En Proceso</option>
+                      <option value="resuelto">Resuelto</option>
+                      <option value="cerrado">Cerrado</option>
+                    </select>
+                  </td>
+
+                  <!-- Fecha -->
+                  <td class="date-cell">
+                    {{ ticket.fecha_creacion | date:'dd/MM/yyyy HH:mm' }}
+                  </td>
+
+                  <!-- Accion -->
+                  <td class="text-right">
+                    <button
+                      type="button"
+                      class="btn btn--outline btn-sm"
+                      (click)="abrirDrawer(ticket)"
+                      aria-label="Atender ticket y responder"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                      <span>Atender ({{ ticket.total_mensajes || 0 }})</span>
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7" class="p-0">
+                    <div class="kantu-empty-state">
+                      <svg class="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                      </svg>
+                      <h3>Bandeja de atencion al dia</h3>
+                      <p>No hay tickets o reclamos pendientes con los filtros seleccionados.</p>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </section>
+</div>
+
+<!-- Drawer Lateral de Conversacion -->
+@if (drawerAbierto()) {
+  <div class="drawer-backdrop" (click)="cerrarDrawer()"></div>
+  <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+    @if (ticketSeleccionado(); as t) {
+      <header class="drawer-header">
+        <div>
+          <div class="drawer-tag-row">
+            <span class="ticket-code-lg">{{ t.codigo_ticket }}</span>
+            <span class="badge" [ngClass]="claseBadgeEstado(t.estado)">
+              <span class="badge__dot"></span>
+              {{ t.estado_display }}
+            </span>
+            <span class="badge" [ngClass]="claseBadgePrioridad(t.prioridad)">
+              {{ t.prioridad_display }}
+            </span>
+          </div>
+          <h2 id="drawerTitle" class="drawer-title">{{ t.asunto }}</h2>
+          <div class="drawer-meta-info">
+            <span>Cliente: <strong>{{ t.cliente.nombre }}</strong> ({{ t.cliente.email }})</span>
+            @if (t.pedido_codigo) {
+              <span> · Pedido: <strong>{{ t.pedido_codigo }}</strong></span>
+            }
+          </div>
+        </div>
+        <button type="button" class="btn-close-drawer" (click)="cerrarDrawer()" aria-label="Cerrar panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </header>
+
+      <div class="drawer-body">
+        <div class="chat-stream">
+          @for (m of t.mensajes; track m.id) {
+            <div
+              class="chat-bubble-box"
+              [class.is-store]="m.autor.id !== t.cliente.id"
+            >
+              <div class="bubble-meta">
+                <span class="author-name">
+                  {{ m.autor.id === t.cliente.id ? t.cliente.nombre : 'Tu Tienda' }}
+                </span>
+                <span class="msg-date">{{ m.fecha_envio | date:'dd/MM/yyyy HH:mm' }}</span>
+              </div>
+              <div class="bubble-content">
+                <p class="bubble-text">{{ m.contenido }}</p>
+                @if (m.archivo_adjunto) {
+                  <div class="mt-2">
+                    <a [href]="m.archivo_adjunto" target="_blank" rel="noopener" class="attachment-chip">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                      </svg>
+                      <span>Archivo adjunto</span>
+                    </a>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="drawer-reply-area">
+          <form (ngSubmit)="enviarRespuesta()">
+            <label for="respTextarea" class="reply-label">Responder al cliente:</label>
+            <textarea
+              id="respTextarea"
+              class="input reply-textarea"
+              rows="3"
+              placeholder="Escribe la respuesta o solucion para el comprador..."
+              [value]="textoRespuesta()"
+              (input)="textoRespuesta.set($any($event.target).value)"
+              [disabled]="enviandoMensaje()"
+            ></textarea>
+
+            <div class="reply-foot mt-2">
+              <div class="quick-status-change">
+                <label for="cambioEstadoRapido">Actualizar estado a:</label>
+                <select
+                  id="cambioEstadoRapido"
+                  class="input select-sm"
+                  [value]="t.estado"
+                  (change)="cambiarEstado(t, $any($event.target).value)"
+                >
+                  <option value="en_proceso">En Proceso</option>
+                  <option value="resuelto">Resuelto</option>
+                  <option value="cerrado">Cerrado</option>
+                  <option value="abierto">Abierto</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                class="btn btn--primary"
+                [disabled]="enviandoMensaje() || !textoRespuesta().trim()"
+              >
+                @if (enviandoMensaje()) {
+                  <span>Enviando...</span>
+                } @else {
+                  <span>Enviar Respuesta</span>
+                }
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+  </aside>
+}

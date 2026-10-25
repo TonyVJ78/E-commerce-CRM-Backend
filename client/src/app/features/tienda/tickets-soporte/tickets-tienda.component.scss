@@ -1,0 +1,341 @@
+/* =========================================================================
+   Estilos SCSS para Tickets de Tienda (CU-26)
+   ========================================================================= */
+
+.tickets-empresa-page {
+  padding-top: var(--sp-4);
+  padding-bottom: var(--sp-8);
+}
+
+.head-store-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+
+  .store-label {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .select-store {
+    min-height: 38px;
+    padding: 0 var(--sp-3);
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+.mb-4 { margin-bottom: var(--sp-4); }
+.mb-5 { margin-bottom: var(--sp-5); }
+.mt-2 { margin-top: var(--sp-2); }
+.p-0 { padding: 0 !important; }
+.p-4 { padding: var(--sp-4) !important; }
+
+.table-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.filters-group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+
+  .filter-label {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .filter-select {
+    min-height: 34px;
+    padding: 0 var(--sp-2);
+    font-size: var(--fs-xs);
+    cursor: pointer;
+  }
+}
+
+.ticket-code {
+  font-family: monospace;
+  color: var(--ink);
+}
+
+.order-ref {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.client-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.client-email {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.subject-cell {
+  max-width: 280px;
+}
+
+.type-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.subject-text {
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-select {
+  min-height: 32px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  width: auto;
+}
+
+.date-cell {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.btn-sm {
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-xs);
+}
+
+.text-right {
+  text-align: right;
+}
+
+/* Drawer Lateral */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 80;
+}
+
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(100%, 560px);
+  background: var(--surface);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.25s ease-out;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-header {
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-3);
+}
+
+.drawer-tag-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: 4px;
+}
+
+.ticket-code-lg {
+  font-weight: 800;
+  font-family: monospace;
+  font-size: var(--fs-base);
+  color: var(--ink);
+}
+
+.drawer-title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.drawer-meta-info {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.btn-close-drawer {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  &:hover { color: var(--ink); }
+}
+
+.drawer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: #FAFBFD;
+}
+
+.chat-bubble-box {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+
+  &.is-store {
+    align-self: flex-end;
+    align-items: flex-end;
+
+    .bubble-content {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md) var(--r-md) 2px var(--r-md);
+      box-shadow: var(--sh-1);
+    }
+
+    .author-name {
+      color: var(--red-600);
+      font-weight: 700;
+    }
+  }
+
+  &:not(.is-store) {
+    align-self: flex-start;
+    align-items: flex-start;
+
+    .bubble-content {
+      background: #FFFFFF;
+      border: 1px solid #D1D5DB;
+      border-radius: var(--r-md) var(--r-md) var(--r-md) 2px;
+      box-shadow: var(--sh-1);
+    }
+
+    .author-name {
+      color: var(--ink);
+      font-weight: 700;
+    }
+  }
+}
+
+.bubble-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  margin-bottom: 3px;
+}
+
+.msg-date {
+  color: #8A90A0;
+}
+
+.bubble-content {
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.bubble-text {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--red-600);
+  text-decoration: none;
+  font-weight: 600;
+  &:hover { text-decoration: underline; }
+}
+
+.drawer-reply-area {
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.reply-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.reply-textarea {
+  resize: none;
+  min-height: 70px;
+}
+
+.reply-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.quick-status-change {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+
+  .select-sm {
+    min-height: 32px;
+    padding: 0 var(--sp-2);
+    font-size: var(--fs-xs);
+    width: auto;
+  }
+}
