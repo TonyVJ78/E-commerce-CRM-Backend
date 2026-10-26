@@ -12,5 +12,7 @@ dependencies = [
     "psycopg[binary]>=3.1.18",
     "gunicorn==23.0.0",
     "cloudinary==1.44.1",
-    "firebase-admin==7.7.0"
+    "firebase-admin==7.7.0",
+    "fpdf2==2.8.7",
+    "openpyxl==3.1.5"
 ]

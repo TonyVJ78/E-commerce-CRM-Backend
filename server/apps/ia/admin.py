@@ -19,6 +19,6 @@ class RecomendacionAdmin(admin.ModelAdmin):
 
 @admin.register(ReporteGenerado)
 class ReporteGeneradoAdmin(admin.ModelAdmin):
-    list_display = ['id', 'tienda', 'generado_por_usuario', 'tipo_reporte', 'formato', 'fecha_generacion']
+    list_display = ['id', 'titulo', 'tienda', 'generado_por_usuario', 'tipo_reporte', 'fecha_generacion']
     list_filter = ['tipo_reporte', 'formato', 'tienda', 'fecha_generacion']
-    search_fields = ['tipo_reporte', 'generado_por_usuario__email', 'tienda__nombre']
+    search_fields = ['titulo', 'pregunta', 'tipo_reporte', 'generado_por_usuario__email', 'tienda__nombre']

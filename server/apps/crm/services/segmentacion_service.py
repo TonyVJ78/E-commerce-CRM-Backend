@@ -6,7 +6,7 @@ from django.db import transaction
 from django.db.models import Avg, Count, Max, Q, Subquery, Sum
 from django.utils import timezone
 
-from apps.crm.models import ReglaSegmentacion, SegmentoCliente
+from apps.crm.models import ReglaSegmentacion, SegmentoCliente, Segmento
 from apps.pedidos import estados
 from apps.pedidos.models import Pedido
 from apps.tiendas.models import Tienda
@@ -32,6 +32,11 @@ def _clasificar(metrica, reglas, ahora):
 @transaction.atomic
 def recalcular_segmentos_tienda(tienda: Tienda):
     """Recalcula métricas y segmentos de todos los clientes compradores de la tienda."""
+    # Share automatic groups with the CU-27 selector without overwriting manual CRM segments.
+    Tienda.objects.select_for_update().get(pk=tienda.pk)
+    for codigo, etiqueta in SegmentoCliente.SEGMENTO_CHOICES:
+        Segmento.objects.get_or_create(tienda=tienda, criterio=f'rfm:{codigo}',
+            defaults={'nombre': f'Automático: {etiqueta}'})
     reglas, _ = ReglaSegmentacion.objects.get_or_create(tienda=tienda)
     ahora = timezone.now()
     ids_pedidos_confirmados = (

@@ -4,6 +4,7 @@ import json
 import stripe
 from django.conf import settings
 from django.db import transaction
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status
@@ -15,9 +16,9 @@ from apps.marketing.cupones import cotizar_carritos, registrar_descuento, json_c
 from apps.catalogo.models import Producto
 from apps.crm.services.segmentacion_service import recalcular_segmentos_tienda
 from apps.usuarios.permissions import IsClienteUser
-from . import estados
+from . import estados, recibo
 from .models import Carrito, HistorialEstadoPedido, ItemCarrito, ItemPedido, MetodoPago, Pago, Pedido, Resena
-from .presentacion import envio_a_dict, historial_a_dict
+from .presentacion import envio_a_dict, historial_a_dict, item_a_dict
 from .serializers import (
     AgregarItemCarritoSerializer,
     CrearResenaSerializer,
@@ -33,26 +34,75 @@ NOMBRE_METODO_QR = 'QR'
 
 def _total_carrito_bs(carritos):
     """Suma en Bs de todos los ítems de todos los carritos del cliente."""
-    total = Decimal('0.00')
+    total = Decimal('0')
     for carrito in carritos:
         for item in carrito.items.all():
-            total += Decimal(str(item.cantidad)) * Decimal(str(item.variante.precio))
+            total += item.cantidad * item.variante.precio
     return total
 
 
-def _usd_centavos(total_bs: Decimal) -> int:
-    """Convierte un monto en Bs a centavos de USD según STRIPE_USD_BOB_RATE con redondeo estándar."""
-    tasa = Decimal(str(getattr(settings, 'STRIPE_USD_BOB_RATE', 6.96)))
-    if tasa <= Decimal('0'):
-        tasa = Decimal('6.96')
-    monto_usd = (total_bs / tasa).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    return int(monto_usd * 100)
+def _tasa_usd_bob():
+    tasa = Decimal(str(getattr(settings, 'STRIPE_USD_BOB_RATE', 0) or 0))
+    return tasa if tasa > 0 else Decimal('6.96')
+
+
+def _monto_usd(total_bs):
+    """Monto en USD (2 decimales, redondeo comercial) según STRIPE_USD_BOB_RATE."""
+    return (total_bs / _tasa_usd_bob()).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def _usd_centavos(total_bs):
+    """Convierte un monto en Bs a centavos de USD según STRIPE_USD_BOB_RATE."""
+    return int(_monto_usd(total_bs) * 100)
+
+
+def _stripe_no_configurado():
+    return Response(
+        {'error': 'La pasarela de pago Stripe no está configurada en el servidor.'},
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+
+def _faltantes_de_stock(carritos):
+    """Mensajes de las variantes del carrito cuyo stock no alcanza."""
+    faltantes = []
+    for carrito in carritos:
+        for item in carrito.items.all():
+            if item.variante.stock < item.cantidad:
+                faltantes.append(
+                    f'{item.variante.producto.nombre} ({item.variante.nombre}): '
+                    f'disponible {item.variante.stock}, en el carrito {item.cantidad}'
+                )
+    return faltantes
+
+
+def _reembolsar(payment_intent_id):
+    """Reembolsa un pago de Stripe que no pudo convertirse en pedido.
+
+    Devuelve True si Stripe aceptó el reembolso. Solo se llama con intentos que
+    ya se comprobó que son del cliente autenticado y que no se usaron antes.
+    """
+    try:
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        stripe.Refund.create(payment_intent=payment_intent_id)
+        return True
+    except stripe.error.StripeError:
+        return False
+
+
+class _PagoYaUtilizado(Exception):
+    pass
+
+
+class _CarritoVacio(Exception):
+    pass
+
 
 
 class AgregarItemCarritoView(APIView):
     """POST /api/pedidos/carrito/items/ — Agregar una variante al carrito."""
 
-    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         serializer = AgregarItemCarritoSerializer(data=request.data)
@@ -84,6 +134,7 @@ class CarritoDetalleView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+
         carritos = Carrito.objects.filter(
             cliente=request.user
         ).prefetch_related('items__variante__producto', 'items__tienda')
@@ -132,20 +183,20 @@ class ItemCarritoDetailView(APIView):
 
 class IniciarPagoStripeView(APIView):
     """POST /api/pedidos/carrito/pago-intento/ — Crea el PaymentIntent de Stripe
-    para el total actual del carrito del cliente (CU-19).
+    para el total actual del carrito del cliente (CU-19). El cliente confirma el
+    pago en el propio formulario (Stripe Elements / CardField) usando el
+    `client_secret` devuelto; recién con ese pago confirmado, CheckoutView genera
+    el pedido.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        if not getattr(settings, 'STRIPE_SECRET_KEY', None):
-            return Response(
-                {'error': 'La pasarela de pago Stripe no está configurada en el servidor.'},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+        if not settings.STRIPE_SECRET_KEY:
+            return _stripe_no_configurado()
 
         carritos = Carrito.objects.filter(
             cliente=request.user
-        ).prefetch_related('items__variante')
+        ).prefetch_related('items__variante__producto')
 
         cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'))
         total_bs = sum((c['total'] for c in cotizaciones.values()), Decimal('0.00'))
@@ -155,17 +206,24 @@ class IniciarPagoStripeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        monto_usd_centavos = _usd_centavos(total_bs)
-        tasa = Decimal(str(getattr(settings, 'STRIPE_USD_BOB_RATE', 6.96)))
-        if tasa <= Decimal('0'):
-            tasa = Decimal('6.96')
-        monto_usd_decimal = (total_bs / tasa).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        faltantes = _faltantes_de_stock(carritos)
+        if faltantes:
+            return Response(
+                {'error': 'No hay stock suficiente para: ' + '; '.join(faltantes) + '.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        monto_usd = _monto_usd(total_bs)
+        monto_usd_centavos = int(monto_usd * 100)
 
         stripe.api_key = settings.STRIPE_SECRET_KEY
         try:
             intent = stripe.PaymentIntent.create(
                 amount=monto_usd_centavos,
                 currency='usd',
+                # allow_redirects='never' asegura que confirmPayment() en el
+                # frontend resuelva sin navegar a otra página: solo se ofrecen
+                # métodos que se pueden confirmar dentro del propio formulario.
                 automatic_payment_methods={'enabled': True, 'allow_redirects': 'never'},
                 metadata={
                     'cliente_id': str(request.user.id),
@@ -184,9 +242,9 @@ class IniciarPagoStripeView(APIView):
             {
                 'client_secret': intent.client_secret,
                 'payment_intent_id': intent.id,
-                'publishable_key': getattr(settings, 'STRIPE_PUBLISHABLE_KEY', ''),
+                'publishable_key': settings.STRIPE_PUBLISHABLE_KEY,
                 'monto_bs': str(total_bs),
-                'monto_usd': str(monto_usd_decimal),
+                'monto_usd': str(monto_usd),
             },
             status=status.HTTP_200_OK,
         )
@@ -195,11 +253,10 @@ class IniciarPagoStripeView(APIView):
 class CheckoutView(APIView):
     """POST /api/pedidos/carrito/checkout/ — Procesa la compra de los carritos del cliente,
     generando Pedido e ItemPedido por cada tienda, activando los triggers de PostgreSQL
-    que descuentan el stock (trg_actualizar_stock_item_pedido con SELECT FOR UPDATE) y
-    calculan totales (trg_recalcular_total_pedido). Registra además el Pago (CU-19):
-    con `metodo_pago: "stripe"` exige un `payment_intent_id` confirmado cuyo monto
-    coincida con el carrito; con cualquier otro valor (efectivo, QR) el pago queda
-    `pendiente` (cobro contra entrega).
+    que descuentan el stock y calculan totales. Registra además el Pago (CU-19):
+    con `metodo_pago: "stripe"` exige un `payment_intent_id` ya confirmado y cuyo
+    monto coincida con el carrito; con cualquier otro valor (efectivo, QR) el pago
+    queda `pendiente` (se cobra contra entrega), como hasta ahora.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -221,22 +278,19 @@ class CheckoutView(APIView):
             )
 
         metodo_pago_valor = str(request.data.get('metodo_pago') or NOMBRE_METODO_EFECTIVO).strip()
-        es_stripe = metodo_pago_valor.lower() in ('stripe', 'tarjeta', 'tarjeta (stripe)')
+        es_stripe = metodo_pago_valor.lower() in ('stripe', 'tarjeta', NOMBRE_METODO_STRIPE.lower())
         payment_intent_id = str(request.data.get('payment_intent_id') or '').strip()
         cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'))
 
         if es_stripe:
             if not payment_intent_id:
                 return Response(
-                    {'error': 'Falta el identificador del pago con tarjeta (payment_intent_id).'},
+                    {'error': 'Falta el identificador del pago con tarjeta.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if not getattr(settings, 'STRIPE_SECRET_KEY', None):
-                return Response(
-                    {'error': 'La pasarela de pago Stripe no está configurada en el servidor.'},
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
-                )
+            if not settings.STRIPE_SECRET_KEY:
+                return _stripe_no_configurado()
 
             stripe.api_key = settings.STRIPE_SECRET_KEY
             try:
@@ -253,18 +307,32 @@ class CheckoutView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            metadata = getattr(intent, 'metadata', {}) or {}
+            if hasattr(metadata, 'to_dict'):
+                metadata = metadata.to_dict()
+            if str(metadata.get('cliente_id', '')) != str(request.user.id):
+                return Response({'error': 'El pago con tarjeta no pertenece a este usuario.'}, status=403)
+            if Pago.objects.filter(referencia_transaccion=payment_intent_id).exists():
+                return Response({'error': 'Este pago con tarjeta ya se utilizó en otro pedido.'}, status=409)
             total_bs_actual = sum((c['total'] for c in cotizaciones.values()), Decimal('0.00'))
             codigos = normalizar_codigos(request.data.get('cupones'))
-            if codigos:
-                metadata = getattr(intent, 'metadata', {}) or {}
-                if (str(metadata.get('cliente_id', '')) != str(request.user.id) or
-                        metadata.get('cupones') != json.dumps(codigos, sort_keys=True)):
-                    return Response({'error': 'Los cupones cambiaron. Inicia nuevamente el pago con tarjeta.'}, status=400)
+            if codigos and metadata.get('cupones') != json.dumps(codigos, sort_keys=True):
+                return Response({'error': 'Los cupones cambiaron. Inicia nuevamente el pago con tarjeta.'}, status=400)
             monto_esperado = _usd_centavos(total_bs_actual)
-            # Tolerancia de 1 centavo de USD por redondeo entre el intento y el recálculo
+            # Tolerancia de 1 centavo de USD por redondeo entre el intento y el
+            # recálculo del carrito.
             if abs(intent.amount - monto_esperado) > 1:
+                reembolsado = _reembolsar(payment_intent_id)
                 return Response(
-                    {'error': 'El monto pagado no coincide con el total actual del carrito.'},
+                    {
+                        'error': (
+                            'El carrito cambió después de iniciar el pago y el monto cobrado '
+                            'ya no coincide con el total. '
+                            + ('Se reembolsó el pago; vuelve a intentarlo.' if reembolsado else
+                               f'Contacta a soporte indicando el pago {payment_intent_id}.')
+                        ),
+                        'reembolsado': reembolsado,
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -274,6 +342,8 @@ class CheckoutView(APIView):
         elif metodo_pago_valor.lower() in ('efectivo', ''):
             metodo_pago_nombre = NOMBRE_METODO_EFECTIVO
         else:
+            # Etiquetas propias (p.ej. las del móvil, "QR Simple (Bolivia)") se
+            # respetan tal cual en vez de forzarlas a un nombre semilla.
             metodo_pago_nombre = metodo_pago_valor
 
         metodo_pago_obj, _ = MetodoPago.objects.get_or_create(nombre=metodo_pago_nombre)
@@ -292,23 +362,25 @@ class CheckoutView(APIView):
                 if es_stripe and abs(intent.amount - _usd_centavos(sum(
                     (c['total'] for c in cotizaciones.values()), Decimal('0.00')))) > 1:
                     raise ValidationError({'cupones': 'El descuento cambió. Inicia nuevamente el pago.'})
+                if es_stripe and Pago.objects.filter(referencia_transaccion=payment_intent_id).exists():
+                    raise _PagoYaUtilizado()
                 for carrito in carritos:
                     items = list(carrito.items.select_related('variante').all())
                     if not items:
                         continue
 
-                    # 1. Crear pedido inicial (subtotal y total serán fijados por trg_recalcular_total_pedido)
+                    # Crear pedido (los campos subtotal y total serán recalculados por el trigger de BD)
                     pedido = Pedido.objects.create(
                         cliente=request.user,
                         tienda=carrito.tienda,
-                        estado_actual='completado',
-                        subtotal=Decimal('0.00'),
-                        total=Decimal('0.00'),
+                        estado_actual=estados.PENDIENTE,
+                        subtotal=0,
+                        total=0,
                     )
 
                     for item in items:
-                        # 2. Al insertar en item_pedido se dispara trg_actualizar_stock_item_pedido
-                        # que ejecuta SELECT ... FOR UPDATE, descuenta variante.stock y verifica disponibilidad.
+                        # Al insertar en item_pedido se dispara trg_actualizar_stock_item_pedido
+                        # que descuenta variante.stock y verifica disponibilidad.
                         ItemPedido.objects.create(
                             tienda=carrito.tienda,
                             pedido=pedido,
@@ -322,12 +394,11 @@ class CheckoutView(APIView):
                             'cantidad': item.cantidad,
                         })
 
-                    # 3. Vaciar items de este carrito
+                    # Vaciar items de este carrito
                     carrito.items.all().delete()
 
-                    # 4. REGLA INQUEBRANTABLE DE BD:
-                    # El trigger fn_recalcular_total_pedido ya fijó pedido.subtotal y pedido.total en BD.
-                    # Recargamos la instancia desde PostgreSQL para que el Pago guarde el monto real exacto.
+                    # El trigger fn_recalcular_total_pedido ya fijó pedido.total; se
+                    # recarga para que el Pago quede con el monto real cobrado.
                     pedido.refresh_from_db()
                     registrar_descuento(pedido, cotizaciones[carrito.id])
 
@@ -349,20 +420,44 @@ class CheckoutView(APIView):
                         carrito=carrito, cliente=request.user, recuperado=False,
                     ).update(recuperado=True, pedido_resultante=pedido)
 
+                if not pedidos_creados:
+                    raise _CarritoVacio()
+
+        except _PagoYaUtilizado:
+            return Response(
+                {'error': 'Este pago con tarjeta ya se utilizó en otro pedido.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except _CarritoVacio:
+            return Response(
+                {'error': 'El carrito de compras está vacío.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except ValidationError as exc:
             return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
             err_msg = str(exc)
             if 'Stock insuficiente' in err_msg:
+                # Extraer mensaje conciso de la excepción lanzada por el trigger
                 clean_msg = [line.strip() for line in err_msg.split('\n') if 'Stock insuficiente' in line]
-                return Response(
-                    {'error': clean_msg[0] if clean_msg else err_msg},
-                    status=status.HTTP_400_BAD_REQUEST,
+                err_msg = clean_msg[0] if clean_msg else err_msg
+            else:
+                err_msg = f'Error al procesar la compra: {err_msg}'
+
+            cuerpo = {'error': err_msg}
+            if es_stripe:
+                # La transacción se revirtió: no hay pedido, así que el cobro
+                # no puede quedar en pie.
+                cuerpo['reembolsado'] = _reembolsar(payment_intent_id)
+                cuerpo['error'] += (
+                    ' Se reembolsó el pago con tarjeta.' if cuerpo['reembolsado'] else
+                    f' Contacta a soporte indicando el pago {payment_intent_id}.'
                 )
-            return Response(
-                {'error': f'Error al procesar la compra: {err_msg}'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response(cuerpo, status=status.HTTP_400_BAD_REQUEST)
+
+        # CU-33: factura en PDF al correo del cliente. Va fuera de la transacción:
+        # si el SMTP falla la compra ya está hecha y el recibo se puede reenviar.
+        recibo_enviado = recibo.enviar_recibos(request.user, pedidos_creados)
 
         return Response(
             {
@@ -371,37 +466,32 @@ class CheckoutView(APIView):
                 'items_comprados': items_comprados,
                 'metodo_pago': metodo_pago_nombre,
                 'descuentos': [json_cotizacion(c) for c in cotizaciones.values()],
+                'recibo_enviado': recibo_enviado,
+                'recibo_email': request.user.email,
             },
             status=status.HTTP_201_CREATED,
         )
 
 
 class MisPedidosView(APIView):
-    """GET /api/pedidos/mis-pedidos/ — Listar los pedidos del usuario autenticado."""
-    permission_classes = [permissions.IsAuthenticated, IsClienteUser]
+    """GET /api/pedidos/mis-pedidos/ — Pedidos del cliente, con el historial y
+    el envío que registra la empresa en CU-22."""
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         pedidos = (
             Pedido.objects.filter(cliente=request.user)
             .select_related('tienda')
-            .prefetch_related('items__variante__producto', 'historial_estados', 'envios__direccion_envio')
+            .prefetch_related(
+                'items__variante__producto', 'historial_estados', 'envios__direccion_envio',
+                'pagos__metodo_pago',
+            )
             .order_by('-fecha')[:20]
         )
         data = []
         for p in pedidos:
-            items = []
-            for it in p.items.all():
-                subtot = float(it.cantidad) * float(it.precio_unitario)
-                items.append({
-                    'id': it.id,
-                    'producto_id': it.variante.producto_id if it.variante_id else None,
-                    'producto_nombre': it.variante.producto.nombre if it.variante and it.variante.producto else 'Producto',
-                    'variante_nombre': it.variante.nombre if it.variante else 'Unica',
-                    'cantidad': it.cantidad,
-                    'precio_unitario': str(it.precio_unitario),
-                    'subtotal': f"{subtot:.2f}",
-                })
             envio = max(p.envios.all(), key=lambda e: e.id, default=None)
+            pago = min(p.pagos.all(), key=lambda x: x.id, default=None)
             data.append({
                 'id': p.id,
                 'tienda_id': p.tienda_id,
@@ -410,8 +500,9 @@ class MisPedidosView(APIView):
                 'estado_etiqueta': estados.etiqueta(p.estado_actual),
                 'subtotal': str(p.subtotal),
                 'total': str(p.total),
+                'metodo_pago': pago.metodo_pago.nombre if pago else '',
                 'fecha': p.fecha.isoformat() if p.fecha else None,
-                'items': items,
+                'items': [item_a_dict(it) for it in p.items.all()],
                 'historial': [
                     historial_a_dict(h)
                     for h in sorted(p.historial_estados.all(), key=lambda h: (h.fecha, h.id))
@@ -490,6 +581,41 @@ class PedidoDetalleView(APIView):
             'resenas': [_serializar_resena(resena) for resena in resenas.select_related('producto', 'tienda')]
                 + [_serializar_resena(resena) for resena in resena_tienda.select_related('tienda')],
         }, status=status.HTTP_200_OK)
+
+
+def _pedido_recibo(request, pedido_id):
+    pedidos = recibo.pedidos_para_recibo([pedido_id], request.user)
+    if not pedidos:
+        raise Http404('Pedido no encontrado.')
+    return pedidos[0]
+
+
+class ReciboPedidoView(APIView):
+    """GET /api/pedidos/mis-pedidos/<id>/recibo/ — Descarga la factura en PDF (CU-33)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pedido_id):
+        pedido = _pedido_recibo(request, pedido_id)
+        respuesta = HttpResponse(recibo.generar_recibo_pdf(pedido), content_type='application/pdf')
+        respuesta['Content-Disposition'] = f'attachment; filename="{recibo.nombre_archivo(pedido)}"'
+        return respuesta
+
+
+class ReenviarReciboView(APIView):
+    """POST /api/pedidos/mis-pedidos/<id>/recibo/enviar/ — Reenvía la factura al correo (CU-33)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pedido_id):
+        pedido = _pedido_recibo(request, pedido_id)
+        if not recibo.enviar_recibos(request.user, [pedido.id]):
+            return Response(
+                {'error': 'No se pudo enviar el correo en este momento. Intenta de nuevo más tarde.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(
+            {'mensaje': f'Enviamos la factura a {request.user.email}.', 'email': request.user.email},
+            status=status.HTTP_200_OK,
+        )
 
 
 class ResenasPedidoView(APIView):

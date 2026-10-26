@@ -142,7 +142,7 @@ class VarianteStockMovementView(OwnedStoreMixin, generics.ListCreateAPIView):
             ACCION_ACTUALIZAR,
             tabla='variante',
             registro_id=variante.pk,
-            datos_previos={
+            datos_anteriores={
                 'stock': movimiento.previous_stock,
                 'variante_sku': variante.sku,
                 'producto_id': variante.producto_id,
@@ -178,6 +178,17 @@ class ProductoDetailView(OwnedStoreMixin, generics.RetrieveUpdateDestroyAPIView)
 # =========================================================================
 # Vistas de Catálogo Público para Clientes y Visitantes (CU-11)
 # =========================================================================
+
+def _productos_publicos():
+    """Productos a la venta (activos, de tiendas activas) con variantes activas."""
+    variantes_activas = Variante.objects.filter(activa=True)
+    return Producto.objects.filter(
+        activo=True,
+        tienda__activa=True,
+    ).select_related('tienda', 'categoria').prefetch_related(
+        Prefetch('variantes', queryset=variantes_activas)
+    )
+
 
 class TiendaCatalogoListView(generics.ListAPIView):
     """GET /api/catalogo/tiendas/ — Listar tiendas para el catálogo público."""
@@ -231,6 +242,9 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
         if categoria_id:
             queryset = queryset.filter(categoria_id=categoria_id)
 
+        # Las categorías pertenecen a una tienda, así que "Accesorios" existe
+        # tantas veces como tiendas la usen. En el catálogo general filtrar por
+        # id mostraría sólo las de una tienda; por nombre se agrupan todas.
         categoria_nombre = self.request.query_params.get('categoria_nombre')
         if categoria_nombre and categoria_nombre.strip():
             queryset = queryset.filter(categoria__nombre__iexact=categoria_nombre.strip())
@@ -297,7 +311,6 @@ class ProductoCatalogoDetailView(generics.RetrieveAPIView):
         return _productos_publicos()
 
 
-
 class CategoriaCatalogoListView(generics.ListAPIView):
     """GET /api/catalogo/categorias/ — Listar categorías activas para filtrado."""
 
@@ -306,9 +319,19 @@ class CategoriaCatalogoListView(generics.ListAPIView):
 
     def get_queryset(self):
         tienda_id = self.request.query_params.get('tienda')
-        qs = Categoria.objects.all()
         if tienda_id:
-            qs = qs.filter(tienda_id=tienda_id)
-        return qs.order_by('nombre')
+            return Categoria.objects.filter(tienda_id=tienda_id).order_by('nombre')
+
+        # Sin tienda el listado es el del catálogo general, donde un mismo
+        # nombre aparece una vez por tienda que lo usa. Se devuelve una sola
+        # entrada por nombre para que el filtro no salga con repetidos; para
+        # filtrar productos con ella hay que usar `categoria_nombre`, no el id.
+        ids = (
+            Categoria.objects
+            .values('nombre')
+            .annotate(primer_id=models.Min('id'))
+            .values_list('primer_id', flat=True)
+        )
+        return Categoria.objects.filter(id__in=list(ids)).order_by('nombre')
 
 

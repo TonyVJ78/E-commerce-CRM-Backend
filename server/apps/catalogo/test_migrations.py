@@ -12,15 +12,35 @@ class CatalogDataMigrationTests(TransactionTestCase):
     migrate_to = ('catalogo', '0004_migrar_datos_cu08')
 
     def setUp(self):
+        # Start the historical conversion in a fresh test-only schema. The
+        # later migration removes auxiliary tables and cannot reconstruct them.
+        if connection.vendor != 'postgresql':
+            self.skipTest('La conversión histórica se comprueba con PostgreSQL.')
+        assert connection.settings_dict['NAME'].startswith('test_')
+        self._legacy_schema = True
+        with connection.cursor() as cursor:
+            cursor.execute('CREATE SCHEMA test_catalogo_historico')
+            cursor.execute('SET search_path TO test_catalogo_historico')
+        self.addCleanup(self._restore_schema)
         self.executor = MigrationExecutor(connection)
-        self.executor.migrate([self.migrate_from])
-        self.old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+        targets = [self.migrate_from, ('pedidos', '0002_alter_itemcarrito_variante_alter_itempedido_variante')]
+        self.executor.migrate(targets)
+        self.old_apps = self.executor.loader.project_state(targets).apps
         self._create_legacy_data()
+        self.executor = MigrationExecutor(connection)
         self.executor.migrate([self.migrate_to])
         self.new_apps = self.executor.loader.project_state([self.migrate_to]).apps
 
     def tearDown(self):
-        self.executor.migrate(self.executor.loader.graph.leaf_nodes())
+        self._restore_schema()
+
+    def _restore_schema(self):
+        if getattr(self, '_legacy_schema', False):
+            assert connection.settings_dict['NAME'].startswith('test_')
+            with connection.cursor() as cursor:
+                cursor.execute('SET search_path TO public')
+                cursor.execute('DROP SCHEMA IF EXISTS test_catalogo_historico CASCADE')
+            self._legacy_schema = False
 
     def _create_legacy_data(self):
         Tienda = self.old_apps.get_model('tiendas', 'Tienda')
@@ -40,10 +60,10 @@ class CatalogDataMigrationTests(TransactionTestCase):
 
         Usuario = self.old_apps.get_model('usuarios', 'Usuario')
         Rol = self.old_apps.get_model('usuarios', 'Rol')
-        rol = Rol.objects.create(nombre='empresa')
-        owner = Usuario.objects.create_user(
+        rol, _ = Rol.objects.get_or_create(nombre='empresa')
+        owner = Usuario.objects.create(
             email='migration@test.local',
-            password='Password123!',
+            password='!',
             rol=rol,
         )
         store = Tienda.objects.create(

@@ -95,10 +95,18 @@ class Recomendacion(models.Model):
 
 
 class ReporteGenerado(models.Model):
-    """Reportes predictivos, analíticos o ejecutivos generados por el sistema."""
+    """Reportes predictivos, analíticos o ejecutivos generados por el sistema.
+
+    Los informes con IA (CU-34, `tipo_reporte='informe_ia'`) guardan además la
+    pregunta, la consulta ejecutada, la tabla resultante y el análisis, para
+    reabrirlos y exportarlos sin volver a llamar al modelo. `tienda` queda
+    vacía cuando el informe abarca varias tiendas.
+    """
     tienda = models.ForeignKey(
         'tiendas.Tienda',
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name='reportes_generados',
     )
     generado_por_usuario = models.ForeignKey(
@@ -109,6 +117,12 @@ class ReporteGenerado(models.Model):
     tipo_reporte = models.CharField(max_length=50)
     formato = models.CharField(max_length=10)
     fecha_generacion = models.DateTimeField(auto_now_add=True)
+    titulo = models.CharField(max_length=150, blank=True, default='')
+    pregunta = models.TextField(blank=True, default='')
+    consulta = models.JSONField(default=dict, blank=True)
+    datos = models.JSONField(default=dict, blank=True)
+    analisis = models.TextField(blank=True, default='')
+    grafico = models.JSONField(default=dict, blank=True)
 
     class Meta:
         db_table = 'reporte_generado'
@@ -117,4 +131,5 @@ class ReporteGenerado(models.Model):
         ordering = ['-fecha_generacion']
 
     def __str__(self):
-        return f'{self.tipo_reporte} ({self.formato}) - {self.tienda.nombre} ({self.fecha_generacion})'
+        alcance = self.tienda.nombre if self.tienda else 'varias tiendas'
+        return f'{self.titulo or self.tipo_reporte} - {alcance} ({self.fecha_generacion})'

@@ -21,6 +21,7 @@ MODULOS = [
     ('crm', 'CRM'),
     ('marketing', 'Marketing'),
     ('ia', 'IA y recomendaciones'),
+    ('informes', 'Informes con IA'),
 ]
 
 # clave -> etiqueta; el orden es el de las columnas (CRUD)

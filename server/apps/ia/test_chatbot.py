@@ -1,4 +1,4 @@
-﻿"""Pruebas del chatbot de recomendaciones.
+"""Pruebas del chatbot de recomendaciones.
 
 La API de Claude se simula con `mock`: no se hace ninguna llamada de red.
 """
@@ -51,16 +51,16 @@ class BaseCatalogo(APITestCase):
         cls.tienda_cerrada = Tienda.objects.create(
             propietario=empresa, nombre='Tienda Cerrada', activa=False)
         textiles = Categoria.objects.create(tienda=cls.tienda, nombre='Textiles')
-        cafe = Categoria.objects.create(tienda=cls.tienda, nombre='Caf├®')
+        cafe = Categoria.objects.create(tienda=cls.tienda, nombre='Café')
 
         cls.chompa = cls._producto(
             'Chompa de Alpaca', textiles, Decimal('350.00'), stock=4,
             descripcion='Tejida a mano', etiquetas=['abrigo'])
         cls.chalina = cls._producto(
             'Chalina andina', textiles, Decimal('120.00'), stock=10,
-            descripcion='Fibra de alpaca beb├®', oferta=Decimal('99.00'))
+            descripcion='Fibra de alpaca bebé', oferta=Decimal('99.00'))
         cls.cafe = cls._producto(
-            'Caf├® de los Yungas', cafe, Decimal('65.00'), stock=20, descripcion='Tostado medio')
+            'Café de los Yungas', cafe, Decimal('65.00'), stock=20, descripcion='Tostado medio')
         cls.agotado = cls._producto(
             'Gorro de alpaca', textiles, Decimal('80.00'), stock=0)
         cls.inactivo = cls._producto(
@@ -90,7 +90,7 @@ class BusquedaCatalogoTests(BaseCatalogo):
 
     def test_el_nombre_pesa_mas_que_la_descripcion(self):
         _, productos = buscar_productos('alpaca')
-        # La chompa la nombra; la chalina solo en la descripci├│n.
+        # La chompa la nombra; la chalina solo en la descripción.
         self.assertEqual([p.id for p in productos][:2], [self.chompa.id, self.chalina.id])
 
     def test_excluye_agotados_inactivos_y_tiendas_cerradas(self):
@@ -104,12 +104,12 @@ class BusquedaCatalogoTests(BaseCatalogo):
         self.assertIn(self.agotado.id, {p.id for p in con_agotados})
 
     def test_filtra_por_precio_efectivo_con_oferta(self):
-        # La chalina cuesta 120 pero est├í en oferta a 99.
+        # La chalina cuesta 120 pero está en oferta a 99.
         _, productos = buscar_productos(categoria='textil', precio_max=100)
         self.assertEqual([p.id for p in productos], [self.chalina.id])
 
     def test_resumen_marca_la_oferta_de_la_variante_mas_barata(self):
-        # Otra variante sin oferta, m├ís barata de lista que la oferta (120 ÔåÆ 99).
+        # Otra variante sin oferta, más barata de lista que la oferta (120 → 99).
         Variante.objects.create(producto=self.chalina, sku='CH-2', precio=Decimal('110.00'), stock=1)
         datos = resumen_para_modelo(productos_por_ids([self.chalina.id])[0])
         self.assertEqual(datos['precio_bs'], '99.00')
@@ -120,7 +120,7 @@ class BusquedaCatalogoTests(BaseCatalogo):
 
     def test_ignora_precios_invalidos(self):
         total, _ = buscar_productos(precio_max='barato')
-        self.assertEqual(total, 3)  # chompa, chalina y caf├®: los visibles con stock
+        self.assertEqual(total, 3)  # chompa, chalina y café: los visibles con stock
 
     def test_ordena_por_precio(self):
         _, productos = buscar_productos(orden='precio_asc')
@@ -131,7 +131,7 @@ class BusquedaCatalogoTests(BaseCatalogo):
 @override_settings(ANTHROPIC_API_KEY='sk-ant-test', CHATBOT_MODEL='claude-haiku-4-5')
 class ChatbotApiTests(BaseCatalogo):
     def setUp(self):
-        cache.clear()  # el throttle guarda sus contadores en la cach├®
+        cache.clear()  # el throttle guarda sus contadores en la caché
         self.client.force_authenticate(self.cliente)
         parche = mock.patch('apps.ia.chatbot.anthropic.Anthropic')
         self.Anthropic = parche.start()
@@ -146,13 +146,13 @@ class ChatbotApiTests(BaseCatalogo):
 
     def test_pregunta_para_acotar_sin_buscar(self):
         self.crear.return_value = respuesta(texto(
-            '┬íClaro! ┬┐Para qui├®n es el regalo?\n\nSUGERENCIAS: Para mi mam├í | Para un amigo | Para m├¡'))
+            '¡Claro! ¿Para quién es el regalo?\n\nSUGERENCIAS: Para mi mamá | Para un amigo | Para mí'))
 
         res = self._enviar('quiero un regalo')
 
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.data['mensaje'], '┬íClaro! ┬┐Para qui├®n es el regalo?')
-        self.assertEqual(res.data['sugerencias'], ['Para mi mam├í', 'Para un amigo', 'Para m├¡'])
+        self.assertEqual(res.data['mensaje'], '¡Claro! ¿Para quién es el regalo?')
+        self.assertEqual(res.data['sugerencias'], ['Para mi mamá', 'Para un amigo', 'Para mí'])
         self.assertEqual(res.data['productos'], [])
         llamada = self.crear.call_args.kwargs
         self.assertEqual(llamada['model'], 'claude-haiku-4-5')
@@ -166,11 +166,11 @@ class ChatbotApiTests(BaseCatalogo):
                 uso_herramienta('buscar_productos', {'consulta': 'alpaca', 'precio_max': 400}),
                 stop_reason='tool_use'),
             respuesta(texto(
-                f'Te recomiendo:\n- [Chompa de Alpaca](producto:{self.chompa.id}) ÔÇö **Bs 350.00**\n'
+                f'Te recomiendo:\n- [Chompa de Alpaca](producto:{self.chompa.id}) — **Bs 350.00**\n'
                 f'- [Chalina andina](producto:{self.chalina.id})\n'
                 f'- [Inventado](producto:999999)\n'
                 f'- [Poncho](producto:{self.inactivo.id})\n'
-                'SUGERENCIAS: Ver m├ís baratos | Otras tallas')),
+                'SUGERENCIAS: Ver más baratos | Otras tallas')),
         ]
 
         res = self._enviar('una chompa de alpaca de hasta 400 Bs')
@@ -179,7 +179,7 @@ class ChatbotApiTests(BaseCatalogo):
         self.assertEqual(
             [p['id'] for p in res.data['productos']], [self.chompa.id, self.chalina.id])
         self.assertIn(f'(producto:{self.chompa.id})', res.data['mensaje'])
-        # Los ids inventados o que ya no est├ín a la venta pierden el enlace.
+        # Los ids inventados o que ya no están a la venta pierden el enlace.
         self.assertIn('- Inventado', res.data['mensaje'])
         self.assertIn('- Poncho', res.data['mensaje'])
         self.assertNotIn('SUGERENCIAS', res.data['mensaje'])
@@ -195,7 +195,7 @@ class ChatbotApiTests(BaseCatalogo):
     def test_ver_producto_con_id_inexistente_es_error_de_herramienta(self):
         self.crear.side_effect = [
             respuesta(uso_herramienta('ver_producto', {'producto_id': 999999}), stop_reason='tool_use'),
-            respuesta(texto('No encontr├® ese producto.')),
+            respuesta(texto('No encontré ese producto.')),
         ]
         res = self._enviar('detalle del 999999')
         self.assertEqual(res.status_code, 200)
@@ -204,7 +204,7 @@ class ChatbotApiTests(BaseCatalogo):
 
     def test_limita_las_vueltas_de_herramientas(self):
         busqueda = respuesta(uso_herramienta('buscar_productos', {'consulta': 'x'}), stop_reason='tool_use')
-        self.crear.side_effect = [busqueda] * 4 + [respuesta(texto('Esto encontr├®.'))]
+        self.crear.side_effect = [busqueda] * 4 + [respuesta(texto('Esto encontré.'))]
 
         res = self._enviar('algo')
 
@@ -215,14 +215,14 @@ class ChatbotApiTests(BaseCatalogo):
     def test_historial_descarta_saludo_y_junta_roles_repetidos(self):
         self.crear.return_value = respuesta(texto('Ok'))
         res = self.client.post(URL, {'mensajes': [
-            {'rol': 'asistente', 'contenido': '┬íHola! Soy Kantu.'},
+            {'rol': 'asistente', 'contenido': '¡Hola! Soy Kantu.'},
             {'rol': 'usuario', 'contenido': 'hola'},
-            {'rol': 'usuario', 'contenido': 'busco caf├®'},
+            {'rol': 'usuario', 'contenido': 'busco café'},
         ]}, format='json')
         self.assertEqual(res.status_code, 200)
         self.assertEqual(
             self.crear.call_args.kwargs['messages'],
-            [{'role': 'user', 'content': 'hola\n\nbusco caf├®'}])
+            [{'role': 'user', 'content': 'hola\n\nbusco café'}])
 
     def test_valida_el_historial(self):
         res = self.client.post(URL, {'mensajes': [

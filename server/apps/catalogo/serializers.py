@@ -84,7 +84,12 @@ class ProductoCreateSerializer(serializers.Serializer):
     )
 
     def to_internal_value(self, data):
-        data = data.copy()
+        # Parsed JSON lists must not remain in a QueryDict: DRF would treat them
+        # as HTML form fields and lose nested variants. Preserve all uploaded files.
+        if hasattr(data, 'getlist'):
+            data = {key: data.getlist(key) if key == 'imagenes' else data.get(key) for key in data.keys()}
+        else:
+            data = data.copy()
         for field_name in ('variantes', 'etiquetas'):
             data = _parse_json_field(data, field_name)
         return super().to_internal_value(data)
@@ -120,7 +125,10 @@ class ProductoCreateSerializer(serializers.Serializer):
 
     def validate_variantes(self, value):
         seen_skus = set()
+        tienda = self.context.get('tienda')
         for variante in value:
+            if tienda and Variante.objects.filter(producto__tienda=tienda, sku__iexact=variante['sku']).exists():
+                raise serializers.ValidationError('Ya existe ese SKU en esta tienda.')
             normalized_sku = variante['sku'].casefold()
             if normalized_sku in seen_skus:
                 raise serializers.ValidationError('Los SKU deben ser unicos dentro del producto.')

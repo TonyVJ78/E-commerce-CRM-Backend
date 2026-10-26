@@ -2,7 +2,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from apps.crm.models import FichaCliente
+from apps.crm.models import FichaCliente, Segmento, SegmentoCliente
 from .models import Cupon, CuponUso
 
 
@@ -12,6 +12,13 @@ def es_destinatario(cupon, cliente):
         if cupon.campana.tienda_id != cupon.tienda_id:
             return False
         segmento_id = cupon.campana.segmento_objetivo_id
+    if segmento_id:
+        segmento = Segmento.objects.filter(pk=segmento_id, tienda_id=cupon.tienda_id).first()
+        if segmento is None:
+            return False
+        if segmento.criterio.startswith('rfm:'):
+            return SegmentoCliente.objects.filter(cliente=cliente, tienda_id=cupon.tienda_id,
+                segmento=segmento.criterio.removeprefix('rfm:')).exists()
     return not segmento_id or FichaCliente.objects.filter(
         cliente=cliente, tienda_id=cupon.tienda_id, segmento_id=segmento_id,
     ).exists()

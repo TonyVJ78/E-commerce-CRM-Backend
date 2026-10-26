@@ -1,4 +1,4 @@
-﻿from rest_framework import serializers
+from rest_framework import serializers
 
 
 MAX_MENSAJES_HISTORIAL = 20
@@ -11,19 +11,19 @@ class MensajeChatSerializer(serializers.Serializer):
 
 
 class ChatbotSerializer(serializers.Serializer):
-    """Historial de la conversaci├│n, del m├ís antiguo al m├ís reciente."""
+    """Historial de la conversación, del más antiguo al más reciente."""
 
     mensajes = MensajeChatSerializer(many=True, allow_empty=False)
 
     def validate_mensajes(self, mensajes):
         if mensajes[-1]['rol'] != 'usuario':
-            raise serializers.ValidationError('El ├║ltimo mensaje debe ser del usuario.')
+            raise serializers.ValidationError('El último mensaje debe ser del usuario.')
         return mensajes
 
     def como_mensajes_claude(self):
         """Convierte al formato de la API de Claude.
 
-        Se queda con los ├║ltimos mensajes, descarta los del asistente que
+        Se queda con los últimos mensajes, descarta los del asistente que
         quedan al inicio (el saludo de bienvenida) y junta mensajes seguidos
         del mismo rol, porque la API exige que user y assistant se alternen.
         """

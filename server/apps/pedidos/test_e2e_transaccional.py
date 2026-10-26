@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, transaction
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -15,6 +16,7 @@ from apps.tiendas.models import Tienda
 from apps.usuarios.models import Rol, Usuario
 
 
+@override_settings(STRIPE_SECRET_KEY='sk_test_dummy', STRIPE_USD_BOB_RATE=6.96)
 class E2ETransaccionalCompletoTests(APITestCase):
     """
     Plan de Pruebas E2E Transaccional Cruzado:
@@ -207,6 +209,7 @@ class E2ETransaccionalCompletoTests(APITestCase):
         mock_stripe_retrieve.return_value = MagicMock(
             id='pi_test_kantu_9999',
             status='succeeded',
+            metadata={'cliente_id': str(self.cliente.id)},
             amount=1437,
         )
 
@@ -333,8 +336,9 @@ class E2ETransaccionalCompletoTests(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertEqual(response.data, [])
 
+    @patch('stripe.Refund.create')
     @patch('stripe.PaymentIntent.retrieve')
-    def test_checkout_rollback_atomico_si_stock_insuficiente(self, mock_stripe_retrieve):
+    def test_checkout_rollback_atomico_si_stock_insuficiente(self, mock_stripe_retrieve, mock_refund):
         """
         CU-19: Si al momento de comprar el stock es insuficiente,
         el trigger de PostgreSQL trg_actualizar_stock_item_pedido rechaza la operación
@@ -353,6 +357,7 @@ class E2ETransaccionalCompletoTests(APITestCase):
         mock_stripe_retrieve.return_value = MagicMock(
             id='pi_test_sin_stock',
             status='succeeded',
+            metadata={'cliente_id': str(self.cliente.id)},
             amount=1437,
         )
 

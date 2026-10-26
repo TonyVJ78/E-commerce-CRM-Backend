@@ -1,10 +1,10 @@
-﻿"""
-B├║squeda en el cat├ílogo p├║blico para el chatbot de recomendaciones.
+"""
+Búsqueda en el catálogo público para el chatbot de recomendaciones.
 
-La b├║squeda por texto se hace en Python y no con `icontains`: as├¡ no importan
-las tildes ("ceramica" encuentra "Cer├ímica"), los plurales ("chompas" encuentra
-"Chompa") ni el orden de las palabras, y se pueden sumar puntos seg├║n d├│nde
-aparece cada palabra. La base s├│lo filtra lo que es exacto (precio, stock,
+La búsqueda por texto se hace en Python y no con `icontains`: así no importan
+las tildes ("ceramica" encuentra "Cerámica"), los plurales ("chompas" encuentra
+"Chompa") ni el orden de las palabras, y se pueden sumar puntos según dónde
+aparece cada palabra. La base sólo filtra lo que es exacto (precio, stock,
 producto y tienda activos) y devuelve columnas livianas con `values()`.
 """
 
@@ -30,7 +30,7 @@ PALABRAS_VACIAS = {
     'se', 'sin', 'su', 'sus', 'tienen', 'tu', 'un', 'una', 'unas', 'uno', 'unos', 'y',
 }
 
-# D├│nde aparece la palabra pesa distinto: el nombre manda.
+# Dónde aparece la palabra pesa distinto: el nombre manda.
 PESO_NOMBRE = 3
 PESO_CATEGORIA = 2
 PESO_ETIQUETA = 2
@@ -39,9 +39,9 @@ PESO_TIENDA = 1
 
 
 def normalizar(texto):
-    """Min├║sculas, sin tildes y sin signos: 'Cer├ímica, ┬í├Ünica!' ÔåÆ 'ceramica unica'.
+    """Minúsculas, sin tildes y sin signos: 'Cerámica, ¡Única!' → 'ceramica unica'.
 
-    La ├▒ tambi├®n pasa a n ('ni├▒o' ÔåÆ 'nino'), igual en la consulta y en el cat├ílogo.
+    La ñ también pasa a n ('niño' → 'nino'), igual en la consulta y en el catálogo.
     """
     sin_tildes = unicodedata.normalize('NFKD', texto or '')
     sin_tildes = ''.join(c for c in sin_tildes if not unicodedata.combining(c))
@@ -49,7 +49,7 @@ def normalizar(texto):
 
 
 def _raiz(palabra):
-    """Quita el plural m├ís com├║n para que 'chompas' y 'chompa' coincidan."""
+    """Quita el plural más común para que 'chompas' y 'chompa' coincidan."""
     if len(palabra) > 4 and palabra.endswith('es'):
         return palabra[:-2]
     if len(palabra) > 3 and palabra.endswith('s'):
@@ -83,7 +83,7 @@ def _puntaje(fila, terminos):
 
 
 def _a_decimal(valor):
-    """Precio que manda el modelo como n├║mero; lo inv├ílido se ignora como filtro."""
+    """Precio que manda el modelo como número; lo inválido se ignora como filtro."""
     if valor is None or valor == '' or isinstance(valor, bool):
         return None
     try:
@@ -117,7 +117,7 @@ def buscar_productos(
     orden='relevancia',
     limite=LIMITE_RESULTADOS,
 ):
-    """Devuelve `(total_encontrados, [Producto, ...])` ordenados seg├║n `orden`."""
+    """Devuelve `(total_encontrados, [Producto, ...])` ordenados según `orden`."""
     qs = _catalogo_base()
 
     minimo = _a_decimal(precio_min)
@@ -134,8 +134,8 @@ def buscar_productos(
         'tienda__nombre', 'precio_min',
     ))
 
-    # Categor├¡a y tienda llegan como texto libre del modelo ("textiles",
-    # "Alpaca Andina"); se comparan normalizadas y por inclusi├│n.
+    # Categoría y tienda llegan como texto libre del modelo ("textiles",
+    # "Alpaca Andina"); se comparan normalizadas y por inclusión.
     categoria_norm = normalizar(categoria)
     if categoria_norm:
         filas = [f for f in filas if categoria_norm in normalizar(f['categoria__nombre'])]
@@ -155,7 +155,7 @@ def buscar_productos(
     elif orden == 'precio_desc':
         puntuadas.sort(key=lambda par: (-par[0]['precio_min'], -par[1]))
     else:
-        # A igual puntaje, primero lo m├ís nuevo (mayor id), como el cat├ílogo.
+        # A igual puntaje, primero lo más nuevo (mayor id), como el catálogo.
         puntuadas.sort(key=lambda par: (-par[1], -par[0]['id']))
 
     ids = [f['id'] for f, _ in puntuadas[:limite]]
@@ -189,7 +189,7 @@ def resumen_para_modelo(producto, con_variantes=False):
         'stock_total': producto.stock_total or 0,
         'descripcion': (producto.descripcion or '')[:LIMITE_DESCRIPCION],
     }
-    # Oferta vigente: la variante que da el precio m├¡nimo lo da por su precio
+    # Oferta vigente: la variante que da el precio mínimo lo da por su precio
     # de oferta, y su precio de lista es el "antes".
     for v in variantes:
         if v.precio_oferta is not None and v.precio_oferta == producto.precio_min:
@@ -214,9 +214,9 @@ def resumen_para_modelo(producto, con_variantes=False):
 
 
 def contexto_catalogo():
-    """Categor├¡as y tiendas con productos visibles, para orientar las preguntas."""
+    """Categorías y tiendas con productos visibles, para orientar las preguntas."""
     visibles = Q(productos__activo=True, tienda__activa=True)
-    # Cada tienda tiene sus propias categor├¡as: el set junta los nombres repetidos.
+    # Cada tienda tiene sus propias categorías: el set junta los nombres repetidos.
     categorias = sorted(
         set(Categoria.objects.filter(visibles).values_list('nombre', flat=True)),
         key=normalizar,

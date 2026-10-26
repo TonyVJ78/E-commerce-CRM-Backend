@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-import seed_demo
+from scripts import seed_demo
 
 from .models import Producto, Variante
 from apps.tiendas.models import Tienda
@@ -10,8 +10,8 @@ from apps.usuarios.models import Usuario
 
 
 class DemoSeederTests(TestCase):
-    @patch('seed_demo.cloudinary_demo_image')
-    @patch('seed_demo._cloudinary_uploader')
+    @patch('scripts.seed_demo.cloudinary_demo_image')
+    @patch('scripts.seed_demo._cloudinary_uploader')
     def test_seed_is_idempotent(self, cloudinary_uploader, demo_image):
         cloudinary_uploader.return_value = object()
         demo_image.side_effect = lambda uploader, public_id, source: {

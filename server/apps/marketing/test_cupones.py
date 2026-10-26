@@ -110,3 +110,17 @@ class CuponesTests(APITestCase):
         self.assertEqual(res.status_code, 200, res.data)
         self.assertEqual(res.data['monto_bs'], '30.00')
         self.assertEqual(crear.call_args.kwargs['metadata']['cupones'], json.dumps({str(self.tienda.id): 'AHORRA25'}, sort_keys=True))
+
+
+    def test_cupon_segmentado_reconoce_clasificacion_automatica_cu24(self):
+        from apps.crm.models import ReglaSegmentacion
+        from apps.crm.services.segmentacion_service import recalcular_segmentos_tienda
+        ReglaSegmentacion.objects.create(tienda=self.tienda, min_compras_frecuente=1)
+        Pedido.objects.create(cliente=self.cliente, tienda=self.tienda, estado_actual='entregado', subtotal=40, total=40)
+        recalcular_segmentos_tienda(self.tienda)
+        segmento = Segmento.objects.get(tienda=self.tienda, criterio='rfm:FRECUENTE')
+        self.cupon.segmento_objetivo = segmento
+        self.cupon.save()
+        self.assertEqual(self.validar().status_code, 200)
+        self.client.force_authenticate(self.otro_cliente)
+        self.assertEqual(self.validar().status_code, 400)

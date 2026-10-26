@@ -185,8 +185,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Solo las vistas que declaran `throttle_scope` usan estas tasas. El
+    # chatbot llama a una API de pago por cada mensaje.
     'DEFAULT_THROTTLE_RATES': {
         'chatbot': env('CHATBOT_THROTTLE_RATE', default='20/min'),
+        'informes': env('INFORMES_THROTTLE_RATE', default='10/min'),
     },
 }
 
@@ -228,6 +231,9 @@ EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@kantumarket.com')
+# El recibo de compra (CU-33) se envía dentro de la petición de checkout: sin
+# tope, un SMTP colgado dejaría la compra esperando indefinidamente.
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=15)
 
 # URL base del frontend para links de recuperación de contraseña
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:4200')
@@ -247,22 +253,20 @@ STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
 STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
 # Stripe no admite el boliviano (BOB) como moneda de cobro: el carrito se
 # muestra y guarda siempre en Bs, pero el PaymentIntent se crea en USD
-# convertido con este tipo de cambio. Cotización oficial/referencial, ajustable por .env.
+# convertido con este tipo de cambio referencial, ajustable por .env.
 STRIPE_USD_BOB_RATE = env.float('STRIPE_USD_BOB_RATE', default=6.96)
 
 # =============================================================================
-# OPENAI / MOTOR DE IA (CU-14)
+# CHATBOT DE RECOMENDACIONES (Claude)
 # =============================================================================
-OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
-OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-6-luna')
-AI_RECOMMENDATIONS_ENABLED = env.bool('AI_RECOMMENDATIONS_ENABLED', default=False)
-
-# =============================================================================
-# ANTHROPIC / CHATBOT IA CONVERSACIONAL (Claude Haiku 4.5)
-# =============================================================================
+# Sin clave el endpoint /api/ia/chatbot/ responde 503 y el resto de la API
+# funciona igual. La clave se crea en https://console.anthropic.com/.
 ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')
 ANTHROPIC_MODEL = env('ANTHROPIC_MODEL', default='claude-haiku-4-5')
 CHATBOT_MODEL = env('CHATBOT_MODEL', default=ANTHROPIC_MODEL)
+# Informes de tienda con IA (CU-34): mismo modelo que el chatbot salvo que se
+# indique otro.
+INFORMES_MODEL = env('INFORMES_MODEL', default=ANTHROPIC_MODEL)
 
 
 
@@ -272,3 +276,8 @@ FIREBASE_CREDENTIALS_FILE = env("FIREBASE_CREDENTIALS_FILE", default="")
 RECOMPRA_DIAS = env.int("RECOMPRA_DIAS", default=15)
 RECOMPRA_MAX_DIAS = env.int("RECOMPRA_MAX_DIAS", default=60)
 RECOMPRA_COOLDOWN_DIAS = env.int("RECOMPRA_COOLDOWN_DIAS", default=7)
+
+# Preserve CU-14 OpenAI settings while reports/chatbot use Anthropic.
+OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
+OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-6-luna')
+AI_RECOMMENDATIONS_ENABLED = env.bool('AI_RECOMMENDATIONS_ENABLED', default=False)

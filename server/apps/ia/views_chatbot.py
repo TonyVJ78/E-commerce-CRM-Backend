@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 class ChatbotView(APIView):
-    """POST /api/ia/chatbot/ ÔÇö Asistente de recomendaciones de productos.
+    """POST /api/ia/chatbot/ — Asistente de recomendaciones de productos.
 
     Recibe el historial `{"mensajes": [{"rol", "contenido"}, ...]}` y devuelve
     `{"mensaje": <markdown>, "productos": [...], "sugerencias": [...]}`.
-    Cada mensaje consume la API de Claude, por eso tiene un l├¡mite por usuario.
+    Cada mensaje consume la API de Claude, por eso tiene un límite por usuario.
     """
 
     permission_classes = [permissions.IsAuthenticated]
