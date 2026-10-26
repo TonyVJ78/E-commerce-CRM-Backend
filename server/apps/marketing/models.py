@@ -5,6 +5,8 @@ Modelos del Módulo 6: CRM: Marketing y Fidelización.
 
 from django.conf import settings
 from django.db import models
+from django.db.models.functions import Lower
+from django.utils import timezone
 
 
 class Campana(models.Model):
@@ -54,11 +56,22 @@ class Cupon(models.Model):
     valor_descuento = models.DecimalField(max_digits=10, decimal_places=2)
     fecha_expiracion = models.DateField()
     usos_maximos = models.IntegerField(default=1)
+    activo = models.BooleanField(default=True)
+    fecha_inicio = models.DateField(default=timezone.localdate)
+    monto_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    limite_por_cliente = models.PositiveIntegerField(default=1)
+    segmento_objetivo = models.ForeignKey(
+        'crm.Segmento', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cupones',
+    )
 
     class Meta:
         db_table = 'cupon'
         verbose_name = 'Cupón'
         verbose_name_plural = 'Cupones'
+        constraints = [models.UniqueConstraint(
+            Lower('codigo'), models.F('tienda'), name='cupon_codigo_por_tienda_uniq',
+        )]
 
     def __str__(self):
         return f'{self.codigo} - {self.tipo_descuento} {self.valor_descuento} ({self.tienda.nombre})'

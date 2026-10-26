@@ -31,6 +31,8 @@ api_patterns = [
     path('tiendas/', include('apps.pedidos.urls_empresa')),
     path('tiendas/', include('apps.crm.urls_tienda_crm')),
     path('soporte/', include('apps.crm.urls_soporte')),
+    path('marketing/', include('apps.marketing.urls')),
+    path('tiendas/', include('apps.marketing.urls_tienda')),
     path('catalogo/', include('apps.catalogo.urls_cliente')),
     path('pedidos/', include('apps.pedidos.urls')),
     path('ia/', include('apps.ia.urls')),
