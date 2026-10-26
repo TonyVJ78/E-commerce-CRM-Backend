@@ -2,7 +2,7 @@
 
 ## Qué quedó actualizado
 
-Los tres proyectos de `C:\Proyecto SI2` están en `codex/sincronizacion-equipo`. Se conservaron CU-25 a CU-28 y se incorporaron las novedades de Limber y rivero: CU-24 (segmentación automática en web/API), CU-33 (factura PDF), CU-34 (informes con IA y exportaciones), voz del chatbot y correcciones de pedidos/Stripe. La estructura local sigue usando `server/` en el backend y `client/` en la web. No se modifica `main`.
+Los tres proyectos de `C:\Proyecto SI2` están en `sincronizacion-equipo`. Se conservaron CU-25 a CU-28 y se incorporaron las novedades de Limber y rivero: CU-24 (segmentación automática en web/API), CU-33 (factura PDF), CU-34 (informes con IA y exportaciones), voz del chatbot y correcciones de pedidos/Stripe. La estructura local sigue usando `server/` en el backend y `client/` en la web. No se modifica `main`.
 
 Se resolvieron las ramas de migraciones de CRM y marketing. Con autorización se aplicaron las 11 migraciones revisadas en la base compartida, con respaldo privado previo y comprobación de conteos de usuarios, tiendas, productos, variantes, pedidos y pagos. Se corrigieron la carga multipart de imágenes/variantes, la auditoría de stock y los SKU repetidos en la misma tienda. Los segmentos automáticos de CU-24 quedan disponibles para segmentar cupones CU-27 al recalcularlos, conservando los grupos manuales del CRM.
 
