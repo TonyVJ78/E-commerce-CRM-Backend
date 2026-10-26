@@ -47,3 +47,7 @@ Thumbs.db
 scratch/
 movil/
 
+
+# Firebase server credentials are provisioned outside Git
+/secrets/firebase-admin.json
+**/*firebase-adminsdk*.json

@@ -125,6 +125,13 @@ class NotificacionEnviada(models.Model):
         on_delete=models.CASCADE,
         related_name='notificaciones_recibidas',
     )
+    titulo = models.CharField(max_length=150, default='')
+    mensaje = models.TextField(default='')
+    tipo = models.CharField(max_length=30, default='general')
+    datos = models.JSONField(default=dict)
+    leida = models.BooleanField(default=False)
+    fecha_lectura = models.DateTimeField(null=True, blank=True)
+    clave_evento = models.CharField(max_length=200, unique=True, null=True, blank=True)
     canal = models.CharField(max_length=20)
     fecha = models.DateTimeField(auto_now_add=True)
     estado_entrega = models.CharField(max_length=20)
@@ -137,3 +144,18 @@ class NotificacionEnviada(models.Model):
 
     def __str__(self):
         return f'{self.canal} a {self.cliente.email} ({self.estado_entrega}) - {self.fecha}'
+
+
+class DispositivoPush(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                related_name='dispositivos_push')
+    token = models.CharField(max_length=512, unique=True)
+    plataforma = models.CharField(max_length=10)
+    activo = models.BooleanField(default=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'dispositivo_push'
+
+    def __str__(self):
+        return f'Dispositivo {self.pk} ({self.plataforma})'

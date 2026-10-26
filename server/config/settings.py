@@ -265,3 +265,10 @@ ANTHROPIC_MODEL = env('ANTHROPIC_MODEL', default='claude-haiku-4-5')
 CHATBOT_MODEL = env('CHATBOT_MODEL', default=ANTHROPIC_MODEL)
 
 
+
+# CU-28: Firebase is optional; persistent inbox works without credentials.
+FCM_ENABLED = env.bool("FCM_ENABLED", default=False)
+FIREBASE_CREDENTIALS_FILE = env("FIREBASE_CREDENTIALS_FILE", default="")
+RECOMPRA_DIAS = env.int("RECOMPRA_DIAS", default=15)
+RECOMPRA_MAX_DIAS = env.int("RECOMPRA_MAX_DIAS", default=60)
+RECOMPRA_COOLDOWN_DIAS = env.int("RECOMPRA_COOLDOWN_DIAS", default=7)

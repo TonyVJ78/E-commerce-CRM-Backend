@@ -21,7 +21,10 @@ def health_check(request):
         "version": "1.0.0"
     })
 
+from apps.marketing.views_notificaciones import DispositivoView
+
 api_patterns = [
+    path('usuarios/dispositivos/', DispositivoView.as_view(), name='registrar-dispositivo-push'),
     path('health/', health_check, name='api_health'),
     path('auth/', include('apps.usuarios.urls')),
     path('auditoria/', include('apps.usuarios.urls_auditoria')),

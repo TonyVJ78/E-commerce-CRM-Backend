@@ -12,6 +12,7 @@ from apps.tiendas.models import Tienda
 from apps.usuarios.permissions import IsEmpresa, IsCliente
 from apps.usuarios.audit import registrar_auditoria, ACCION_CREAR, ACCION_ACTUALIZAR
 from .cupones import cotizar_carritos, es_destinatario, json_cotizacion
+from .notificaciones import notificar_cupon
 from .models import Cupon
 from .serializers import CuponSerializer
 
@@ -36,6 +37,7 @@ class CuponesTiendaView(APIView):
             with transaction.atomic():
                 Tienda.objects.select_for_update().get(pk=tienda.id)
                 cupon = serializer.save(tienda=tienda)
+                notificar_cupon(cupon)
         except IntegrityError:
             raise ValidationError({'codigo': 'Ya existe ese código en esta tienda.'})
         registrar_auditoria(request, ACCION_CREAR, tabla='cupon', registro_id=cupon.id,
@@ -54,6 +56,7 @@ class CuponTiendaDetalleView(APIView):
             with transaction.atomic():
                 Tienda.objects.select_for_update().get(pk=tienda.id)
                 serializer.save()
+                notificar_cupon(cupon)
         except IntegrityError:
             raise ValidationError({'codigo': 'Ya existe ese código en esta tienda.'})
         registrar_auditoria(request, ACCION_ACTUALIZAR, tabla='cupon', registro_id=cupon.id,

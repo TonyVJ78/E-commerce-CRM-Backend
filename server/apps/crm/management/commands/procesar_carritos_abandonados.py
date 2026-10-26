@@ -51,7 +51,7 @@ class Command(BaseCommand):
 
             for carrito in carritos:
                 if RegistroRecuperacionCarrito.objects.filter(
-                    campana=campana, carrito=carrito,
+                    campana=campana, carrito=carrito, correo_enviado=True,
                     fecha_envio__gte=carrito.ultima_actividad,
                 ).exists():
                     continue
@@ -121,7 +121,7 @@ class Command(BaseCommand):
                             <p style="margin:12px 0 0 0;font-weight:700;color:#1B1D24;">Total: Bs {monto_total:.2f}</p>
                         </div>
                         <div style="text-align:center;margin-top:24px;">
-                            <a href="http://localhost:4200/inicio" style="display:inline-block;background:#C8102E;color:#FFFFFF;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">
+                            <a href="{settings.FRONTEND_URL.rstrip('/')}/carrito" style="display:inline-block;background:#C8102E;color:#FFFFFF;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">
                                 Volver al Carrito y Comprar
                             </a>
                         </div>
@@ -141,24 +141,26 @@ class Command(BaseCommand):
                             fail_silently=False,
                         )
 
-                        RegistroRecuperacionCarrito.objects.create(
-                            campana=campana,
-                            carrito=carrito,
-                            cliente=carrito.cliente,
-                            recuperado=False,
-                        )
+                        registro = RegistroRecuperacionCarrito.objects.filter(
+                            campana=campana, carrito=carrito, fecha_envio__gte=carrito.ultima_actividad).first()
+                        if registro:
+                            registro.correo_enviado = True
+                            registro.save(update_fields=['correo_enviado'])
+                        else:
+                            RegistroRecuperacionCarrito.objects.create(
+                                campana=campana, carrito=carrito, cliente=carrito.cliente, correo_enviado=True)
                         total_notificados += 1
                         self.stdout.write(
-                            f"[NOTIFICADO] Carrito #{carrito.id} de {destinatario} en {tienda.nombre}"
+                            f"[NOTIFICADO] Carrito #{carrito.id} en tienda #{tienda.id}"
                         )
                     except Exception as e:
                         self.stderr.write(
-                            f"[ERROR] No se pudo enviar email a {destinatario}: {str(e)}"
+                            f"[ERROR] No se pudo enviar email del carrito #{carrito.id}"
                         )
                 else:
                     total_notificados += 1
                     self.stdout.write(
-                        f"[DRY-RUN] Se habria notificado Carrito #{carrito.id} de {destinatario} ({tienda.nombre})"
+                        f"[DRY-RUN] Se habria notificado Carrito #{carrito.id} en tienda #{tienda.id}"
                     )
 
         self.stdout.write(

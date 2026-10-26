@@ -281,6 +281,11 @@ class CheckoutView(APIView):
         items_comprados = []
         try:
             with transaction.atomic():
+                # Lock carts before coupons, synchronizing checkout and campaign detection.
+                carritos = list(Carrito.objects.select_for_update().filter(cliente=request.user)
+                    .order_by('pk').prefetch_related('items__variante'))
+                if not any(c.items.all() for c in carritos):
+                    raise ValidationError({'error': 'El carrito de compras está vacío.'})
                 # Serializa la reserva de los usos del cupón hasta confirmar el pedido.
                 cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'), bloquear=True)
                 if es_stripe and abs(intent.amount - _usd_centavos(sum(

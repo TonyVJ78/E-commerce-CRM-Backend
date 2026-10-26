@@ -295,6 +295,7 @@ class RegistroRecuperacionCarrito(models.Model):
     )
     fecha_envio = models.DateTimeField(auto_now_add=True)
     recuperado = models.BooleanField(default=False)
+    correo_enviado = models.BooleanField(default=True)
     pedido_resultante = models.ForeignKey(
         'pedidos.Pedido',
         on_delete=models.SET_NULL,

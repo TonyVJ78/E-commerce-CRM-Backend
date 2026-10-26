@@ -77,12 +77,13 @@ class TiendaCampanaCarritoView(APIView):
                     valor_en_riesgo += Decimal(str(it.variante.precio)) * Decimal(str(it.cantidad))
 
         registros = RegistroRecuperacionCarrito.objects.filter(campana=campana)
-        emails_enviados = registros.count()
+        emails_enviados = registros.filter(correo_enviado=True).count()
+        total_notificados = registros.count()
         carritos_recuperados = registros.filter(recuperado=True).count()
 
         tasa_conversion = (
-            round((carritos_recuperados / emails_enviados) * 100, 1)
-            if emails_enviados > 0
+            round((carritos_recuperados / total_notificados) * 100, 1)
+            if total_notificados > 0
             else 0.0
         )
 
