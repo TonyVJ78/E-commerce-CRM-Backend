@@ -10,6 +10,8 @@ from .models import (
     MensajeTicket,
     CampanaCarrito,
     RegistroRecuperacionCarrito,
+    ReglaSegmentacion,
+    SegmentoCliente,
 )
 
 
@@ -75,3 +77,15 @@ class RegistroRecuperacionCarritoAdmin(admin.ModelAdmin):
     list_filter = ['recuperado', 'fecha_envio']
     search_fields = ['cliente__email', 'carrito__id']
 
+
+@admin.register(ReglaSegmentacion)
+class ReglaSegmentacionAdmin(admin.ModelAdmin):
+    list_display = ['tienda', 'dias_inactividad', 'min_compras_frecuente', 'umbral_alto_valor', 'fecha_actualizacion']
+    list_filter = ['tienda']
+
+
+@admin.register(SegmentoCliente)
+class SegmentoClienteAdmin(admin.ModelAdmin):
+    list_display = ['tienda', 'cliente', 'segmento', 'total_compras', 'monto_total_gastado', 'ultima_compra']
+    list_filter = ['tienda', 'segmento']
+    search_fields = ['cliente__email', 'cliente__first_name', 'cliente__last_name']

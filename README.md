@@ -63,6 +63,13 @@ Todas las cuentas de prueba utilizan la contrasenia: `Password123!`
 | PATCH | /api/pedidos/carrito/items/{id}/ | Actualizar cantidad de producto | Si (Cliente) |
 | DELETE | /api/pedidos/carrito/items/{id}/ | Eliminar producto del carrito | Si (Cliente) |
 | GET | /api/tiendas/{id}/productos/ | Gestion de inventario de la tienda | Si (Empresa) |
+| GET | /api/tiendas/{id}/clientes/segmentacion/?segmento={tipo}&q={texto} | Clientes segmentados y KPIs de la tienda | Si (Empresa) |
+| POST | /api/tiendas/{id}/clientes/segmentacion/recalcular/ | Recalcular métricas RFM de la tienda | Si (Empresa) |
+| GET/PATCH | /api/tiendas/{id}/clientes/segmentacion/reglas/ | Consultar o actualizar umbrales RFM | Si (Empresa) |
+| POST | /api/tiendas/{id}/crm/campanas-segmento/ | Enviar correo/cupón al segmento elegido y registrar destinatarios | Si (Empresa) |
+
+La pantalla de segmentación de clientes está disponible en `/tiendas/clientes/segmentacion`.
+Los pedidos pagados o entregados actualizan automáticamente la segmentación de su tienda.
 | PATCH | /api/tiendas/{id}/productos/{id}/ | Modificar datos, stock, precio e imagen | Si (Empresa) |
 
 ## Licencia

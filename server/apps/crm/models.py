@@ -312,3 +312,84 @@ class RegistroRecuperacionCarrito(models.Model):
 
     def __str__(self):
         return f'Recuperacion Carrito #{self.carrito_id} para {self.cliente.email}'
+
+
+class ReglaSegmentacion(models.Model):
+    """Umbrales RFM configurables por tienda."""
+    tienda = models.ForeignKey(
+        'tiendas.Tienda',
+        on_delete=models.CASCADE,
+        related_name='reglas_segmentacion',
+    )
+    dias_inactividad = models.PositiveIntegerField(default=60)
+    min_compras_frecuente = models.PositiveIntegerField(default=3)
+    umbral_alto_valor = models.DecimalField(max_digits=12, decimal_places=2, default=1000)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'regla_segmentacion'
+        constraints = [
+            models.UniqueConstraint(fields=['tienda'], name='crm_regla_segmentacion_tienda_uniq'),
+            models.CheckConstraint(
+                condition=models.Q(dias_inactividad__gte=1),
+                name='crm_regla_segmentacion_dias_pos',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(min_compras_frecuente__gte=1),
+                name='crm_regla_segmentacion_compras_pos',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(umbral_alto_valor__gt=0),
+                name='crm_regla_segmentacion_umbral_pos',
+            ),
+        ]
+
+
+class SegmentoCliente(models.Model):
+    """Métricas y segmento RFM de un cliente en una tienda."""
+
+    ALTO_VALOR = 'ALTO_VALOR'
+    FRECUENTE = 'FRECUENTE'
+    INACTIVO = 'INACTIVO'
+    NUEVO = 'NUEVO'
+    SEGMENTO_CHOICES = [
+        (ALTO_VALOR, 'Alto valor'),
+        (FRECUENTE, 'Frecuente'),
+        (INACTIVO, 'Inactivo'),
+        (NUEVO, 'Nuevo'),
+    ]
+
+    tienda = models.ForeignKey(
+        'tiendas.Tienda',
+        on_delete=models.CASCADE,
+        related_name='segmentos_clientes',
+    )
+    cliente = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='segmentos_tienda',
+    )
+    segmento = models.CharField(max_length=20, choices=SEGMENTO_CHOICES)
+    total_compras = models.PositiveIntegerField(default=0)
+    monto_total_gastado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    ticket_promedio = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    ultima_compra = models.DateTimeField(null=True, blank=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'segmento_cliente'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tienda', 'cliente'],
+                name='crm_segmento_cliente_tienda_cliente_uniq',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(total_compras__gte=0)
+                    & models.Q(monto_total_gastado__gte=0)
+                    & models.Q(ticket_promedio__gte=0)
+                ),
+                name='crm_segmento_cliente_metricas_nonneg',
+            ),
+        ]
+        ordering = ['cliente__email']

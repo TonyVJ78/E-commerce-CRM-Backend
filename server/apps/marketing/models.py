@@ -25,6 +25,7 @@ class Campana(models.Model):
     )
     tipo = models.CharField(max_length=40)
     nombre = models.CharField(max_length=100)
+    mensaje = models.TextField(blank=True, default='')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
 
