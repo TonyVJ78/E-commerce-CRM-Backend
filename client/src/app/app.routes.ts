@@ -137,6 +137,12 @@ export const routes: Routes = [
       import('./features/tienda/campana-carrito/campana-carrito.component').then(m => m.CampanaCarritoComponent)
   },
   {
+    path: 'tiendas/clientes/segmentacion',
+    canActivate: [empresaGuard],
+    loadComponent: () =>
+      import('./features/tienda/segmentacion-clientes/segmentacion-clientes.component').then(m => m.SegmentacionClientesComponent)
+  },
+  {
     path: 'tiendas/:tiendaId/productos/nuevo',
     canActivate: [empresaGuard],
     loadComponent: () =>

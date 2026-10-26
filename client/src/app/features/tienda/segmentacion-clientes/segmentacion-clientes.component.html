@@ -1,0 +1,193 @@
+<main class="layout segmentacion-page">
+  <header class="page-head">
+    <div class="head-titles">
+      <nav class="breadcrumb-nav" aria-label="Migas de pan">
+        <a routerLink="/panel-vendedor" class="breadcrumb-link">Panel Vendedor</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">Segmentación de clientes</span>
+      </nav>
+      <h1>Segmentación automática de clientes</h1>
+      <p>Clasifica a tus clientes según recencia, frecuencia y valor de compra.</p>
+    </div>
+    @if (tiendas().length > 1) {
+      <label class="store-picker">
+        <span>Tienda</span>
+        <select class="input" [value]="tiendaSeleccionadaId()" (change)="seleccionarTienda(+$any($event.target).value)">
+          @for (tienda of tiendas(); track tienda.id) {
+            <option [value]="tienda.id">{{ tienda.nombre }}</option>
+          }
+        </select>
+      </label>
+    }
+  </header>
+
+  @if (exito()) {
+    <div class="alert alert--success" role="status">{{ exito() }}</div>
+  }
+  @if (error()) {
+    <div class="alert alert--danger" role="alert">{{ error() }}</div>
+  }
+
+  @if (resumen(); as datos) {
+    <section class="segmento-kpis bento" aria-label="Resumen de clientes por segmento">
+      @for (segmento of segmentos; track segmento) {
+        <article class="kpi" [class.kpi--brand]="segmento === 'ALTO_VALOR'"
+          [class.kpi--money]="segmento === 'FRECUENTE'"
+          [class.kpi--pending]="segmento === 'INACTIVO'">
+          <div class="kpi__label">Clientes {{ nombreSegmento(segmento) }}</div>
+          <div class="kpi__value">{{ datos.segmentos[segmento].total }}</div>
+          <div class="kpi__foot">
+            {{ datos.segmentos[segmento].porcentaje }}% · Ticket medio
+            {{ formatoMoneda(datos.segmentos[segmento].ticket_promedio) }}
+          </div>
+        </article>
+      }
+    </section>
+  }
+
+  <section class="card segmentacion-content">
+    <header class="card__header">
+      <div>
+        <h2 class="card__title">Clientes segmentados</h2>
+        <p class="muted">{{ resumen()?.total_clientes ?? 0 }} clientes con compras confirmadas</p>
+      </div>
+      <div class="toolbar-actions">
+        <button type="button" class="btn btn-secondary" (click)="toggleReglas()">
+          {{ mostrarReglas() ? 'Cerrar reglas' : 'Configurar reglas' }}
+        </button>
+        <button type="button" class="btn btn-primary" (click)="recalcular()" [disabled]="recalculando()">
+          {{ recalculando() ? 'Recalculando…' : 'Recalcular segmentos' }}
+        </button>
+      </div>
+    </header>
+
+    @if (mostrarReglas()) {
+      <form class="rules-panel" [formGroup]="reglasForm" (ngSubmit)="guardarReglas()">
+        <h3>Reglas RFM de la tienda</h3>
+        <div class="form-grid">
+          <label class="field">
+            <span>Días para considerar inactivo</span>
+            <input class="input" type="number" min="1" formControlName="dias_inactividad">
+            @if (reglasForm.controls.dias_inactividad.invalid && reglasForm.controls.dias_inactividad.touched) {
+              <small class="form-error">Ingresa un número mayor que cero.</small>
+            }
+          </label>
+          <label class="field">
+            <span>Compras mínimas para frecuente</span>
+            <input class="input" type="number" min="1" formControlName="min_compras_frecuente">
+            @if (reglasForm.controls.min_compras_frecuente.invalid && reglasForm.controls.min_compras_frecuente.touched) {
+              <small class="form-error">Ingresa un número mayor que cero.</small>
+            }
+          </label>
+          <label class="field">
+            <span>Umbral de alto valor (Bs)</span>
+            <input class="input" type="number" min="0.01" step="0.01" formControlName="umbral_alto_valor">
+            @if (reglasForm.controls.umbral_alto_valor.invalid && reglasForm.controls.umbral_alto_valor.touched) {
+              <small class="form-error">El umbral debe ser mayor que cero.</small>
+            }
+          </label>
+        </div>
+        <button class="btn btn-primary" type="submit" [disabled]="guardandoReglas()">
+          {{ guardandoReglas() ? 'Guardando…' : 'Guardar y recalcular' }}
+        </button>
+      </form>
+    }
+
+    <div class="filter-row">
+      <label class="field filter-field">
+        <span>Segmento</span>
+        <select class="input" [formControl]="filtroSegmento">
+          <option value="">Todos los segmentos</option>
+          @for (segmento of segmentos; track segmento) {
+            <option [value]="segmento">{{ nombreSegmento(segmento) }}</option>
+          }
+        </select>
+      </label>
+      <label class="field search-field">
+        <span>Buscar por nombre o correo</span>
+        <input class="input" type="search" [formControl]="busqueda" placeholder="Nombre o correo electrónico">
+      </label>
+      <button type="button" class="btn btn-secondary campaign-trigger" (click)="toggleCampana()">
+        {{ mostrarCampana() ? 'Cerrar campaña' : 'Crear campaña / cupón' }}
+      </button>
+    </div>
+
+    @if (mostrarCampana()) {
+      <form class="campaign-panel" [formGroup]="campanaForm" (ngSubmit)="enviarCampana()">
+        <h3>Campaña para un segmento</h3>
+        <p>El correo se enviará solamente a los clientes del segmento elegido en esta tienda.</p>
+        <div class="form-grid">
+          <label class="field">
+            <span>Segmento objetivo</span>
+            <select class="input" formControlName="segmento">
+              @for (segmento of segmentos; track segmento) {
+                <option [value]="segmento">{{ nombreSegmento(segmento) }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span>Nombre de campaña</span>
+            <input class="input" type="text" formControlName="nombre" maxlength="100" required>
+          </label>
+          <label class="field">
+            <span>Descuento (%)</span>
+            <input class="input" type="number" min="0" max="100" step="0.01" formControlName="descuento_porcentaje">
+          </label>
+          <label class="field">
+            <span>Código de cupón (opcional)</span>
+            <input class="input" type="text" formControlName="codigo_cupon" maxlength="30">
+          </label>
+          <label class="field">
+            <span>Válido hasta (opcional)</span>
+            <input class="input" type="date" formControlName="fecha_expiracion">
+          </label>
+          <label class="field field--wide">
+            <span>Mensaje comercial</span>
+            <textarea class="input" rows="3" formControlName="mensaje"></textarea>
+          </label>
+        </div>
+        <div class="campaign-actions">
+          <button class="btn btn-primary" type="submit" [disabled]="enviandoCampana()">
+            {{ enviandoCampana() ? 'Procesando campaña…' : 'Enviar al segmento' }}
+          </button>
+        </div>
+      </form>
+    }
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Segmento</th>
+            <th>Compras</th>
+            <th>Total gastado</th>
+            <th>Ticket promedio</th>
+            <th>Última compra</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (cargando()) {
+            <tr><td colspan="6" class="empty-state">Cargando clientes…</td></tr>
+          } @else if (!clientes().length) {
+            <tr><td colspan="6" class="empty-state">No hay clientes para los filtros seleccionados.</td></tr>
+          } @else {
+            @for (cliente of clientes(); track cliente.id) {
+              <tr>
+                <td>
+                  <strong>{{ cliente.cliente.nombre }}</strong>
+                  <span class="customer-email">{{ cliente.cliente.email }}</span>
+                </td>
+                <td><span [class]="claseSegmento(cliente.segmento)">{{ nombreSegmento(cliente.segmento) }}</span></td>
+                <td>{{ cliente.total_compras }}</td>
+                <td>{{ formatoMoneda(cliente.monto_total_gastado) }}</td>
+                <td>{{ formatoMoneda(cliente.ticket_promedio) }}</td>
+                <td>{{ cliente.ultima_compra ? (cliente.ultima_compra | date:'mediumDate') : '—' }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>

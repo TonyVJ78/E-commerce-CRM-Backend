@@ -11,3 +11,4 @@ export * from './pedido.model';
 export * from './backup.model';
 export * from './soporte.model';
 export * from './campana-carrito.model';
+export * from './segmentacion.model';

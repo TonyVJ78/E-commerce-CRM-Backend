@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -47,7 +47,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "4200:4200"
+      - "4201:4200"
     volumes:
       - ./client:/app
       - /app/node_modules

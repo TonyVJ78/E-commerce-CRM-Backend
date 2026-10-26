@@ -1,0 +1,223 @@
+.segmentacion-page {
+  padding-top: var(--sp-4);
+  padding-bottom: var(--sp-8);
+}
+
+.store-picker,
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.store-picker {
+  min-width: 220px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.segmento-kpis {
+  margin-bottom: var(--sp-5);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.segmentacion-content {
+  overflow: hidden;
+}
+
+.card__header,
+.toolbar-actions,
+.filter-row,
+.campaign-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.card__header {
+  flex-wrap: wrap;
+}
+
+.card__title {
+  margin: 0;
+}
+
+.muted,
+.campaign-panel > p {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.muted {
+  margin: var(--sp-1) 0 0;
+}
+
+.rules-panel,
+.campaign-panel {
+  margin: var(--sp-4);
+  padding: var(--sp-4);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.rules-panel h3,
+.campaign-panel h3 {
+  margin: 0 0 var(--sp-3);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.field span {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.field--wide {
+  grid-column: span 2;
+}
+
+.filter-row {
+  flex-wrap: wrap;
+  padding: 0 var(--sp-4) var(--sp-4);
+  justify-content: flex-start;
+}
+
+.filter-field {
+  width: 220px;
+}
+
+.search-field {
+  flex: 1;
+  min-width: 240px;
+}
+
+.campaign-trigger {
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.campaign-panel > p {
+  margin: calc(var(--sp-2) * -1) 0 var(--sp-4);
+}
+
+.campaign-actions {
+  justify-content: flex-end;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+
+.data-table th,
+.data-table td {
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.data-table th {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+}
+
+.data-table td:first-child {
+  min-width: 210px;
+}
+
+.customer-email {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.segmento-badge {
+  display: inline-flex;
+  padding: 4px 9px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.segmento-badge--alto-valor {
+  color: #7c2d12;
+  background: #ffedd5;
+}
+
+.segmento-badge--frecuente {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.segmento-badge--inactivo {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.segmento-badge--nuevo {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.empty-state {
+  padding: var(--sp-6) !important;
+  color: var(--muted);
+  text-align: center;
+}
+
+.form-error {
+  color: var(--red-600);
+}
+
+@media (max-width: 900px) {
+  .segmento-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .field--wide {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .segmento-kpis,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field--wide {
+    grid-column: auto;
+  }
+
+  .toolbar-actions,
+  .campaign-actions {
+    width: 100%;
+  }
+
+  .toolbar-actions > button,
+  .campaign-actions > button {
+    flex: 1;
+  }
+}

@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalogo.models import Producto
+from apps.crm.services.segmentacion_service import recalcular_segmentos_tienda
 from apps.usuarios.permissions import IsClienteUser
 from . import estados
 from .models import Carrito, HistorialEstadoPedido, ItemCarrito, ItemPedido, MetodoPago, Pago, Pedido, Resena
@@ -312,6 +313,10 @@ class CheckoutView(APIView):
                         monto=pedido.total,
                         estado='pagado' if es_stripe else 'pendiente',
                         referencia_transaccion=payment_intent_id if es_stripe else '',
+                    )
+                    transaction.on_commit(
+                        lambda tienda=carrito.tienda: recalcular_segmentos_tienda(tienda),
+                        robust=True,
                     )
                     pedidos_creados.append(pedido.id)
 
