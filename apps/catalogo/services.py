@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils.text import slugify
 
 from .models import Producto, Variante, VarianteStockMovimiento
+from apps.tiendas.models import Tienda
 
 
 ALLOWED_IMAGE_TYPES = {
@@ -185,6 +186,10 @@ def create_product_with_images(*, tienda, validated_data):
             uploaded_images.append(upload_product_image(image, tienda.id))
 
         with transaction.atomic():
+            Tienda.objects.select_for_update().get(pk=tienda.pk)
+            for variante in validated_data['variantes']:
+                if Variante.objects.filter(producto__tienda=tienda, sku__iexact=variante['sku']).exists():
+                    raise ValidationError('Ya existe ese SKU en esta tienda.')
             producto = Producto.objects.create(
                 tienda=tienda,
                 categoria_id=validated_data.get('categoria_id'),

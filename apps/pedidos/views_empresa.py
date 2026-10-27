@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalogo.models import Variante
+from apps.crm.services.segmentacion_service import recalcular_segmentos_tienda
 from apps.tiendas.models import Tienda
 from apps.usuarios.audit import ACCION_ACTUALIZAR, registrar_auditoria
 from apps.usuarios.permissions import IsEmpresa, PermisoModulo
@@ -170,6 +171,11 @@ class PedidoTiendaEstadoView(PedidosTiendaMixin, APIView):
             pedido.estado_actual = nuevo
             pedido.save(update_fields=['estado_actual'])
             aviso = self._aplicar_efectos(pedido, nuevo, transportista, numero_seguimiento)
+            if nuevo in (estados.PROCESADO, estados.ENTREGADO):
+                transaction.on_commit(
+                    lambda: recalcular_segmentos_tienda(tienda),
+                    robust=True,
+                )
 
         registrar_auditoria(
             request,

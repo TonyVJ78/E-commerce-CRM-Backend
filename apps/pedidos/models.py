@@ -6,6 +6,7 @@ Modelos del Módulo 4: Comercio Electrónico y Ventas.
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Carrito(models.Model):
@@ -21,6 +22,7 @@ class Carrito(models.Model):
         related_name='carritos',
     )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    ultima_actividad = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = 'carrito'
@@ -49,6 +51,16 @@ class ItemCarrito(models.Model):
         related_name='en_carritos',
     )
     cantidad = models.IntegerField(default=1)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        Carrito.objects.filter(pk=self.carrito_id).update(ultima_actividad=timezone.now())
+
+    def delete(self, *args, **kwargs):
+        carrito_id = self.carrito_id
+        result = super().delete(*args, **kwargs)
+        Carrito.objects.filter(pk=carrito_id).update(ultima_actividad=timezone.now())
+        return result
 
     class Meta:
         db_table = 'item_carrito'

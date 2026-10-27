@@ -142,7 +142,7 @@ class VarianteStockMovementView(OwnedStoreMixin, generics.ListCreateAPIView):
             ACCION_ACTUALIZAR,
             tabla='variante',
             registro_id=variante.pk,
-            datos_previos={
+            datos_anteriores={
                 'stock': movimiento.previous_stock,
                 'variante_sku': variante.sku,
                 'producto_id': variante.producto_id,
@@ -295,21 +295,6 @@ class ProductoCatalogoGeneralListView(generics.ListAPIView):
             queryset = queryset.order_by('-creado', '-id')
 
         return queryset
-
-
-class ProductoCatalogoDetailView(generics.RetrieveAPIView):
-    """GET /api/catalogo/productos/<id>/ — Ficha pública de un producto.
-
-    La usa la pestaña de detalle del producto (p. ej. al abrir una
-    recomendación del chatbot). Solo muestra productos a la venta.
-    """
-
-    serializer_class = ProductoCatalogoSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def get_queryset(self):
-        return _productos_publicos()
-
 
 
 class ProductoCatalogoDetailView(generics.RetrieveAPIView):

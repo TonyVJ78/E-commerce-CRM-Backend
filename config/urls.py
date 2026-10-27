@@ -21,14 +21,22 @@ def health_check(request):
         "version": "1.0.0"
     })
 
+from apps.marketing.views_notificaciones import DispositivoView
+
 api_patterns = [
+    path('usuarios/dispositivos/', DispositivoView.as_view(), name='registrar-dispositivo-push'),
     path('health/', health_check, name='api_health'),
     path('auth/', include('apps.usuarios.urls')),
     path('auditoria/', include('apps.usuarios.urls_auditoria')),
+    path('admin/backups/', include('apps.usuarios.urls_backup_api')),
     path('', include('apps.usuarios.urls_accesos')),
     path('tiendas/', include('apps.tiendas.urls')),
     # Gestion de pedidos recibidos por tienda (CU-22)
     path('tiendas/', include('apps.pedidos.urls_empresa')),
+    path('tiendas/', include('apps.crm.urls_tienda_crm')),
+    path('soporte/', include('apps.crm.urls_soporte')),
+    path('marketing/', include('apps.marketing.urls')),
+    path('tiendas/', include('apps.marketing.urls_tienda')),
     path('catalogo/', include('apps.catalogo.urls_cliente')),
     path('pedidos/', include('apps.pedidos.urls')),
     # Chatbot de recomendaciones (Claude) y recomendaciones personalizadas (CU-14)

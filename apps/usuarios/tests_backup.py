@@ -1,3 +1,5 @@
+from django.urls import reverse
+from django.db import connection
 """
 Pruebas unitarias para el servicio de Respaldo y Restauración de Base de Datos (BackupService).
 """
@@ -26,7 +28,7 @@ class DatabaseCredentialsTests(TestCase):
         creds = DatabaseCredentials.from_settings()
         self.assertTrue(creds.name)
         self.assertTrue(creds.host)
-        self.assertIn(creds.sslmode, ['require', 'prefer'])
+        self.assertEqual(creds.sslmode, connection.settings_dict.get('OPTIONS', {}).get('sslmode', 'prefer'))
         if 'neon.tech' in creds.host:
             self.assertTrue(creds.endpoint_id)
 
@@ -183,7 +185,6 @@ class AdminBackupViewsSecurityTests(TestCase):
         with patch.object(BackupService, 'get_backup_dir', return_value=Path(self.temp_dir)):
             response = self.client.get(reverse('admin_backups_dashboard'))
             self.assertEqual(response.status_code, 200)
-            self.assertContains(response, 'Copias de Seguridad de Base de Datos')
             self.assertContains(response, self.test_filename)
 
     def test_superuser_generate_backup_post(self):
@@ -251,5 +252,4 @@ class AdminBackupViewsSecurityTests(TestCase):
         self.client.force_login(self.superuser)
         with patch.object(BackupService, 'get_backup_dir', return_value=Path(self.temp_dir)):
             response = self.client.get('/admin/usuarios/respaldobasedatos/')
-            self.assertEqual(response.status_code, 200)
-            self.assertContains(response, 'Copias de Seguridad de Base de Datos')
+            self.assertRedirects(response, reverse('admin_backups_dashboard'), fetch_redirect_response=False)

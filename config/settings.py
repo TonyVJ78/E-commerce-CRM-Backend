@@ -45,8 +45,8 @@ if os.path.isfile(env_file):
 
 
 SECRET_KEY = env('SECRET_KEY', default='kantu-market-django-prod-secret-key-2026-secure')
-DEBUG = env('DEBUG', default=True)
-ALLOWED_HOSTS = env('ALLOWED_HOSTS', default=['*'])
+DEBUG = env.bool('DEBUG', default=True)
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
 
 # =============================================================================
 # INSTALLED APPS
@@ -206,17 +206,29 @@ SIMPLE_JWT = {
 }
 
 # =============================================================================
-# CORS
+# CORS & CSRF
 # =============================================================================
 _cors_list = env.list('CORS_ALLOWED_ORIGINS', default=[
     'http://localhost:4200',
     'http://127.0.0.1:4200',
+    'https://kantumarket.vercel.app',
 ])
 if '*' in _cors_list:
     CORS_ALLOW_ALL_ORIGINS = True
 else:
     CORS_ALLOWED_ORIGINS = _cors_list
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
+
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
+    'https://*.vercel.app',
+    'https://kantumarket.vercel.app',
+    'http://localhost:4200',
+    'http://127.0.0.1:4200',
+])
 
 # =============================================================================
 # EMAIL (consola para desarrollo, SMTP configurable vía .env)
@@ -268,9 +280,16 @@ CHATBOT_MODEL = env('CHATBOT_MODEL', default=ANTHROPIC_MODEL)
 # indique otro.
 INFORMES_MODEL = env('INFORMES_MODEL', default=ANTHROPIC_MODEL)
 
-# =============================================================================
-# OPENAI / MOTOR DE IA (CU-14)
-# =============================================================================
+
+
+# CU-28: Firebase is optional; persistent inbox works without credentials.
+FCM_ENABLED = env.bool("FCM_ENABLED", default=False)
+FIREBASE_CREDENTIALS_FILE = env("FIREBASE_CREDENTIALS_FILE", default="")
+RECOMPRA_DIAS = env.int("RECOMPRA_DIAS", default=15)
+RECOMPRA_MAX_DIAS = env.int("RECOMPRA_MAX_DIAS", default=60)
+RECOMPRA_COOLDOWN_DIAS = env.int("RECOMPRA_COOLDOWN_DIAS", default=7)
+
+# Preserve CU-14 OpenAI settings while reports/chatbot use Anthropic.
 OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-6-luna')
 AI_RECOMMENDATIONS_ENABLED = env.bool('AI_RECOMMENDATIONS_ENABLED', default=False)

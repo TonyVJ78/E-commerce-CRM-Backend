@@ -1,15 +1,20 @@
 from decimal import Decimal, ROUND_HALF_UP
+import json
 
 import stripe
 from django.conf import settings
 from django.db import transaction
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
+from apps.marketing.cupones import cotizar_carritos, registrar_descuento, json_cotizacion, normalizar_codigos
 
 from apps.catalogo.models import Producto
+from apps.crm.services.segmentacion_service import recalcular_segmentos_tienda
 from apps.usuarios.permissions import IsClienteUser
 from . import estados, recibo
 from .models import Carrito, HistorialEstadoPedido, ItemCarrito, ItemPedido, MetodoPago, Pago, Pedido, Resena
@@ -146,6 +151,7 @@ class CarritoDetalleView(APIView):
 
     def delete(self, request):
         ItemCarrito.objects.filter(carrito__cliente=request.user).delete()
+        Carrito.objects.filter(cliente=request.user).update(ultima_actividad=timezone.now())
         return Response({'mensaje': 'Carrito vaciado exitosamente.'}, status=status.HTTP_200_OK)
 
 
@@ -192,8 +198,9 @@ class IniciarPagoStripeView(APIView):
             cliente=request.user
         ).prefetch_related('items__variante__producto')
 
-        total_bs = _total_carrito_bs(carritos)
-        if total_bs <= 0:
+        cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'))
+        total_bs = sum((c['total'] for c in cotizaciones.values()), Decimal('0.00'))
+        if total_bs <= Decimal('0'):
             return Response(
                 {'error': 'El carrito de compras está vacío.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -222,6 +229,7 @@ class IniciarPagoStripeView(APIView):
                     'cliente_id': str(request.user.id),
                     'cliente_email': request.user.email,
                     'total_bs': str(total_bs),
+                    'cupones': json.dumps(normalizar_codigos(request.data.get('cupones')), sort_keys=True),
                 },
             )
         except stripe.error.StripeError as exc:
@@ -272,6 +280,7 @@ class CheckoutView(APIView):
         metodo_pago_valor = str(request.data.get('metodo_pago') or NOMBRE_METODO_EFECTIVO).strip()
         es_stripe = metodo_pago_valor.lower() in ('stripe', 'tarjeta', NOMBRE_METODO_STRIPE.lower())
         payment_intent_id = str(request.data.get('payment_intent_id') or '').strip()
+        cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'))
 
         if es_stripe:
             if not payment_intent_id:
@@ -298,25 +307,17 @@ class CheckoutView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # El intento debe ser del propio cliente: de lo contrario se podría
-            # canjear (o reembolsar) el pago de otra persona.
-            metadata = intent.metadata or {}
+            metadata = getattr(intent, 'metadata', {}) or {}
             if hasattr(metadata, 'to_dict'):
-                # En stripe 15 `metadata` es un StripeObject y no admite `.get()`.
                 metadata = metadata.to_dict()
             if str(metadata.get('cliente_id', '')) != str(request.user.id):
-                return Response(
-                    {'error': 'El pago con tarjeta no pertenece a este usuario.'},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
+                return Response({'error': 'El pago con tarjeta no pertenece a este usuario.'}, status=403)
             if Pago.objects.filter(referencia_transaccion=payment_intent_id).exists():
-                return Response(
-                    {'error': 'Este pago con tarjeta ya se utilizó en otro pedido.'},
-                    status=status.HTTP_409_CONFLICT,
-                )
-
-            total_bs_actual = _total_carrito_bs(carritos)
+                return Response({'error': 'Este pago con tarjeta ya se utilizó en otro pedido.'}, status=409)
+            total_bs_actual = sum((c['total'] for c in cotizaciones.values()), Decimal('0.00'))
+            codigos = normalizar_codigos(request.data.get('cupones'))
+            if codigos and metadata.get('cupones') != json.dumps(codigos, sort_keys=True):
+                return Response({'error': 'Los cupones cambiaron. Inicia nuevamente el pago con tarjeta.'}, status=400)
             monto_esperado = _usd_centavos(total_bs_actual)
             # Tolerancia de 1 centavo de USD por redondeo entre el intento y el
             # recálculo del carrito.
@@ -351,13 +352,18 @@ class CheckoutView(APIView):
         items_comprados = []
         try:
             with transaction.atomic():
-                # Bloquea los carritos del cliente: dos checkouts simultáneos
-                # (doble clic, dos pestañas) se serializan, y el segundo ve el
-                # carrito ya vaciado o el pago ya registrado.
-                list(Carrito.objects.select_for_update().filter(cliente=request.user))
+                # Lock carts before coupons, synchronizing checkout and campaign detection.
+                carritos = list(Carrito.objects.select_for_update().filter(cliente=request.user)
+                    .order_by('pk').prefetch_related('items__variante'))
+                if not any(c.items.all() for c in carritos):
+                    raise ValidationError({'error': 'El carrito de compras está vacío.'})
+                # Serializa la reserva de los usos del cupón hasta confirmar el pedido.
+                cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'), bloquear=True)
+                if es_stripe and abs(intent.amount - _usd_centavos(sum(
+                    (c['total'] for c in cotizaciones.values()), Decimal('0.00')))) > 1:
+                    raise ValidationError({'cupones': 'El descuento cambió. Inicia nuevamente el pago.'})
                 if es_stripe and Pago.objects.filter(referencia_transaccion=payment_intent_id).exists():
                     raise _PagoYaUtilizado()
-
                 for carrito in carritos:
                     items = list(carrito.items.select_related('variante').all())
                     if not items:
@@ -394,6 +400,8 @@ class CheckoutView(APIView):
                     # El trigger fn_recalcular_total_pedido ya fijó pedido.total; se
                     # recarga para que el Pago quede con el monto real cobrado.
                     pedido.refresh_from_db()
+                    registrar_descuento(pedido, cotizaciones[carrito.id])
+
                     Pago.objects.create(
                         tienda=carrito.tienda,
                         pedido=pedido,
@@ -402,7 +410,15 @@ class CheckoutView(APIView):
                         estado='pagado' if es_stripe else 'pendiente',
                         referencia_transaccion=payment_intent_id if es_stripe else '',
                     )
+                    transaction.on_commit(
+                        lambda tienda=carrito.tienda: recalcular_segmentos_tienda(tienda),
+                        robust=True,
+                    )
                     pedidos_creados.append(pedido.id)
+                    from apps.crm.models import RegistroRecuperacionCarrito
+                    RegistroRecuperacionCarrito.objects.filter(
+                        carrito=carrito, cliente=request.user, recuperado=False,
+                    ).update(recuperado=True, pedido_resultante=pedido)
 
                 if not pedidos_creados:
                     raise _CarritoVacio()
@@ -417,6 +433,8 @@ class CheckoutView(APIView):
                 {'error': 'El carrito de compras está vacío.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
             err_msg = str(exc)
             if 'Stock insuficiente' in err_msg:
@@ -447,6 +465,7 @@ class CheckoutView(APIView):
                 'pedidos': pedidos_creados,
                 'items_comprados': items_comprados,
                 'metodo_pago': metodo_pago_nombre,
+                'descuentos': [json_cotizacion(c) for c in cotizaciones.values()],
                 'recibo_enviado': recibo_enviado,
                 'recibo_email': request.user.email,
             },
