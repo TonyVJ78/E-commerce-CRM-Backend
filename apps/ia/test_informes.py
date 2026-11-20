@@ -21,7 +21,9 @@ from apps.catalogo.models import Categoria, Producto, Variante
 from apps.crm.models import CampanaCarrito, RegistroRecuperacionCarrito
 from apps.finanzas.models import GastoOperativo
 from apps.marketing.models import Cupon, CuponUso
-from apps.pedidos.models import Carrito, HistorialEstadoPedido, ItemPedido, Pedido, Resena
+from apps.pedidos.models import (
+    Carrito, DireccionEnvio, Envio, HistorialEstadoPedido, ItemPedido, Pedido, Resena,
+)
 from apps.tiendas.models import Tienda, UsuarioTienda
 from apps.usuarios.models import Permiso, Rol, RolPermiso, Usuario
 
@@ -774,6 +776,129 @@ class KpiTests(BaseKpis):
                             'metricas': ['unidades'],
                             'filtros': {'fecha_desde': '2026-10-01', 'fecha_hasta': '2026-11-30'}})
         self.assertEqual([f[1] for f in r['filas']], ['2026-10', '2026-10', '2026-11', '2026-11'])
+
+
+    def _enviar(self, pedido, ciudad):
+        direccion = DireccionEnvio.objects.create(
+            tienda=self.tienda, cliente=pedido.cliente, direccion='Calle 1', ciudad=ciudad)
+        Envio.objects.create(tienda=self.tienda, pedido=pedido, direccion_envio=direccion)
+
+    def test_valor_por_cliente_y_descuentos_de_cupones(self):
+        # El checkout deja `total` por debajo de `subtotal` cuando hay cupón.
+        Pedido.objects.filter(pk=self.venta_2.pk).update(total=Decimal('140.00'))
+        r = self._ejecutar({'fuente': 'pedidos', 'filtros': NOVIEMBRE, 'metricas': [
+            'monto_total', 'valor_por_cliente', 'subtotal_bruto', 'descuento_total', 'pedidos_con_descuento',
+            'pct_pedidos_con_descuento']})
+        self.assertEqual(r['filas'], [[920.0, 306.67, 940.0, 20.0, 1, 25.0]])
+        r = self._ejecutar({'fuente': 'pedidos', 'filtros': NOVIEMBRE,
+                            'metricas': ['descuento_promedio', 'pct_descuento_sobre_ventas']})
+        self.assertEqual(r['filas'], [[20.0, 2.13]])
+        self.assertEqual(r['columnas'][0]['mejor_si'], 'baja')
+
+    def test_sin_descuentos_el_promedio_es_cero(self):
+        r = self._ejecutar({'fuente': 'pedidos', 'filtros': NOVIEMBRE,
+                            'metricas': ['pct_pedidos_con_descuento', 'descuento_promedio']})
+        self.assertEqual(r['filas'], [[0.0, 0.0]])
+
+    def test_pedidos_por_dia_de_la_semana_y_hora(self):
+        dia = self._ejecutar({'fuente': 'pedidos', 'agrupar_por': ['dia_semana'], 'metricas': ['pedidos'],
+                              'filtros': NOVIEMBRE})
+        # El 3 y el 10 de noviembre de 2026 son martes (1) y el 5 y el 12 son jueves (3); lunes = 0.
+        self.assertEqual(dia['filas'], [[1, 2], [3, 2]])
+        self.assertEqual(dia['columnas'][0]['tipo'], 'entero')
+        hora = self._ejecutar({'fuente': 'pedidos', 'agrupar_por': ['dia_semana', 'hora'], 'metricas': ['pedidos'],
+                               'filtros': NOVIEMBRE})
+        self.assertEqual(hora['filas'], [[1, 12, 2], [3, 12, 2]])
+        unidades = self._ejecutar({'fuente': 'ventas_productos', 'agrupar_por': ['dia_semana'],
+                                   'metricas': ['unidades'], 'filtros': NOVIEMBRE})
+        self.assertEqual(unidades['filas'], [[1, 2], [3, 3]])
+
+    def test_dia_de_la_semana_se_compara_entre_periodos(self):
+        r = self._ejecutar({'fuente': 'pedidos', 'agrupar_por': ['dia_semana'], 'metricas': ['pedidos'],
+                            'filtros': NOVIEMBRE, 'comparar_con': 'periodo_anterior'})
+        # Octubre: un pedido el martes 20 y otro el domingo 25.
+        self.assertEqual(r['filas'], [[1, 2, 1, 100.0], [3, 2, 0, None]])
+
+    def test_ventas_por_ciudad_de_entrega(self):
+        self._enviar(self.venta_1, 'La Paz')
+        self._enviar(self.venta_1, 'Sucre')
+        self._enviar(self.venta_4, 'La Paz')
+        self._enviar(self.venta_2, 'Sucre')
+        pedidos = self._ejecutar({'fuente': 'pedidos', 'agrupar_por': ['ciudad'], 'filtros': NOVIEMBRE,
+                                  'metricas': ['pedidos', 'monto_total'], 'ordenar_por': 'monto_total'})
+        # El primer envío manda: el segundo de venta_1 no duplica el pedido. Sin envío, sin ciudad.
+        self.assertEqual(pedidos['filas'], [['La Paz', 2, 700.0], ['Sucre', 1, 160.0], ['(sin dato)', 1, 80.0]])
+        ventas = self._ejecutar({'fuente': 'ventas_productos', 'agrupar_por': ['ciudad'], 'filtros': NOVIEMBRE,
+                                 'metricas': ['pedidos', 'ingresos'], 'ordenar_por': 'ingresos'})
+        self.assertEqual(ventas['filas'], pedidos['filas'])
+
+    def test_productos_sin_ventas_y_valor_del_stock_parado(self):
+        r = self._ejecutar({'fuente': 'productos_sin_ventas', 'filtros': NOVIEMBRE,
+                            'metricas': ['productos', 'variantes', 'unidades_paradas', 'valor_parado']})
+        # El poncho (7 unidades a 500) es el único producto sin ventas del 1 al 15 de noviembre.
+        self.assertEqual(r['filas'], [[1, 1, 7, 3500.0]])
+        self.assertEqual(r['columnas'][3]['mejor_si'], 'baja')
+        por_producto = self._ejecutar({'fuente': 'productos_sin_ventas', 'agrupar_por': ['producto'],
+                                       'filtros': NOVIEMBRE, 'metricas': ['valor_parado']})
+        self.assertEqual(por_producto['filas'], [['Poncho', 3500.0]])
+
+    def test_productos_sin_ventas_cambia_con_el_periodo_y_no_cuenta_cancelados(self):
+        # El 5 de noviembre solo se vendió gorro.
+        r = self._ejecutar({'fuente': 'productos_sin_ventas', 'agrupar_por': ['producto'], 'metricas': ['productos'],
+                            'filtros': {'fecha_desde': '2026-11-05', 'fecha_hasta': '2026-11-05'}})
+        self.assertEqual(sorted(f[0] for f in r['filas']), ['Chompa de Alpaca', 'Poncho'])
+        # El 8 de noviembre solo hubo una venta de gorro, cancelada: no cuenta como venta.
+        cancelados = self._ejecutar({'fuente': 'productos_sin_ventas', 'agrupar_por': ['producto'],
+                                     'metricas': ['productos'], 'filtros': {
+                                         'fecha_desde': '2026-11-08', 'fecha_hasta': '2026-11-08'}})
+        self.assertIn('Gorro andino', [f[0] for f in cancelados['filas']])
+
+    def test_productos_sin_ventas_exige_periodo(self):
+        with self.assertRaises(consultas.ConsultaInvalida):
+            consultas.normalizar({'fuente': 'productos_sin_ventas', 'metricas': ['productos']})
+
+    def test_concentracion_de_ingresos_del_20_por_ciento_de_productos(self):
+        r = self._ejecutar({'fuente': 'ventas_productos', 'agrupar_por': ['producto'], 'filtros': NOVIEMBRE,
+                            'metricas': ['ingresos', 'concentracion_top20']})
+        # Con 2 productos el 20 % es 1: la chompa (700 de 940).
+        self.assertEqual(r['filas'], [['Chompa de Alpaca', 700.0, 74.47], ['Gorro andino', 240.0, 74.47]])
+        with self.assertRaises(consultas.ConsultaInvalida):
+            consultas.normalizar({'fuente': 'ventas_productos', 'metricas': ['concentracion_top20']})
+
+    def test_concentracion_redondea_hacia_arriba_los_lideres(self):
+        # Con 7 productos el 20 % es 1,4: se redondea a 2 líderes.
+        categoria = Categoria.objects.get(tienda=self.tienda, nombre='Textiles')
+        pedido = Pedido.objects.create(cliente=self.c1, tienda=self.tienda, subtotal=0, total=0)
+        for indice in range(5):
+            variante = self._variante(self.tienda, categoria, f'Extra {indice}', Decimal('10.00'), stock=5)
+            ItemPedido.objects.create(tienda=self.tienda, pedido=pedido, variante=variante, cantidad=1,
+                                      precio_unitario=variante.precio, costo_unitario=5)
+        Pedido.objects.filter(pk=pedido.pk).update(fecha=momento(11, 7))
+        r = self._ejecutar({'fuente': 'ventas_productos', 'agrupar_por': ['producto'], 'filtros': NOVIEMBRE,
+                            'metricas': ['concentracion_top20'], 'limite': 1})
+        # 990 de ingresos; los dos líderes (700 y 240) suman 940.
+        self.assertEqual(r['filas'], [['Chompa de Alpaca', 94.95]])
+
+    def test_margen_por_categoria(self):
+        r = self._ejecutar({'fuente': 'ventas_productos', 'agrupar_por': ['categoria'], 'filtros': NOVIEMBRE,
+                            'metricas': ['ingresos', 'margen_bruto_pct']})
+        self.assertEqual(r['filas'], [['Textiles', 940.0, 46.51]])
+
+    def test_las_metricas_nuevas_solo_ven_las_tiendas_permitidas(self):
+        self._enviar(self.venta_1, 'La Paz')
+        casos = [
+            {'fuente': 'pedidos', 'agrupar_por': ['ciudad'], 'metricas': ['pedidos'], 'filtros': NOVIEMBRE},
+            {'fuente': 'ventas_productos', 'agrupar_por': ['dia_semana'], 'metricas': ['unidades']},
+            {'fuente': 'pedidos', 'metricas': ['valor_por_cliente', 'descuento_total'], 'filtros': NOVIEMBRE},
+            {'fuente': 'productos_sin_ventas', 'metricas': ['productos'],
+             'filtros': {'fecha_desde': '2026-12-01', 'fecha_hasta': '2026-12-15'}},
+        ]
+        ambas = [self.tienda.id, self.tienda_ajena.id]
+        for spec in casos:
+            with self.subTest(spec=spec):
+                propia = self._ejecutar(spec)['filas']
+                self.assertNotEqual(propia, self._ejecutar(spec, ambas)['filas'])
+                self.assertNotEqual(propia, self._ejecutar(spec, [self.tienda_ajena.id])['filas'])
 
 
 @override_settings(ANTHROPIC_API_KEY='sk-ant-test', INFORMES_MODEL='claude-haiku-5-5')

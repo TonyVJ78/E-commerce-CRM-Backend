@@ -18,14 +18,15 @@ orden y límite— y este módulo la traduce a una consulta del ORM. Así:
   pide uniones.
 """
 
+import math
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import (
-    Avg, BooleanField, Count, DecimalField, DurationField, ExpressionWrapper, F, Max, Min,
+    Avg, BooleanField, Count, DecimalField, DurationField, Exists, ExpressionWrapper, F, Max, Min,
     OuterRef, Q, Subquery, Sum,
 )
-from django.db.models.functions import Coalesce, TruncDay, TruncMonth, TruncWeek
+from django.db.models.functions import Coalesce, ExtractHour, ExtractIsoWeekDay, TruncDay, TruncMonth, TruncWeek
 from django.utils import timezone
 
 from apps.catalogo.models import Variante
@@ -33,7 +34,7 @@ from apps.crm.models import RegistroRecuperacionCarrito
 from apps.finanzas.models import GastoOperativo
 from apps.marketing.models import CuponUso
 from apps.pedidos import estados
-from apps.pedidos.models import HistorialEstadoPedido, ItemPedido, Pago, Pedido, Resena
+from apps.pedidos.models import Envio, HistorialEstadoPedido, ItemPedido, Pago, Pedido, Resena
 from apps.tiendas.models import Tienda
 
 from .models import EventoUsuario
@@ -112,6 +113,15 @@ def _tiempo(etiqueta, trunc):
     return {'etiqueta': etiqueta, 'trunc': trunc, 'tipo': FECHA}
 
 
+def _parte_de_fecha(etiqueta, calculo):
+    """Número sacado de la fecha (día de la semana, hora). Se compara entre periodos como cualquier dimensión."""
+    return {'etiqueta': etiqueta, 'calculo': calculo, 'tipo': ENTERO}
+
+
+def _sobre_fecha(definicion):
+    return 'trunc' in definicion or 'calculo' in definicion
+
+
 def _met(titulo, tipo, expresion, sumable=False, componente=0, **extra):
     """Métrica agregada por la base de datos."""
     return {'titulo': titulo, 'tipo': tipo, 'expr': expresion, 'sumable': sumable, 'componente': componente, **extra}
@@ -136,6 +146,14 @@ def _participacion(titulo, base):
     return _derivada(titulo, PORCENTAJE, [base], None, participacion=base)
 
 
+def _concentracion(titulo, base, pct_grupos):
+    """% del total de `base` que aportan el `pct_grupos` % de grupos que más aportan (regla 80/20).
+
+    Es un valor de todo el conjunto: cada fila lo repite, y solo tiene sentido agrupando.
+    """
+    return _derivada(titulo, PORCENTAJE, [base], None, concentracion=(base, pct_grupos))
+
+
 _INGRESOS_ITEM = ExpressionWrapper(
     F('cantidad') * F('precio_unitario'), output_field=DecimalField(max_digits=14, decimal_places=2))
 _COSTO_ITEM = ExpressionWrapper(
@@ -145,8 +163,16 @@ _VALOR_STOCK = ExpressionWrapper(
 
 ESTADOS_PEDIDO = estados.ESTADOS
 
+_DESCUENTO = ExpressionWrapper(F('subtotal') - F('total'), output_field=DecimalField(max_digits=10, decimal_places=2))
+
 _TIENDA = _dim('Tienda', ['tienda_id', 'tienda__nombre'])
 _TIEMPO = {'dia': _tiempo('Día', TruncDay), 'semana': _tiempo('Semana', TruncWeek), 'mes': _tiempo('Mes', TruncMonth)}
+# Con la zona horaria del proyecto (America/La_Paz), no la de la base. Lunes = 0.
+_DIA_Y_HORA = {
+    'dia_semana': _parte_de_fecha('Día de la semana (0 = lunes)', lambda campo: ExtractIsoWeekDay(campo) - 1),
+    'hora': _parte_de_fecha('Hora del día (0-23)', ExtractHour),
+}
+_CIUDAD = _dim('Ciudad', ['_ciudad'])
 
 _DIMENSIONES_ITEM = {
     'tienda': _TIENDA,
@@ -184,6 +210,31 @@ _METRICAS_GANANCIA = {
 
 _SIN_GASTOS_POR_PRODUCTO = 'Los gastos operativos son de toda la tienda y no se pueden asignar a un producto: se restaron completos.'
 
+
+def _con_ciudad(pedido):
+    """Anota la ciudad de entrega del pedido (`pedido` es cómo llegar a él desde el modelo).
+
+    Se toma del primer envío; un pedido sin envío queda sin ciudad.
+    """
+    def base(qs, filtros, tienda_ids):
+        ciudad = Envio.objects.filter(pedido=OuterRef(pedido)).order_by('id').values('direccion_envio__ciudad')[:1]
+        return qs.annotate(_ciudad=Subquery(ciudad))
+    return base
+
+
+_VENTAS_DE_VARIANTE = {
+    'modelo': ItemPedido, 'tienda': 'tienda', 'fecha': 'pedido__fecha', 'estado': 'pedido__estado_actual',
+}
+
+
+def _base_sin_ventas(qs, filtros, tienda_ids):
+    """Variantes con stock de productos que no vendieron nada en el periodo (stock muerto)."""
+    ventas = _aplicar_filtros(
+        ItemPedido.objects.filter(variante__producto_id=OuterRef('producto_id')),
+        _VENTAS_DE_VARIANTE, filtros, tienda_ids)
+    return qs.filter(producto__activo=True, activa=True, stock__gt=0).exclude(Exists(ventas))
+
+
 def _base_clientes(qs, filtros, tienda_ids):
     """Marca cada pedido con si su cliente compró por primera vez dentro del periodo."""
     inicio = _inicio_del_dia(_fecha(filtros['fecha_desde'], 'fecha_desde'))
@@ -214,17 +265,21 @@ FUENTES = {
     'ventas_productos': {
         'descripcion': (
             'Líneas vendidas (ítems de pedidos). Para qué productos, variantes o categorías '
-            'se venden más, unidades, ingresos y ganancia bruta por producto. Excluye pedidos '
-            'cancelados salvo que se filtre por estado.'
+            'se venden más, unidades, ingresos y ganancia bruta por producto, y margen por categoría. '
+            'También por ciudad de entrega, día de la semana y hora. `concentracion_top20` pide agrupar '
+            'por producto. Excluye pedidos cancelados salvo que se filtre por estado.'
         ),
         'modelo': ItemPedido,
         'tienda': 'tienda',
         'fecha': 'pedido__fecha',
         'estado': 'pedido__estado_actual',
+        'base': _con_ciudad('pedido'),
         'dimensiones': {
             **_DIMENSIONES_ITEM,
             'estado': _dim('Estado', ['pedido__estado_actual'], formato=estados.etiqueta),
+            'ciudad': _CIUDAD,
             **_TIEMPO,
+            **_DIA_Y_HORA,
         },
         'metricas': {
             'unidades': _met('Unidades vendidas', ENTERO, lambda: Sum('cantidad'), True),
@@ -233,24 +288,30 @@ FUENTES = {
             'precio_promedio': _met('Precio unitario promedio (Bs)', MONEDA, lambda: Avg('precio_unitario')),
             **_METRICAS_GANANCIA,
             'participacion_ingresos': _participacion('Participación en los ingresos (%)', 'ingresos'),
+            'concentracion_top20': _concentracion(
+                '% de los ingresos que aporta el 20 % de productos que más vende', 'ingresos', 20),
         },
         'texto': {'producto': 'variante__producto__nombre', 'categoria': 'variante__producto__categoria__nombre'},
     },
     'pedidos': {
         'descripcion': (
             'Pedidos completos. Para cantidad de pedidos, monto vendido, ticket promedio, '
-            'pedidos por estado o por fecha, y para ranking de clientes (agrupar por cliente). '
-            'Excluye pedidos cancelados salvo que se filtre por estado.'
+            'pedidos por estado o por fecha, para ranking de clientes (agrupar por cliente), por '
+            'ciudad de entrega, día de la semana u hora, y para el valor promedio por cliente y los '
+            'descuentos (cupones) otorgados. Excluye pedidos cancelados salvo que se filtre por estado.'
         ),
         'modelo': Pedido,
         'tienda': 'tienda',
         'fecha': 'fecha',
         'estado': 'estado_actual',
+        'base': _con_ciudad('pk'),
         'dimensiones': {
             'tienda': _TIENDA,
             'estado': _dim('Estado', ['estado_actual'], formato=estados.etiqueta),
             'cliente': _dim('Cliente', ['cliente_id', 'cliente__email']),
+            'ciudad': _CIUDAD,
             **_TIEMPO,
+            **_DIA_Y_HORA,
         },
         'metricas': {
             'pedidos': _met('Pedidos', ENTERO, lambda: Count('id'), True),
@@ -259,6 +320,18 @@ FUENTES = {
             'clientes': _met('Clientes distintos', ENTERO, lambda: Count('cliente', distinct=True)),
             'primera_compra': _met('Primera compra', FECHA, lambda: Min('fecha')),
             'ultima_compra': _met('Última compra', FECHA, lambda: Max('fecha')),
+            'valor_por_cliente': _cociente('Valor promedio por cliente (Bs)', MONEDA, 'monto_total', 'clientes',
+                                           factor=1),
+            'subtotal_bruto': _met('Subtotal antes de descuentos (Bs)', MONEDA, lambda: Sum('subtotal'), True),
+            'descuento_total': _met('Descuentos otorgados (Bs)', MONEDA, lambda: Sum(_DESCUENTO), True),
+            'pedidos_con_descuento': _met('Pedidos con descuento', ENTERO,
+                                          lambda: Count('id', filter=Q(total__lt=F('subtotal'))), True),
+            'pct_pedidos_con_descuento': _cociente('Pedidos con descuento (%)', PORCENTAJE,
+                                                   'pedidos_con_descuento', 'pedidos'),
+            'descuento_promedio': _cociente('Descuento promedio por pedido con descuento (Bs)', MONEDA,
+                                            'descuento_total', 'pedidos_con_descuento', factor=1, mejor_si='baja'),
+            'pct_descuento_sobre_ventas': _cociente('Descuento sobre el subtotal de ventas (%)', PORCENTAJE,
+                                                    'descuento_total', 'subtotal_bruto', mejor_si='baja'),
         },
         'texto': {'cliente': 'cliente__email'},
     },
@@ -280,6 +353,32 @@ FUENTES = {
             'precio': _met('Precio (Bs)', MONEDA, lambda: Avg('precio')),
             'variantes': _met('Variantes', ENTERO, lambda: Count('id'), True),
             'productos': _met('Productos', ENTERO, lambda: Count('producto', distinct=True)),
+        },
+        'texto': {'producto': 'producto__nombre', 'categoria': 'producto__categoria__nombre'},
+    },
+    'productos_sin_ventas': {
+        'descripcion': (
+            'Stock muerto: productos activos con stock que no vendieron nada en el periodo (un '
+            'producto con alguna variante vendida no cuenta). Cantidad de productos, unidades '
+            'paradas y valor del stock a precio de venta. El stock es el actual, no el del periodo. '
+            'Necesita fecha_desde y fecha_hasta.'
+        ),
+        'requiere_periodo': True,
+        'periodo_en_base': True,
+        'modelo': Variante,
+        'tienda': 'producto__tienda',
+        'fecha': None,
+        'estado': None,
+        'base': _base_sin_ventas,
+        'dimensiones': _DIMENSIONES_VARIANTE,
+        'metricas': {
+            'productos': _met('Productos sin ventas', ENTERO, lambda: Count('producto', distinct=True),
+                              mejor_si='baja'),
+            'variantes': _met('Variantes sin ventas', ENTERO, lambda: Count('id'), True, mejor_si='baja'),
+            'unidades_paradas': _met('Unidades en stock sin vender', ENTERO, lambda: Sum('stock'), True,
+                                     mejor_si='baja'),
+            'valor_parado': _met('Valor del stock sin ventas (Bs a precio de venta)', MONEDA,
+                                 lambda: Sum(_VALOR_STOCK), True, mejor_si='baja'),
         },
         'texto': {'producto': 'producto__nombre', 'categoria': 'producto__categoria__nombre'},
     },
@@ -620,7 +719,7 @@ def _dimensiones(fuente):
 
 
 def _tiene_fecha(fuente):
-    return any(comp['fecha'] for comp in _componentes(fuente))
+    return fuente.get('periodo_en_base') or any(comp['fecha'] for comp in _componentes(fuente))
 
 
 def _tiene_estado(fuente):
@@ -781,6 +880,10 @@ def normalizar(spec):
             raise ConsultaInvalida(
                 f'`{met}` no se puede desglosar por {", ".join(faltan)} en {fuente_clave}. '
                 f'Con esa métrica agrupa solo por: {", ".join(soportadas)}.')
+
+    concentradas = [m for m in metricas if fuente['metricas'][m].get('concentracion')]
+    if concentradas and not agrupar:
+        raise ConsultaInvalida(f'`{concentradas[0]}` necesita agrupar (por ejemplo por producto).')
 
     filtros = spec.get('filtros') or {}
     if not isinstance(filtros, dict):
@@ -950,6 +1053,8 @@ def _crudo(valor, definicion):
 def _celda(definicion, registro, dim):
     if 'trunc' in definicion:
         return _valor(registro[f'_t_{dim}'], FECHA, dim)
+    if 'calculo' in definicion:
+        return int(registro[f'_t_{dim}'])
     if definicion['mostrar'] == '__variante__':
         producto, variante = registro[definicion['campos'][1]], registro[definicion['campos'][2]]
         return f'{producto} — {variante}' if variante else str(producto)
@@ -976,8 +1081,8 @@ def _agregar_componente(comp, agrupar, filtros, tienda_ids, claves, definiciones
     campos, tiempos = [], {}
     for dim in agrupar:
         definicion = comp['dimensiones'][dim]
-        if 'trunc' in definicion:
-            tiempos[f'_t_{dim}'] = definicion['trunc'](comp['fecha'])
+        if _sobre_fecha(definicion):
+            tiempos[f'_t_{dim}'] = (definicion.get('trunc') or definicion['calculo'])(comp['fecha'])
             campos.append(f'_t_{dim}')
         else:
             campos.extend(c for c in definicion['campos'] if c not in campos)
@@ -990,7 +1095,7 @@ def _agregar_componente(comp, agrupar, filtros, tienda_ids, claves, definiciones
         # Los grupos de tiempo se identifican por su etiqueta (los componentes
         # pueden fechar con DateField o DateTimeField); el resto, por sus campos.
         clave = tuple(
-            celda if 'trunc' in comp['dimensiones'][dim]
+            celda if _sobre_fecha(comp['dimensiones'][dim])
             else tuple(registro[c] for c in comp['dimensiones'][dim]['campos'])
             for dim, celda in zip(agrupar, celdas))
         filas.append((clave, celdas, valores(registro)))
@@ -1028,6 +1133,17 @@ def _calcular(fuente, agrupar, filtros, tienda_ids, metricas):
         total = sum((g['valores'][base] or 0 for g in grupos.values()), Decimal(0))
         for grupo in grupos.values():
             grupo['valores'][met] = (grupo['valores'][base] or 0) * 100 / total if total else None
+
+    for met in metricas:
+        concentracion = definiciones[met].get('concentracion')
+        if not concentracion:
+            continue
+        base, pct_grupos = concentracion
+        aportes = sorted((g['valores'][base] or 0 for g in grupos.values()), reverse=True)
+        total = sum(aportes, Decimal(0))
+        lideres = aportes[:max(1, math.ceil(len(aportes) * pct_grupos / 100))]
+        for grupo in grupos.values():
+            grupo['valores'][met] = sum(lideres, Decimal(0)) * 100 / total if total else None
     return grupos
 
 
@@ -1150,7 +1266,7 @@ def ejecutar(spec, tienda_ids):
 
     if agrupar:
         clave_orden = spec['ordenar_por'] or next(
-            (d for d in agrupar if 'trunc' in dimensiones[d]), metricas[0])
+            (d for d in agrupar if _sobre_fecha(dimensiones[d])), metricas[0])
         descendente = spec['descendente']
         if descendente is None:
             descendente = clave_orden not in agrupar
