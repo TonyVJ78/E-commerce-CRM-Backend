@@ -133,3 +133,40 @@ class ReporteGenerado(models.Model):
     def __str__(self):
         alcance = self.tienda.nombre if self.tienda else 'varias tiendas'
         return f'{self.titulo or self.tipo_reporte} - {alcance} ({self.fecha_generacion})'
+
+
+class ModeloML(models.Model):
+    """Modelo de Machine Learning entrenado para una tienda: parámetros, métricas y resultados.
+
+    Se guarda en la base y no en archivos porque el backend corre en Vercel,
+    donde el disco no persiste entre llamadas.
+    """
+
+    class Tipo(models.TextChoices):
+        PRONOSTICO_VENTAS = 'pronostico_ventas', 'Pronóstico de ventas'
+        RIESGO_ABANDONO = 'riesgo_abandono', 'Riesgo de abandono de clientes'
+        COMPRAS_CONJUNTAS = 'compras_conjuntas', 'Productos que se compran juntos'
+
+    tienda = models.ForeignKey(
+        'tiendas.Tienda',
+        on_delete=models.CASCADE,
+        related_name='modelos_ml',
+    )
+    tipo = models.CharField(max_length=30, choices=Tipo.choices)
+    algoritmo = models.CharField(max_length=120)
+    parametros = models.JSONField(default=dict, blank=True)
+    metricas = models.JSONField(default=dict, blank=True)
+    resultados = models.JSONField(default=dict, blank=True)
+    filas_entrenamiento = models.PositiveIntegerField(default=0)
+    entrenado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'modelo_ml'
+        verbose_name = 'Modelo de ML'
+        verbose_name_plural = 'Modelos de ML'
+        constraints = [
+            models.UniqueConstraint(fields=['tienda', 'tipo'], name='modelo_ml_tienda_tipo_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} - {self.tienda.nombre}'

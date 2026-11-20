@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import EventoUsuario, Recomendacion, ReporteGenerado
+from .models import EventoUsuario, ModeloML, Recomendacion, ReporteGenerado
 
 
 @admin.register(EventoUsuario)
@@ -22,3 +22,9 @@ class ReporteGeneradoAdmin(admin.ModelAdmin):
     list_display = ['id', 'titulo', 'tienda', 'generado_por_usuario', 'tipo_reporte', 'fecha_generacion']
     list_filter = ['tipo_reporte', 'formato', 'tienda', 'fecha_generacion']
     search_fields = ['titulo', 'pregunta', 'tipo_reporte', 'generado_por_usuario__email', 'tienda__nombre']
+
+
+@admin.register(ModeloML)
+class ModeloMLAdmin(admin.ModelAdmin):
+    list_display = ['id', 'tienda', 'tipo', 'algoritmo', 'filas_entrenamiento', 'entrenado_en']
+    list_filter = ['tipo', 'tienda']

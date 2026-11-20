@@ -23,6 +23,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | anthropic | 1.11.0 | SDK oficial de la API de Claude; el chatbot de recomendaciones usa Claude Haiku 4.5 (`claude-haiku-4-5`) con tool use sobre el catálogo |
 | fpdf2 | 2.8.7 | Generación en Python puro del PDF de la factura/recibo de compra que se envía por correo al cliente (CU-33) y del PDF de los informes con IA (CU-34) |
 | openpyxl | 3.1.5 | Exportación a Excel (.xlsx) de los informes de tienda generados con IA, con formato numérico, filtros y gráfico nativo (CU-34) |
+| numpy | 2.5.5 | Álgebra lineal para los modelos de Machine Learning de los informes (pronóstico de ventas con regresión ridge, riesgo de abandono con regresión logística, reglas de asociación); es la única librería de ML porque Vercel limita el tamaño de la función, por eso no se usa scikit-learn |
 | firebase-admin | 7.7.0 | SDK de Firebase para enviar notificaciones push por FCM a la app móvil (recordatorios de recompra y avisos de carrito, CU-26/CU-28); opcional, se activa con `FCM_ENABLED` |
 | Gmail SMTP | — | Servidor de salida (`smtp.gmail.com:587`, TLS, contraseña de aplicación) para el correo con la factura PDF (CU-33) y la recuperación de contraseña |
 
