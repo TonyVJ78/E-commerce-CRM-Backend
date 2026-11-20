@@ -234,3 +234,16 @@ class CasosUsoPedidosClienteAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(Resena.objects.exists())
+
+    def test_no_permite_resenar_pedido_completado_legado(self):
+        self.pedido.estado_actual = 'completado'
+        self.pedido.save(update_fields=['estado_actual'])
+        self.client.force_authenticate(user=self.cliente)
+
+        response = self.client.post(self.resenas_url, {
+            'tipo': 'tienda',
+            'calificacion': 4,
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Resena.objects.exists())

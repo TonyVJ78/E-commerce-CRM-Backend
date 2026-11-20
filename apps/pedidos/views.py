@@ -639,7 +639,8 @@ class ReenviarReciboView(APIView):
 class ResenasPedidoView(APIView):
     """GET/POST /api/pedidos/mis-pedidos/<id>/resenas/ — Consultar y registrar reseñas."""
     permission_classes = [permissions.IsAuthenticated, IsClienteUser]
-    estados_calificables = {'completado', 'completada', 'entregado', 'finalizado', 'completed'}
+    # `completado` no entra: tras CU-22 es el estado legado equivalente a pendiente.
+    estados_calificables = {estados.ENTREGADO}
 
     def get(self, request, pedido_id):
         pedido = _pedido_cliente(request, pedido_id)
@@ -660,7 +661,7 @@ class ResenasPedidoView(APIView):
         pedido = _pedido_cliente(request, pedido_id)
         if pedido.estado_actual.strip().lower() not in self.estados_calificables:
             return Response(
-                {'error': 'Solo se pueden calificar pedidos completados o entregados.'},
+                {'error': 'Solo se pueden calificar pedidos entregados.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
