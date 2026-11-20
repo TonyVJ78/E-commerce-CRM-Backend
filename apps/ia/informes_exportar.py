@@ -24,7 +24,7 @@ from openpyxl.utils import get_column_letter
 
 from apps.pedidos.recibo import _t
 
-from .informes_consultas import DECIMAL, ENTERO, MONEDA
+from .informes_consultas import DECIMAL, ENTERO, MONEDA, NUMERICOS, PORCENTAJE, PUNTOS, VARIACION
 
 
 ROJO = (200, 16, 46)        # --primary #C8102E
@@ -33,8 +33,6 @@ GRIS_TEXTO = (75, 85, 99)
 GRIS_LINEA = (229, 231, 235)
 GRIS_FONDO = (249, 250, 251)
 MAX_BARRAS_PDF = 12
-
-NUMERICOS = (ENTERO, MONEDA, DECIMAL)
 
 
 def nombre_archivo(informe, extension):
@@ -56,6 +54,12 @@ def _formato(valor, tipo):
         return f'{int(valor):,}'.replace(',', '.')
     if tipo == DECIMAL:
         return f'{valor:.2f}'.replace('.', ',')
+    if tipo == PORCENTAJE:
+        return f'{valor:.1f} %'.replace('.', ',')
+    if tipo == VARIACION:
+        return f'{valor:+.1f} %'.replace('.', ',')
+    if tipo == PUNTOS:
+        return f'{valor:+.1f} pp'.replace('.', ',')
     return str(valor)
 
 
@@ -252,6 +256,8 @@ def generar_pdf(informe):
     pdf.multi_cell(0, 4.5, _t(' · '.join(meta)), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     if datos.get('filtros'):
         pdf.multi_cell(0, 4.5, _t(datos['filtros']), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    for nota in datos.get('notas', []):
+        pdf.multi_cell(0, 4.5, _t(f'Nota: {nota}'), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     if informe.pregunta:
         pdf.set_font('Helvetica', 'I', 8.5)
         pdf.multi_cell(0, 4.5, _t(f'Pedido: "{informe.pregunta}"'), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -306,6 +312,9 @@ _FORMATO_EXCEL = {
     MONEDA: '"Bs" #,##0.00',
     ENTERO: '#,##0',
     DECIMAL: '0.00',
+    PORCENTAJE: '0.0"%"',
+    VARIACION: '+0.0"%";-0.0"%";0.0"%"',
+    PUNTOS: '+0.0" pp";-0.0" pp";0.0" pp"',
 }
 
 
@@ -325,7 +334,8 @@ def generar_xlsx(informe):
     fecha = timezone.localtime(informe.fecha_generacion).strftime('%d/%m/%Y %H:%M')
     hoja['A2'] = f'Alcance: {_alcance(informe)} · Generado: {fecha} · Por: {informe.generado_por_usuario.email}'
     hoja['A3'] = datos.get('filtros') or ''
-    for celda in ('A2', 'A3'):
+    hoja['A4'] = ' · '.join(datos.get('notas', []))
+    for celda in ('A2', 'A3', 'A4'):
         hoja[celda].font = Font(italic=True, color='4B5563', size=9)
 
     fila_encabezado = 5

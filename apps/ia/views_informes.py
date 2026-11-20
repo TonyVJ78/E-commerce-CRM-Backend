@@ -34,6 +34,8 @@ EJEMPLOS = [
     'Mejores clientes por monto comprado',
     'Pedidos por estado',
     'Lo más buscado por los clientes',
+    '¿Cuánto gané este mes descontando gastos?',
+    'Ticket promedio de este mes frente al mes anterior',
 ]
 
 

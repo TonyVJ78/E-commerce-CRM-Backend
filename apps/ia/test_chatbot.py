@@ -128,7 +128,7 @@ class BusquedaCatalogoTests(BaseCatalogo):
         self.assertEqual(precios, sorted(precios))
 
 
-@override_settings(ANTHROPIC_API_KEY='sk-ant-test', CHATBOT_MODEL='claude-haiku-4-5')
+@override_settings(ANTHROPIC_API_KEY='sk-ant-test', CHATBOT_MODEL='claude-haiku-5-5')
 class ChatbotApiTests(BaseCatalogo):
     def setUp(self):
         cache.clear()  # el throttle guarda sus contadores en la caché
@@ -155,7 +155,12 @@ class ChatbotApiTests(BaseCatalogo):
         self.assertEqual(res.data['sugerencias'], ['Para mi mamá', 'Para un amigo', 'Para mí'])
         self.assertEqual(res.data['productos'], [])
         llamada = self.crear.call_args.kwargs
-        self.assertEqual(llamada['model'], 'claude-haiku-4-5')
+        self.assertEqual(llamada['model'], 'claude-haiku-5-5')
+        # Haiku 5.5 piensa por defecto: se baja el esfuerzo y no se mandan parámetros que rechaza.
+        self.assertEqual(llamada['output_config'], {'effort': 'low'})
+        self.assertGreaterEqual(llamada['max_tokens'], 4000)
+        for prohibido in ('temperature', 'top_p', 'thinking'):
+            self.assertNotIn(prohibido, llamada)
         self.assertIn('Textiles', llamada['system'])
         self.assertIn('Alpaca Andina', llamada['system'])
         self.assertNotIn('Tienda Cerrada', llamada['system'])
@@ -191,6 +196,16 @@ class ChatbotApiTests(BaseCatalogo):
         self.assertEqual(resultado['tool_use_id'], 'toolu_1')
         self.assertIn('Chompa de Alpaca', resultado['content'])
         self.assertNotIn('Poncho', resultado['content'])
+
+    def test_rechazo_del_modelo_devuelve_un_mensaje_claro(self):
+        self.crear.return_value = respuesta(texto('texto parcial'), stop_reason='refusal')
+
+        res = self._enviar('algo que el modelo rechaza')
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('No puedo ayudarte', res.data['mensaje'])
+        self.assertEqual(res.data['productos'], [])
+        self.assertEqual(res.data['sugerencias'], [])
 
     def test_ver_producto_con_id_inexistente_es_error_de_herramienta(self):
         self.crear.side_effect = [

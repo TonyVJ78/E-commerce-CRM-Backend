@@ -36,10 +36,11 @@ class InformeSerializer(InformeResumenSerializer):
     filas = serializers.SerializerMethodField()
     truncado = serializers.SerializerMethodField()
     filtros = serializers.SerializerMethodField()
+    notas = serializers.SerializerMethodField()
 
     class Meta(InformeResumenSerializer.Meta):
         fields = InformeResumenSerializer.Meta.fields + [
-            'analisis', 'grafico', 'columnas', 'filas', 'truncado', 'filtros',
+            'analisis', 'grafico', 'columnas', 'filas', 'truncado', 'filtros', 'notas',
         ]
 
     def get_columnas(self, obj):
@@ -53,3 +54,6 @@ class InformeSerializer(InformeResumenSerializer):
 
     def get_filtros(self, obj):
         return (obj.datos or {}).get('filtros', '')
+
+    def get_notas(self, obj):
+        return (obj.datos or {}).get('notas', [])

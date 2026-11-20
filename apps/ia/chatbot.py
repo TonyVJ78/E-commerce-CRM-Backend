@@ -1,5 +1,5 @@
 """
-Chatbot de recomendaciones para clientes, sobre Claude Haiku 4.5.
+Chatbot de recomendaciones para clientes, sobre Claude Haiku 5.5.
 
 Flujo de una respuesta:
 1. Si el pedido es muy general ("un regalo", "algo bonito"), el modelo hace una
@@ -32,7 +32,12 @@ from .catalogo_busqueda import (
 )
 
 
-MAX_TOKENS = 1500
+# Haiku 5.5 piensa antes de responder y ese pensamiento gasta `max_tokens`:
+# `low` mantiene el pensamiento corto (basta para recomendar) y el tope deja
+# margen para la respuesta y las llamadas a herramientas.
+MAX_TOKENS = 4000
+EFFORT = 'low'
+MENSAJE_RECHAZO = 'No puedo ayudarte con eso. Cuéntame qué producto o regalo estás buscando y lo vemos.'
 MAX_VUELTAS_HERRAMIENTAS = 4
 MAX_SUGERENCIAS = 4
 # El prompt pide 30 caracteres; se aceptan hasta 40 para no perder una
@@ -254,6 +259,7 @@ def responder(mensajes):
             cliente,
             model=settings.CHATBOT_MODEL,
             max_tokens=MAX_TOKENS,
+            output_config={'effort': EFFORT},
             system=system,
             tools=HERRAMIENTAS,
             # En la última vuelta se le quitan las herramientas para obligarlo a
@@ -261,6 +267,8 @@ def responder(mensajes):
             tool_choice={'type': 'none'} if ultima_vuelta else {'type': 'auto'},
             messages=conversacion,
         )
+        if respuesta.stop_reason == 'refusal':
+            return {'mensaje': MENSAJE_RECHAZO, 'productos': [], 'sugerencias': []}
         if respuesta.stop_reason != 'tool_use':
             break
 
