@@ -1,5 +1,6 @@
 """Pruebas de finanzas: tipo de cambio (HTTP simulado, nunca la API real), cron, gastos y uso en Stripe/catálogo."""
 
+import json
 import urllib.error
 from datetime import date, timedelta
 from decimal import Decimal
@@ -7,6 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import stripe
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
@@ -525,3 +527,176 @@ class CostoUnitarioTests(BaseEmpresas):
 
         self.variante.refresh_from_db()
         self.assertEqual(self.variante.costo_unitario, Decimal('60.00'))
+
+
+class PrecioUsdTests(BaseEmpresas):
+    def setUp(self):
+        super().setUp()
+        self.producto = Producto.objects.create(tienda=self.tienda, nombre='Teclado', slug='teclado')
+        self.variante = Variante.objects.create(
+            producto=self.producto, nombre='Unica', sku='TEC-1', precio=Decimal('100.00'),
+            costo_unitario=Decimal('60.00'), stock=5)
+        self.base = f'/api/tiendas/{self.tienda.id}/productos/'
+        self.client.force_authenticate(self.empresa)
+
+    def cargar_cotizacion(self, usd='11.7500', fecha=None):
+        return TipoCambio.objects.create(fecha=fecha or hoy(), usd_bob=Decimal(usd))
+
+    def crear(self, **variante):
+        datos = {
+            'nombre': 'Mouse',
+            'descripcion': 'Mouse inalámbrico',
+            'variantes': json.dumps([{'sku': 'MOU-1', 'stock': 3, 'stock_minimo': 1, **variante}]),
+            'imagenes': [SimpleUploadedFile('a.jpg', b'x', content_type='image/jpeg')],
+        }
+        with mock.patch(
+            'apps.catalogo.services.upload_product_image', return_value={'url': 'u', 'public_id': 'p'},
+        ):
+            return self.client.post(self.base, datos, format='multipart')
+
+    def fijar_en_dolares(self, usd='25.00', bs='293.75'):
+        self.variante.precio_usd = Decimal(usd)
+        self.variante.precio = Decimal(bs)
+        self.variante.save()
+
+    def test_crear_en_dolares_calcula_el_precio_en_bs_con_la_cotizacion_vigente(self):
+        self.cargar_cotizacion('11.7500')
+
+        r = self.crear(precio_usd='25.00')
+
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(r.data['variantes'][0]['precio_usd'], '25.00')
+        self.assertEqual(r.data['variantes'][0]['precio'], '293.75')
+        self.assertEqual(r.data['precio_usd'], '25.00')
+
+    def test_el_redondeo_es_half_up_a_centavos(self):
+        self.cargar_cotizacion('11.6850')
+
+        r = self.crear(precio_usd='0.10')
+
+        # 0.10 * 11.6850 = 1.1685 -> 1.17
+        self.assertEqual(r.data['variantes'][0]['precio'], '1.17')
+
+    def test_crear_en_dolares_sin_cotizacion_responde_400_claro(self):
+        r = self.crear(precio_usd='25.00')
+
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('No hay tipo de cambio oficial cargado', str(r.data))
+        self.assertFalse(Variante.objects.filter(sku='MOU-1').exists())
+
+    def test_crear_sin_precio_ni_precio_usd_responde_400(self):
+        self.cargar_cotizacion()
+
+        self.assertEqual(self.crear().status_code, 400)
+
+    def test_crear_en_bs_no_guarda_precio_usd(self):
+        r = self.crear(precio='80.00')
+
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertIsNone(r.data['variantes'][0]['precio_usd'])
+        self.assertIsNone(r.data['precio_usd'])
+
+    def test_editar_a_dolares_recalcula_el_precio_en_bs(self):
+        self.cargar_cotizacion('11.7500')
+
+        r = self.client.patch(f'{self.base}{self.producto.id}/', {'precio_usd': '25.00'}, format='json')
+
+        self.assertEqual(r.status_code, 200, r.data)
+        self.variante.refresh_from_db()
+        self.assertEqual(self.variante.precio_usd, Decimal('25.00'))
+        self.assertEqual(self.variante.precio, Decimal('293.75'))
+        self.assertEqual(r.data['precio'], '293.75')
+        self.assertEqual(r.data['precio_usd'], '25.00')
+
+    def test_editar_a_dolares_sin_cotizacion_responde_400_y_no_cambia_nada(self):
+        r = self.client.patch(f'{self.base}{self.producto.id}/', {'precio_usd': '25.00'}, format='json')
+
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('No hay tipo de cambio oficial cargado', str(r.data))
+        self.variante.refresh_from_db()
+        self.assertIsNone(self.variante.precio_usd)
+        self.assertEqual(self.variante.precio, Decimal('100.00'))
+
+    def test_precio_usd_null_devuelve_el_producto_a_precio_fijo_en_bs(self):
+        self.cargar_cotizacion('11.7500')
+        url = f'{self.base}{self.producto.id}/'
+        self.client.patch(url, {'precio_usd': '25.00'}, format='json')
+
+        r = self.client.patch(url, {'precio_usd': None}, format='json')
+
+        self.assertEqual(r.status_code, 200, r.data)
+        self.variante.refresh_from_db()
+        self.assertIsNone(self.variante.precio_usd)
+        self.assertEqual(self.variante.precio, Decimal('293.75'))
+
+    def test_precio_usd_no_positivo_se_rechaza(self):
+        self.cargar_cotizacion()
+
+        r = self.client.patch(f'{self.base}{self.producto.id}/', {'precio_usd': '0'}, format='json')
+
+        self.assertEqual(r.status_code, 400)
+
+    def test_un_precio_en_bs_saca_al_producto_de_dolares(self):
+        self.cargar_cotizacion('11.7500')
+        url = f'{self.base}{self.producto.id}/'
+        self.client.patch(url, {'precio_usd': '25.00'}, format='json')
+
+        self.client.patch(url, {'precio': '300.00'}, format='json')
+
+        self.variante.refresh_from_db()
+        self.assertIsNone(self.variante.precio_usd)
+        self.assertEqual(self.variante.precio, Decimal('300.00'))
+
+    def test_una_cotizacion_nueva_recalcula_solo_los_productos_en_dolares(self):
+        self.fijar_en_dolares()
+        fijo = Variante.objects.create(
+            producto=self.producto, nombre='Fija', sku='TEC-2', precio=Decimal('100.00'), stock=1)
+        self.cargar_cotizacion('11.7500', fecha=hoy() - timedelta(days=1))
+
+        with mock.patch(CONSULTA, return_value=sobre(item(hoy().isoformat(), usd=11.9))):
+            actualizar_tipo_cambio()
+
+        self.variante.refresh_from_db()
+        fijo.refresh_from_db()
+        self.assertEqual(self.variante.precio, Decimal('297.50'))
+        self.assertEqual(fijo.precio, Decimal('100.00'))
+
+    def test_si_la_api_falla_los_precios_en_bs_no_se_tocan(self):
+        self.fijar_en_dolares()
+
+        with mock.patch(CONSULTA, side_effect=TimeoutError()), self.assertLogs(level='ERROR'):
+            actualizar_tipo_cambio()
+
+        self.variante.refresh_from_db()
+        self.assertEqual(self.variante.precio, Decimal('293.75'))
+
+    def test_precio_usd_es_publico_y_el_costo_nunca(self):
+        self.fijar_en_dolares()
+        self.client.force_authenticate(None)
+
+        for url in (
+            '/api/catalogo/productos/',
+            f'/api/catalogo/productos/{self.producto.id}/',
+            f'/api/catalogo/tiendas/{self.tienda.id}/productos/',
+        ):
+            with self.subTest(url=url):
+                r = self.client.get(url)
+                self.assertEqual(r.status_code, 200)
+                self.assertIn('"precio_usd":"25.00"', r.content.decode())
+                self.assertNotIn('costo_unitario', r.content.decode())
+
+    def test_precio_base_usd_es_el_de_la_variante_mas_barata(self):
+        self.fijar_en_dolares()
+        self.client.force_authenticate(None)
+
+        r = self.client.get(f'/api/catalogo/productos/{self.producto.id}/')
+
+        self.assertEqual(r.data['precio_base'], '293.75')
+        self.assertEqual(r.data['precio_base_usd'], '25.00')
+
+        Variante.objects.create(
+            producto=self.producto, nombre='Barata', sku='TEC-3', precio=Decimal('50.00'), stock=1)
+        r = self.client.get(f'/api/catalogo/productos/{self.producto.id}/')
+
+        self.assertEqual(r.data['precio_base'], '50.00')
+        self.assertIsNone(r.data['precio_base_usd'])

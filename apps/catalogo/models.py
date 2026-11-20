@@ -84,6 +84,14 @@ class Variante(models.Model):
         null=True,
         blank=True,
     )
+    # Precio fijado en dólares: si existe, `precio` (Bs) se recalcula con cada
+    # cotización oficial nueva y el resto del sistema sigue cobrando en Bs.
+    precio_usd = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     # Lo que le cuesta a la tienda cada unidad; sin él no se puede calcular la ganancia.
     costo_unitario = models.DecimalField(
         max_digits=12,
@@ -108,6 +116,10 @@ class Variante(models.Model):
             models.CheckConstraint(
                 condition=models.Q(precio_oferta__isnull=True) | models.Q(precio_oferta__gte=0),
                 name='variante_precio_oferta_no_negativo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(precio_usd__isnull=True) | models.Q(precio_usd__gt=0),
+                name='variante_precio_usd_positivo',
             ),
             models.CheckConstraint(
                 condition=models.Q(costo_unitario__isnull=True) | models.Q(costo_unitario__gte=0),

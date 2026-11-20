@@ -1,3 +1,5 @@
+from decimal import ROUND_HALF_UP, Decimal
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -13,6 +15,25 @@ ALLOWED_IMAGE_TYPES = {
     'image/webp': b'webp',
 }
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
+CENTAVO = Decimal('0.01')
+
+
+def precio_bob_desde_usd(precio_usd, usd_bob):
+    return (precio_usd * usd_bob).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+
+
+def recalcular_precios_usd(usd_bob):
+    """Vuelve a calcular en Bs el precio de todas las variantes fijadas en dólares.
+
+    Usa `bulk_update` porque no hay señales sobre Variante y el precio en Bs es
+    derivado: no es un cambio que deba pasar por la bitácora de auditoría.
+    Devuelve cuántas variantes se recalcularon.
+    """
+    variantes = list(Variante.objects.filter(precio_usd__isnull=False))
+    for variante in variantes:
+        variante.precio = precio_bob_desde_usd(variante.precio_usd, usd_bob)
+    Variante.objects.bulk_update(variantes, ['precio'], batch_size=500)
+    return len(variantes)
 
 
 class InsufficientStockError(ValidationError):
@@ -207,6 +228,7 @@ def create_product_with_images(*, tienda, validated_data):
                     nombre=variante.get('nombre') or 'Unica',
                     sku=variante['sku'],
                     precio=variante['precio'],
+                    precio_usd=variante.get('precio_usd'),
                     precio_oferta=variante.get('precio_oferta'),
                     costo_unitario=variante.get('costo_unitario'),
                     stock=variante['stock'],

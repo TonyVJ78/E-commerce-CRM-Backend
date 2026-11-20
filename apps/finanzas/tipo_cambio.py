@@ -16,6 +16,8 @@ from decimal import Decimal, InvalidOperation
 
 from django.utils import timezone
 
+from apps.catalogo.services import recalcular_precios_usd
+
 from .models import TipoCambio
 
 logger = logging.getLogger(__name__)
@@ -106,6 +108,10 @@ def actualizar_tipo_cambio(cantidad=DIAS_ACTUALIZACION):
     for cotizacion in cotizaciones:
         fecha = cotizacion.pop('fecha')
         TipoCambio.objects.update_or_create(fecha=fecha, defaults=cotizacion)
+    vigente = tipo_cambio_vigente()
+    # Las cotizaciones recién guardadas pueden ser todas de fechas futuras.
+    if vigente is not None:
+        recalcular_precios_usd(vigente.usd_bob)
     return len(cotizaciones)
 
 

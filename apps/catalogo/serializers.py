@@ -1,10 +1,15 @@
 import json
+from decimal import Decimal
 
 from rest_framework import serializers
 
+from apps.finanzas.tipo_cambio import tipo_cambio_vigente
 from apps.tiendas.models import Tienda
 
 from .models import Categoria, Producto, Variante, VarianteStockMovimiento
+from .services import precio_bob_desde_usd
+
+SIN_COTIZACION = 'No hay tipo de cambio oficial cargado; usa precio en Bs.'
 
 
 def _json_object_pairs(pairs):
@@ -30,10 +35,24 @@ def _parse_json_field(data, field_name):
     return data
 
 
+def _precio_bob_desde_usd(precio_usd):
+    cotizacion = tipo_cambio_vigente()
+    if cotizacion is None:
+        raise serializers.ValidationError({'precio_usd': SIN_COTIZACION})
+    return precio_bob_desde_usd(precio_usd, cotizacion.usd_bob)
+
+
 class VarianteInputSerializer(serializers.Serializer):
     sku = serializers.CharField(max_length=60)
     nombre = serializers.CharField(max_length=100, required=False, default='Unica')
-    precio = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0)
+    precio = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=False)
+    precio_usd = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+        required=False,
+        allow_null=True,
+    )
     precio_oferta = serializers.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -71,6 +90,14 @@ class VarianteInputSerializer(serializers.Serializer):
         if any(not isinstance(key, str) or not key.strip() for key in value):
             raise serializers.ValidationError('Las claves de atributos no pueden estar vacias.')
         return value
+
+    def validate(self, attrs):
+        precio_usd = attrs.get('precio_usd')
+        if precio_usd is not None:
+            attrs['precio'] = _precio_bob_desde_usd(precio_usd)
+        elif 'precio' not in attrs:
+            raise serializers.ValidationError({'precio': 'Indica el precio en Bs o en dólares.'})
+        return attrs
 
 
 class ProductoCreateSerializer(serializers.Serializer):
@@ -147,7 +174,7 @@ class VarianteOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Variante
         fields = [
-            'id', 'sku', 'nombre', 'precio', 'precio_oferta', 'costo_unitario',
+            'id', 'sku', 'nombre', 'precio', 'precio_usd', 'precio_oferta', 'costo_unitario',
             'stock', 'stock_minimo', 'atributos', 'activa',
         ]
 
@@ -227,6 +254,14 @@ class CategoriaSerializer(serializers.ModelSerializer):
         fields = ['id', 'nombre', 'categoria_padre']
 
 
+class PrecioUsdPrimeraVarianteField(serializers.DecimalField):
+    """Precio en dólares del producto: se lee y se edita sobre la primera variante, como `precio`."""
+
+    def get_attribute(self, instance):
+        variante = instance.variantes.first()
+        return variante.precio_usd if variante else None
+
+
 class ProductoSerializer(serializers.ModelSerializer):
     categoria_id = serializers.PrimaryKeyRelatedField(
         queryset=Categoria.objects.all(),
@@ -241,6 +276,13 @@ class ProductoSerializer(serializers.ModelSerializer):
     precio = serializers.SerializerMethodField()
     stock = serializers.SerializerMethodField()
     imagen_url = serializers.SerializerMethodField()
+    precio_usd = PrecioUsdPrimeraVarianteField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+        required=False,
+        allow_null=True,
+    )
     # Se edita sobre la primera variante, igual que `precio`; al leerse viaja dentro de `variantes`.
     costo_unitario = serializers.DecimalField(
         max_digits=12,
@@ -257,7 +299,7 @@ class ProductoSerializer(serializers.ModelSerializer):
             'id', 'tienda', 'categoria_id', 'nombre', 'slug', 'descripcion',
             'etiquetas', 'imagenes', 'imagen_url', 'activo', 'creado', 'actualizado',
             'variantes', 'stock_total', 'agotado', 'en_stock', 'precio', 'stock',
-            'costo_unitario',
+            'precio_usd', 'costo_unitario',
         ]
 
     def _active_variants(self, obj):
@@ -297,9 +339,13 @@ class ProductoSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         precio = self.initial_data.get('precio')
+        cambia_precio_usd = 'precio_usd' in validated_data
+        precio_usd = validated_data.pop('precio_usd', None)
         cambia_costo = 'costo_unitario' in validated_data
         costo_unitario = validated_data.pop('costo_unitario', None)
         categoria_val = self.initial_data.get('categoria')
+
+        precio_desde_usd = _precio_bob_desde_usd(precio_usd) if precio_usd is not None else None
 
         if categoria_val:
             if isinstance(categoria_val, int):
@@ -317,10 +363,18 @@ class ProductoSerializer(serializers.ModelSerializer):
 
         instance = super().update(instance, validated_data)
 
-        if precio is not None or cambia_costo:
+        if precio is not None or cambia_precio_usd or cambia_costo:
             variante = instance.variantes.first()
             if variante:
-                if precio is not None:
+                if cambia_precio_usd:
+                    variante.precio_usd = precio_usd
+                elif precio is not None:
+                    # Un precio en Bs sin `precio_usd` saca al producto de dólares: si no,
+                    # la próxima cotización lo sobrescribiría.
+                    variante.precio_usd = None
+                if precio_desde_usd is not None:
+                    variante.precio = precio_desde_usd
+                elif precio is not None:
                     variante.precio = precio
                 if cambia_costo:
                     variante.costo_unitario = costo_unitario
@@ -364,6 +418,7 @@ class VarianteCatalogoSerializer(serializers.ModelSerializer):
             'sku',
             'sku_variante',
             'precio',
+            'precio_usd',
             'precio_adicional',
             'precio_oferta',
             'stock',
@@ -382,6 +437,7 @@ class ProductoCatalogoSerializer(serializers.ModelSerializer):
     categoria_id = serializers.IntegerField(source='categoria.id', read_only=True, default=None)
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True, default='')
     precio_base = serializers.SerializerMethodField()
+    precio_base_usd = serializers.SerializerMethodField()
     imagen_principal = serializers.SerializerMethodField()
 
     class Meta:
@@ -399,14 +455,23 @@ class ProductoCatalogoSerializer(serializers.ModelSerializer):
             'categoria_id',
             'categoria_nombre',
             'precio_base',
+            'precio_base_usd',
             'variantes',
         ]
 
-    def get_precio_base(self, obj):
+    def _variante_base(self, obj):
         variantes = [v for v in obj.variantes.all() if v.activa]
-        if variantes:
-            return str(min(v.precio for v in variantes))
-        return "0.00"
+        return min(variantes, key=lambda v: v.precio, default=None)
+
+    def get_precio_base(self, obj):
+        variante = self._variante_base(obj)
+        return str(variante.precio) if variante else "0.00"
+
+    def get_precio_base_usd(self, obj):
+        variante = self._variante_base(obj)
+        if variante is None or variante.precio_usd is None:
+            return None
+        return str(variante.precio_usd)
 
     def get_imagen_principal(self, obj):
         if obj.imagenes and len(obj.imagenes) > 0:
