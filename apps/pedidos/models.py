@@ -100,6 +100,8 @@ class Pedido(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
     total = models.DecimalField(max_digits=10, decimal_places=2)
+    # Bolivianos por dólar vigentes al comprar: el total en USD del pedido no cambia con la cotización.
+    tipo_cambio_usd = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
 
     class Meta:
         db_table = 'pedido'
@@ -130,6 +132,8 @@ class ItemPedido(models.Model):
     )
     cantidad = models.IntegerField()
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    # Copia del costo de la variante al vender, para que la ganancia histórica no cambie si el costo cambia.
+    costo_unitario = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:
         db_table = 'item_pedido'

@@ -15,6 +15,7 @@ from apps.marketing.cupones import cotizar_carritos, registrar_descuento, json_c
 
 from apps.catalogo.models import Producto
 from apps.crm.services.segmentacion_service import recalcular_segmentos_tienda
+from apps.finanzas.tipo_cambio import tipo_cambio_vigente
 from apps.usuarios.permissions import IsClienteUser
 from . import estados, recibo
 from .models import Carrito, HistorialEstadoPedido, ItemCarrito, ItemPedido, MetodoPago, Pago, Pedido, Resena
@@ -42,18 +43,25 @@ def _total_carrito_bs(carritos):
 
 
 def _tasa_usd_bob():
+    """Bs por USD con que se cobra en Stripe.
+
+    Es la cotización oficial vigente; `STRIPE_USD_BOB_RATE` (tasa fija) solo se
+    usa mientras no haya ninguna cotización guardada.
+    """
+    cambio = tipo_cambio_vigente()
+    if cambio:
+        return cambio.usd_bob
     tasa = Decimal(str(getattr(settings, 'STRIPE_USD_BOB_RATE', 0) or 0))
-    return tasa if tasa > 0 else Decimal('6.96')
+    return (tasa if tasa > 0 else Decimal('6.96')).quantize(Decimal('0.0001'))
 
 
-def _monto_usd(total_bs):
-    """Monto en USD (2 decimales, redondeo comercial) según STRIPE_USD_BOB_RATE."""
-    return (total_bs / _tasa_usd_bob()).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+def _monto_usd(total_bs, tasa):
+    """Monto en USD (2 decimales, redondeo comercial) a la tasa Bs/USD dada."""
+    return (total_bs / tasa).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 
-def _usd_centavos(total_bs):
-    """Convierte un monto en Bs a centavos de USD según STRIPE_USD_BOB_RATE."""
-    return int(_monto_usd(total_bs) * 100)
+def _usd_centavos(total_bs, tasa):
+    return int(_monto_usd(total_bs, tasa) * 100)
 
 
 def _stripe_no_configurado():
@@ -213,7 +221,8 @@ class IniciarPagoStripeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        monto_usd = _monto_usd(total_bs)
+        tasa = _tasa_usd_bob()
+        monto_usd = _monto_usd(total_bs, tasa)
         monto_usd_centavos = int(monto_usd * 100)
 
         stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -229,6 +238,8 @@ class IniciarPagoStripeView(APIView):
                     'cliente_id': str(request.user.id),
                     'cliente_email': request.user.email,
                     'total_bs': str(total_bs),
+                    # El checkout valida el cobro con esta misma tasa aunque la cotización cambie entre ambos pasos.
+                    'tipo_cambio_usd': str(tasa),
                     'cupones': json.dumps(normalizar_codigos(request.data.get('cupones')), sort_keys=True),
                 },
             )
@@ -281,6 +292,8 @@ class CheckoutView(APIView):
         es_stripe = metodo_pago_valor.lower() in ('stripe', 'tarjeta', NOMBRE_METODO_STRIPE.lower())
         payment_intent_id = str(request.data.get('payment_intent_id') or '').strip()
         cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'))
+        cambio = tipo_cambio_vigente()
+        tasa_usd = cambio.usd_bob if cambio else None
 
         if es_stripe:
             if not payment_intent_id:
@@ -318,7 +331,8 @@ class CheckoutView(APIView):
             codigos = normalizar_codigos(request.data.get('cupones'))
             if codigos and metadata.get('cupones') != json.dumps(codigos, sort_keys=True):
                 return Response({'error': 'Los cupones cambiaron. Inicia nuevamente el pago con tarjeta.'}, status=400)
-            monto_esperado = _usd_centavos(total_bs_actual)
+            tasa_usd = Decimal(metadata['tipo_cambio_usd']) if metadata.get('tipo_cambio_usd') else _tasa_usd_bob()
+            monto_esperado = _usd_centavos(total_bs_actual, tasa_usd)
             # Tolerancia de 1 centavo de USD por redondeo entre el intento y el
             # recálculo del carrito.
             if abs(intent.amount - monto_esperado) > 1:
@@ -360,7 +374,7 @@ class CheckoutView(APIView):
                 # Serializa la reserva de los usos del cupón hasta confirmar el pedido.
                 cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'), bloquear=True)
                 if es_stripe and abs(intent.amount - _usd_centavos(sum(
-                    (c['total'] for c in cotizaciones.values()), Decimal('0.00')))) > 1:
+                    (c['total'] for c in cotizaciones.values()), Decimal('0.00')), tasa_usd)) > 1:
                     raise ValidationError({'cupones': 'El descuento cambió. Inicia nuevamente el pago.'})
                 if es_stripe and Pago.objects.filter(referencia_transaccion=payment_intent_id).exists():
                     raise _PagoYaUtilizado()
@@ -376,6 +390,7 @@ class CheckoutView(APIView):
                         estado_actual=estados.PENDIENTE,
                         subtotal=0,
                         total=0,
+                        tipo_cambio_usd=tasa_usd,
                     )
 
                     for item in items:
@@ -387,6 +402,7 @@ class CheckoutView(APIView):
                             variante=item.variante,
                             cantidad=item.cantidad,
                             precio_unitario=item.variante.precio,
+                            costo_unitario=item.variante.costo_unitario,
                         )
                         items_comprados.append({
                             'variante_id': item.variante_id,
@@ -500,6 +516,7 @@ class MisPedidosView(APIView):
                 'estado_etiqueta': estados.etiqueta(p.estado_actual),
                 'subtotal': str(p.subtotal),
                 'total': str(p.total),
+                'tipo_cambio_usd': str(p.tipo_cambio_usd) if p.tipo_cambio_usd else None,
                 'metodo_pago': pago.metodo_pago.nombre if pago else '',
                 'fecha': p.fecha.isoformat() if p.fecha else None,
                 'items': [item_a_dict(it) for it in p.items.all()],
@@ -571,6 +588,7 @@ class PedidoDetalleView(APIView):
             'estado': pedido.estado_actual,
             'subtotal': str(pedido.subtotal),
             'total': str(pedido.total),
+            'tipo_cambio_usd': str(pedido.tipo_cambio_usd) if pedido.tipo_cambio_usd else None,
             'fecha': pedido.fecha.isoformat() if pedido.fecha else None,
             'items': [_serializar_item_pedido(item) for item in pedido.items.all()],
             'historial': [{

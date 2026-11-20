@@ -87,6 +87,7 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | Docker | 29.x | Contenedorización de servicios |
 | Docker Compose | 5.x | Orquestación de contenedores para desarrollo local |
 | Vercel | — | Hosting del despliegue (Angular estático + Django serverless) |
+| Vercel Cron | — | Llama cada día (`0 5 * * *`, 05:00 UTC) a `GET /api/finanzas/tipo-cambio/actualizar/` con `Authorization: Bearer <CRON_SECRET>` para refrescar el tipo de cambio oficial |
 
 ## Otros
 
@@ -95,3 +96,4 @@ Registro de todas las herramientas, lenguajes, frameworks, librerías y servicio
 | Git | — | Control de versiones |
 | `.env` / `.env.example` | — | Gestión de variables de entorno sensibles |
 | OpenAI Responses API | — | Reordenamiento opcional de candidatos en las recomendaciones personalizadas (CU-14); se llama con `urllib`, sin SDK |
+| API de tipo de cambio de factura.bo | — | `https://api.factura.bo/ExchangeRate/history` (pública, sin clave): cotización oficial del BCB (USD y UFV en Bs) publicada a diario ~04:05 UTC; se consulta con `urllib` y se guarda por fecha en `tipo_cambio` |

@@ -84,6 +84,13 @@ class Variante(models.Model):
         null=True,
         blank=True,
     )
+    # Lo que le cuesta a la tienda cada unidad; sin él no se puede calcular la ganancia.
+    costo_unitario = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     stock = models.IntegerField(default=0)
     stock_minimo = models.IntegerField(default=5)
     atributos = models.JSONField(default=dict, blank=True)
@@ -101,6 +108,10 @@ class Variante(models.Model):
             models.CheckConstraint(
                 condition=models.Q(precio_oferta__isnull=True) | models.Q(precio_oferta__gte=0),
                 name='variante_precio_oferta_no_negativo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(costo_unitario__isnull=True) | models.Q(costo_unitario__gte=0),
+                name='variante_costo_unitario_no_negativo',
             ),
             models.CheckConstraint(
                 condition=models.Q(stock__gte=0),

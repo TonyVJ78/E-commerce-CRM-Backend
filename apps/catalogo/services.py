@@ -208,6 +208,7 @@ def create_product_with_images(*, tienda, validated_data):
                     sku=variante['sku'],
                     precio=variante['precio'],
                     precio_oferta=variante.get('precio_oferta'),
+                    costo_unitario=variante.get('costo_unitario'),
                     stock=variante['stock'],
                     stock_minimo=variante['stock_minimo'],
                     atributos=variante.get('atributos', {}),

@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'apps.crm',
     'apps.marketing',
     'apps.ia',
+    'apps.finanzas',
 ]
 
 # =============================================================================
@@ -269,12 +270,19 @@ STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='')
 STRIPE_USD_BOB_RATE = env.float('STRIPE_USD_BOB_RATE', default=10.99)
 
 # =============================================================================
+# FINANZAS (tipo de cambio oficial)
+# =============================================================================
+# Secreto con el que Vercel Cron llama a /api/finanzas/tipo-cambio/actualizar/
+# (Authorization: Bearer <CRON_SECRET>). Sin valor el endpoint responde 503.
+CRON_SECRET = env('CRON_SECRET', default='')
+
+# =============================================================================
 # CHATBOT DE RECOMENDACIONES (Claude)
 # =============================================================================
 # Sin clave el endpoint /api/ia/chatbot/ responde 503 y el resto de la API
 # funciona igual. La clave se crea en https://console.anthropic.com/.
 ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')
-ANTHROPIC_MODEL = env('ANTHROPIC_MODEL', default='claude-haiku-4-5')
+ANTHROPIC_MODEL = env('ANTHROPIC_MODEL', default='claude-haiku-5-5')
 CHATBOT_MODEL = env('CHATBOT_MODEL', default=ANTHROPIC_MODEL)
 # Informes de tienda con IA (CU-34): mismo modelo que el chatbot salvo que se
 # indique otro.

@@ -41,6 +41,7 @@ api_patterns = [
     path('pedidos/', include('apps.pedidos.urls')),
     # Chatbot de recomendaciones (Claude) y recomendaciones personalizadas (CU-14)
     path('ia/', include('apps.ia.urls')),
+    path('finanzas/', include('apps.finanzas.urls')),
     path('recomendaciones/', include('apps.ia.urls')),
 ]
 

@@ -41,6 +41,13 @@ class VarianteInputSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+    costo_unitario = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=0,
+        required=False,
+        allow_null=True,
+    )
     stock = serializers.IntegerField(min_value=0)
     stock_minimo = serializers.IntegerField(min_value=0)
     atributos = serializers.JSONField(required=False, default=dict)
@@ -140,8 +147,8 @@ class VarianteOutputSerializer(serializers.ModelSerializer):
     class Meta:
         model = Variante
         fields = [
-            'id', 'sku', 'nombre', 'precio', 'precio_oferta', 'stock',
-            'stock_minimo', 'atributos', 'activa',
+            'id', 'sku', 'nombre', 'precio', 'precio_oferta', 'costo_unitario',
+            'stock', 'stock_minimo', 'atributos', 'activa',
         ]
 
 
@@ -234,6 +241,15 @@ class ProductoSerializer(serializers.ModelSerializer):
     precio = serializers.SerializerMethodField()
     stock = serializers.SerializerMethodField()
     imagen_url = serializers.SerializerMethodField()
+    # Se edita sobre la primera variante, igual que `precio`; al leerse viaja dentro de `variantes`.
+    costo_unitario = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=0,
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
 
     class Meta:
         model = Producto
@@ -241,6 +257,7 @@ class ProductoSerializer(serializers.ModelSerializer):
             'id', 'tienda', 'categoria_id', 'nombre', 'slug', 'descripcion',
             'etiquetas', 'imagenes', 'imagen_url', 'activo', 'creado', 'actualizado',
             'variantes', 'stock_total', 'agotado', 'en_stock', 'precio', 'stock',
+            'costo_unitario',
         ]
 
     def _active_variants(self, obj):
@@ -280,6 +297,8 @@ class ProductoSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         precio = self.initial_data.get('precio')
+        cambia_costo = 'costo_unitario' in validated_data
+        costo_unitario = validated_data.pop('costo_unitario', None)
         categoria_val = self.initial_data.get('categoria')
 
         if categoria_val:
@@ -298,11 +317,13 @@ class ProductoSerializer(serializers.ModelSerializer):
 
         instance = super().update(instance, validated_data)
 
-        if precio is not None:
+        if precio is not None or cambia_costo:
             variante = instance.variantes.first()
             if variante:
                 if precio is not None:
                     variante.precio = precio
+                if cambia_costo:
+                    variante.costo_unitario = costo_unitario
                 variante.save()
 
         return instance
