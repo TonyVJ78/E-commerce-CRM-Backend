@@ -35,6 +35,7 @@ api_patterns = [
     path('pedidos/', include('apps.pedidos.urls')),
     path('ia/', include('apps.ia.urls')),
     path('recomendaciones/', include('apps.ia.urls')),
+    path('ml/', include('apps.ml.urls')),
 ]
 
 urlpatterns = [
