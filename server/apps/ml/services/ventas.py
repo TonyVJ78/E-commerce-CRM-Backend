@@ -154,11 +154,16 @@ def pronosticar_ventas(tienda, horizonte_dias=7):
         y_test = y_train[corte_holdout:]
         y_pred = [a_eval + b_eval * x for x in x_test]
         mae, rmse = _mae_rmse(y_test, y_pred)
+        # Baseline ingenuo: valor medio del entrenamiento predecido constantemente.
+        valor_medio = sum(y_train[:corte_holdout]) / corte_holdout
+        mae_base, rmse_base = _mae_rmse(y_test, [valor_medio] * len(y_test))
         metrica = {
             'mae': mae,
             'rmse': rmse,
             'datos_entrenamiento': corte_holdout,
             'datos_prueba': len(x_test),
+            'baseline_mae': round(mae_base, 4),
+            'baseline_rmse': round(rmse_base, 4),
             'metodo': 'holdout temporal',
         }
 
