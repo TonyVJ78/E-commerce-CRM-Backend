@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 
@@ -169,6 +169,13 @@ class ProductoDetailView(OwnedStoreMixin, generics.RetrieveUpdateDestroyAPIView)
             tienda=self.get_tienda(),
         ).prefetch_related('variantes')
 
+    @transaction.atomic
+    def perform_update(self, serializer):
+        anterior = ProductoSerializer(serializer.instance, context=self.get_serializer_context()).data
+        producto = serializer.save()
+        registrar_auditoria(self.request, ACCION_ACTUALIZAR, tabla='producto', registro_id=producto.pk,
+            datos_anteriores=anterior, datos_nuevos=ProductoSerializer(producto, context=self.get_serializer_context()).data)
+
     def perform_destroy(self, instance):
         """Borrado lógico (soft-delete) para mantener integridad con pedidos históricos."""
         instance.activo = False
@@ -179,15 +186,6 @@ class ProductoDetailView(OwnedStoreMixin, generics.RetrieveUpdateDestroyAPIView)
 # Vistas de Catálogo Público para Clientes y Visitantes (CU-11)
 # =========================================================================
 
-def _productos_publicos():
-    """Productos a la venta (activos, de tiendas activas) con variantes activas."""
-    variantes_activas = Variante.objects.filter(activa=True)
-    return Producto.objects.filter(
-        activo=True,
-        tienda__activa=True,
-    ).select_related('tienda', 'categoria').prefetch_related(
-        Prefetch('variantes', queryset=variantes_activas)
-    )
 
 
 class TiendaCatalogoListView(generics.ListAPIView):

@@ -1,7 +1,9 @@
+from decimal import Decimal
 """Serializers del carrito requeridos por CU-11."""
 
 from django.db import transaction
 from rest_framework import serializers, status
+from apps.catalogo.services import precio_efectivo
 from rest_framework.exceptions import APIException
 
 from apps.catalogo.models import Variante
@@ -107,7 +109,7 @@ class ItemCarritoDetalleSerializer(serializers.ModelSerializer):
     variante_id = serializers.IntegerField(source='variante.id', read_only=True)
     variante_nombre = serializers.CharField(source='variante.nombre', read_only=True)
     variante_sku = serializers.CharField(source='variante.sku', read_only=True)
-    precio_unitario = serializers.DecimalField(source='variante.precio', max_digits=10, decimal_places=2, read_only=True)
+    precio_unitario = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()
     producto_id = serializers.IntegerField(source='variante.producto.id', read_only=True)
     producto_nombre = serializers.CharField(source='variante.producto.nombre', read_only=True)
@@ -135,8 +137,11 @@ class ItemCarritoDetalleSerializer(serializers.ModelSerializer):
             'stock_disponible',
         ]
 
+    def get_precio_unitario(self, obj):
+        return str(precio_efectivo(obj.variante))
+
     def get_subtotal(self, obj):
-        return str(obj.cantidad * obj.variante.precio)
+        return str(obj.cantidad * precio_efectivo(obj.variante))
 
     def get_producto_imagen(self, obj):
         return imagen_producto(obj.variante.producto)
@@ -163,7 +168,7 @@ class CarritoDetalleSerializer(serializers.ModelSerializer):
         ]
 
     def get_total(self, obj):
-        total = sum(item.cantidad * item.variante.precio for item in obj.items.all())
+        total = sum((item.cantidad * precio_efectivo(item.variante) for item in obj.items.all()), Decimal('0.00'))
         return str(total)
 
     def get_cantidad_items(self, obj):

@@ -12,6 +12,7 @@ class Command(BaseCommand):
     help = 'Descarga el tipo de cambio oficial (BCB, vía factura.bo) y lo guarda por fecha.'
 
     def add_arguments(self, parser):
+        parser.add_argument('--solo-brl', action='store_true', help='BRL indicativo: requiere aprobación y política explícitas; nunca actualiza USD.')
         parser.add_argument(
             '--historial',
             type=int,
@@ -20,6 +21,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        if options.get('solo_brl'):
+            from apps.finanzas.brl import actualizar_brl
+            resultado = actualizar_brl()
+            if resultado['estado'] not in ('guardada', 'sin_cambios'):
+                raise CommandError(f"BRL no actualizado: {resultado['estado']}")
+            self.stdout.write(self.style.SUCCESS(f"BRL: {resultado['estado']}"))
+            return
         dias = options['historial']
         if not 1 <= dias <= LIMITE_HISTORIAL:
             raise CommandError(f'--historial debe estar entre 1 y {LIMITE_HISTORIAL}.')

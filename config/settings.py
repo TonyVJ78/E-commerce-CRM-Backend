@@ -301,3 +301,9 @@ RECOMPRA_COOLDOWN_DIAS = env.int("RECOMPRA_COOLDOWN_DIAS", default=7)
 OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-6-luna')
 AI_RECOMMENDATIONS_ENABLED = env.bool('AI_RECOMMENDATIONS_ENABLED', default=False)
+
+# CU39 BRL opcional: sin habilitación ni política comercial implícitas.
+CU39_BRL_ENABLED = False
+CU39_BRL_DEMO = False
+CU39_BRL_PROVIDER_APPROVED = False
+CU39_BRL_MAX_AGE_DAYS = None

@@ -14,6 +14,9 @@ from rest_framework.exceptions import ValidationError
 from apps.marketing.cupones import cotizar_carritos, registrar_descuento, json_cotizacion, normalizar_codigos
 
 from apps.catalogo.models import Producto
+from apps.catalogo.services import precio_efectivo
+from apps.finanzas.tipo_cambio import tipo_cambio_vigente
+from apps.finanzas.bloqueo import bloquear_cotizacion
 from apps.crm.services.segmentacion_service import recalcular_segmentos_tienda
 from apps.finanzas.tipo_cambio import tipo_cambio_vigente
 from apps.usuarios.permissions import IsClienteUser
@@ -38,7 +41,7 @@ def _total_carrito_bs(carritos):
     total = Decimal('0')
     for carrito in carritos:
         for item in carrito.items.all():
-            total += item.cantidad * item.variante.precio
+            total += item.cantidad * precio_efectivo(item.variante)
     return total
 
 
@@ -148,7 +151,7 @@ class CarritoDetalleView(APIView):
         ).prefetch_related('items__variante__producto', 'items__tienda')
 
         serializer = CarritoDetalleSerializer(carritos, many=True)
-        total_global = sum(float(c['total']) for c in serializer.data)
+        total_global = sum((Decimal(c['total']) for c in serializer.data), Decimal('0.00'))
         total_items = sum(c['cantidad_items'] for c in serializer.data)
 
         return Response({
@@ -202,28 +205,29 @@ class IniciarPagoStripeView(APIView):
         if not settings.STRIPE_SECRET_KEY:
             return _stripe_no_configurado()
 
-        carritos = Carrito.objects.filter(
-            cliente=request.user
-        ).prefetch_related('items__variante__producto')
+        with bloquear_cotizacion():
+            carritos = Carrito.objects.filter(
+                cliente=request.user
+            ).prefetch_related('items__variante__producto')
 
-        cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'))
-        total_bs = sum((c['total'] for c in cotizaciones.values()), Decimal('0.00'))
-        if total_bs <= Decimal('0'):
-            return Response(
-                {'error': 'El carrito de compras está vacío.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            cotizaciones = cotizar_carritos(carritos, request.user, request.data.get('cupones'))
+            total_bs = sum((c['total'] for c in cotizaciones.values()), Decimal('0.00'))
+            if total_bs <= Decimal('0'):
+                return Response(
+                    {'error': 'El carrito de compras está vacío.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        faltantes = _faltantes_de_stock(carritos)
-        if faltantes:
-            return Response(
-                {'error': 'No hay stock suficiente para: ' + '; '.join(faltantes) + '.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            faltantes = _faltantes_de_stock(carritos)
+            if faltantes:
+                return Response(
+                    {'error': 'No hay stock suficiente para: ' + '; '.join(faltantes) + '.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        tasa = _tasa_usd_bob()
-        monto_usd = _monto_usd(total_bs, tasa)
-        monto_usd_centavos = int(monto_usd * 100)
+            tasa = _tasa_usd_bob()
+            monto_usd = _monto_usd(total_bs, tasa)
+            monto_usd_centavos = int(monto_usd * 100)
 
         stripe.api_key = settings.STRIPE_SECRET_KEY
         try:
@@ -256,6 +260,7 @@ class IniciarPagoStripeView(APIView):
                 'publishable_key': settings.STRIPE_PUBLISHABLE_KEY,
                 'monto_bs': str(total_bs),
                 'monto_usd': str(monto_usd),
+                'tipo_cambio_usd': str(tasa),
             },
             status=status.HTTP_200_OK,
         )
@@ -320,6 +325,8 @@ class CheckoutView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            if getattr(intent, 'currency', 'usd') != 'usd':
+                return Response({'error': 'El pago no está expresado en USD.'}, status=400)
             metadata = getattr(intent, 'metadata', {}) or {}
             if hasattr(metadata, 'to_dict'):
                 metadata = metadata.to_dict()
@@ -365,7 +372,7 @@ class CheckoutView(APIView):
         pedidos_creados = []
         items_comprados = []
         try:
-            with transaction.atomic():
+            with bloquear_cotizacion():
                 # Lock carts before coupons, synchronizing checkout and campaign detection.
                 carritos = list(Carrito.objects.select_for_update().filter(cliente=request.user)
                     .order_by('pk').prefetch_related('items__variante'))
@@ -401,7 +408,7 @@ class CheckoutView(APIView):
                             pedido=pedido,
                             variante=item.variante,
                             cantidad=item.cantidad,
-                            precio_unitario=item.variante.precio,
+                            precio_unitario=precio_efectivo(item.variante),
                             costo_unitario=item.variante.costo_unitario,
                         )
                         items_comprados.append({

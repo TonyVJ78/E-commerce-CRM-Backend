@@ -1,3 +1,4 @@
+from decimal import Decimal
 """
 Modelos de finanzas: gastos operativos de cada tienda y tipo de cambio oficial.
 2 tablas: gasto_operativo, tipo_cambio.
@@ -60,6 +61,10 @@ class TipoCambio(models.Model):
     ufv_bob = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)
     fuente = models.CharField(max_length=100)
     obtenido_en = models.DateTimeField(auto_now_add=True)
+    # Ampliación de lectura BRL, opcional y deshabilitada por configuración.
+    brl_bob = models.DecimalField(max_digits=18, decimal_places=8, null=True, blank=True)
+    brl_fuente = models.CharField(max_length=160, null=True, blank=True)
+    brl_obtenido_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'tipo_cambio'
@@ -67,6 +72,15 @@ class TipoCambio(models.Model):
         verbose_name_plural = 'Tipos de cambio'
         ordering = ['-fecha']
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(brl_bob__isnull=True) | (models.Q(brl_bob__gt=0) & models.Q(brl_bob__lt=Decimal('10000000000'))),
+                name='tipo_cambio_brl_finito_positivo',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(brl_bob__isnull=True, brl_fuente__isnull=True, brl_obtenido_en__isnull=True)
+                | (models.Q(brl_bob__isnull=False, brl_fuente__isnull=False, brl_obtenido_en__isnull=False) & ~models.Q(brl_fuente='')),
+                name='tipo_cambio_brl_metadatos',
+            ),
             models.CheckConstraint(
                 condition=models.Q(usd_bob__gt=0),
                 name='tipo_cambio_usd_positivo',

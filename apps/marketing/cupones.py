@@ -1,4 +1,6 @@
 """Cotización del lado del servidor y aplicación atómica de cupones (CU-27)."""
+from apps.catalogo.services import precio_efectivo
+
 from decimal import Decimal, ROUND_HALF_UP
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -48,7 +50,7 @@ def cotizar_carritos(carritos, cliente, codigos=None, *, bloquear=False):
     for carrito in carritos:
         items = list(carrito.items.all())
         if items:
-            activos.append((carrito, sum((it.cantidad * it.variante.precio for it in items), Decimal('0.00'))))
+            activos.append((carrito, sum((it.cantidad * precio_efectivo(it.variante) for it in items), Decimal('0.00'))))
     tiendas = [str(carrito.tienda_id) for carrito, _ in activos]
     if set(codigos) - set(tiendas):
         raise ValidationError({'cupones': 'El cupón debe pertenecer a una tienda de tu carrito.'})

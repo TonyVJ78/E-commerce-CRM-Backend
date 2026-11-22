@@ -1,4 +1,4 @@
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -19,21 +19,28 @@ CENTAVO = Decimal('0.01')
 
 
 def precio_bob_desde_usd(precio_usd, usd_bob):
-    return (precio_usd * usd_bob).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+    resultado = (precio_usd * usd_bob).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+    if not resultado.is_finite() or resultado < 0 or resultado > Decimal('9999999999.99'):
+        raise ValidationError('El precio convertido excede el rango permitido.')
+    return resultado
 
 
 def recalcular_precios_usd(usd_bob):
     """Vuelve a calcular en Bs el precio de todas las variantes fijadas en dólares.
 
-    Usa `bulk_update` porque no hay señales sobre Variante y el precio en Bs es
-    derivado: no es un cambio que deba pasar por la bitácora de auditoría.
+    La transacción que cambia la cotización mantiene bloqueados estos precios.
     Devuelve cuántas variantes se recalcularon.
     """
-    variantes = list(Variante.objects.filter(precio_usd__isnull=False))
+    variantes = list(Variante.objects.select_for_update().filter(precio_usd__isnull=False).order_by('pk'))
     for variante in variantes:
         variante.precio = precio_bob_desde_usd(variante.precio_usd, usd_bob)
     Variante.objects.bulk_update(variantes, ['precio'], batch_size=500)
     return len(variantes)
+
+
+def precio_efectivo(variante):
+    """La oferta publicada en el catálogo es también el precio de venta."""
+    return variante.precio_oferta if variante.precio_oferta is not None else variante.precio
 
 
 class InsufficientStockError(ValidationError):
@@ -206,7 +213,15 @@ def create_product_with_images(*, tienda, validated_data):
         for image in image_files:
             uploaded_images.append(upload_product_image(image, tienda.id))
 
-        with transaction.atomic():
+        from apps.finanzas.bloqueo import bloquear_cotizacion
+        from apps.finanzas.tipo_cambio import tipo_cambio_vigente
+        with bloquear_cotizacion():
+            for variante in validated_data['variantes']:
+                if variante.get('precio_usd') is not None:
+                    cambio = tipo_cambio_vigente()
+                    if cambio is None:
+                        raise ValidationError('No hay cotización disponible para registrar el precio USD.')
+                    variante['precio'] = precio_bob_desde_usd(variante['precio_usd'], cambio.usd_bob)
             Tienda.objects.select_for_update().get(pk=tienda.pk)
             for variante in validated_data['variantes']:
                 if Variante.objects.filter(producto__tienda=tienda, sku__iexact=variante['sku']).exists():

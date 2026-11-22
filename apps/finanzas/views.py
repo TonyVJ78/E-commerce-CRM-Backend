@@ -19,6 +19,7 @@ from apps.usuarios.audit import (
 )
 from apps.usuarios.permissions import IsEmpresa
 
+from .brl import brl_habilitado, estado_brl
 from .models import GastoOperativo, TipoCambio
 from .serializers import GastoFiltroSerializer, GastoOperativoSerializer, TipoCambioSerializer
 from .tipo_cambio import actualizar_tipo_cambio, tipo_cambio_vigente
@@ -34,12 +35,14 @@ class TipoCambioView(APIView):
 
     def get(self, request):
         vigente = tipo_cambio_vigente()
+        extra = {'brl': estado_brl()} if brl_habilitado() else {}
         if vigente is None:
-            return Response({'vigente': None, 'historial': []})
+            return Response({'vigente': None, 'historial': [], **extra})
         historial = TipoCambio.objects.filter(fecha__lte=vigente.fecha)[:DIAS_HISTORIAL_PUBLICO]
         return Response({
             'vigente': TipoCambioSerializer(vigente).data,
             'historial': TipoCambioSerializer(historial, many=True).data,
+            **extra,
         })
 
 

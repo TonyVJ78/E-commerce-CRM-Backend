@@ -15,10 +15,14 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 
 from apps.catalogo.services import recalcular_precios_usd
 
 from .models import TipoCambio
+from .bloqueo import bloquear_cotizacion
+from apps.usuarios.audit import registrar_auditoria, snapshot_instancia, ACCION_CREAR, ACCION_ACTUALIZAR
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +42,15 @@ class RespuestaInvalida(ValueError):
 def _decimal_positivo(valor, decimales):
     try:
         numero = Decimal(str(valor))
-    except InvalidOperation:
-        raise RespuestaInvalida(f'Valor no numérico: {valor!r}')
-    if not numero.is_finite() or numero <= 0:
-        raise RespuestaInvalida(f'Valor no positivo: {valor!r}')
-    return numero.quantize(Decimal(1).scaleb(-decimales))
+        if not numero.is_finite() or numero <= 0:
+            raise RespuestaInvalida('La cotización debe ser finita y positiva.')
+        numero = numero.quantize(Decimal(1).scaleb(-decimales))
+        if numero <= 0 or len(str(int(numero))) > 10 - decimales:
+            raise RespuestaInvalida('La cotización excede la precisión permitida.')
+        return numero
+    except (InvalidOperation, ValueError, TypeError):
+        raise RespuestaInvalida('Cotización numérica inválida.')
+
 
 
 def _parsear_cotizacion(item):
@@ -105,13 +113,25 @@ def actualizar_tipo_cambio(cantidad=DIAS_ACTUALIZACION):
         logger.error('No se pudo actualizar el tipo de cambio desde factura.bo: %s', exc)
         return None
 
-    for cotizacion in cotizaciones:
-        fecha = cotizacion.pop('fecha')
-        TipoCambio.objects.update_or_create(fecha=fecha, defaults=cotizacion)
-    vigente = tipo_cambio_vigente()
-    # Las cotizaciones recién guardadas pueden ser todas de fechas futuras.
-    if vigente is not None:
-        recalcular_precios_usd(vigente.usd_bob)
+    try:
+        with bloquear_cotizacion():
+            for cotizacion in cotizaciones:
+                datos = dict(cotizacion)
+                fecha = datos.pop('fecha')
+                previo = TipoCambio.objects.filter(fecha=fecha).first()
+                anterior = snapshot_instancia(previo)
+                cambio, creado = TipoCambio.objects.update_or_create(fecha=fecha, defaults=datos)
+                if creado or any(str(anterior.get(k)) != str(v) for k, v in datos.items()):
+                    registrar_auditoria(None, ACCION_CREAR if creado else ACCION_ACTUALIZAR,
+                        tabla='tipo_cambio', registro_id=cambio.pk,
+                        datos_anteriores=anterior, datos_nuevos=snapshot_instancia(cambio))
+            vigente = tipo_cambio_vigente()
+            recalculadas = recalcular_precios_usd(vigente.usd_bob) if vigente else 0
+            logger.info('CU39 actualización: cotizaciones=%s variantes=%s fecha=%s',
+                len(cotizaciones), recalculadas, vigente.fecha if vigente else None)
+    except (ValidationError, IntegrityError):
+        logger.error('CU39: cotización no aplicada; los precios derivados exceden el esquema o sus restricciones.')
+        return None
     return len(cotizaciones)
 
 

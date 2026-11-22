@@ -209,6 +209,7 @@ class E2ETransaccionalCompletoTests(APITestCase):
         mock_stripe_retrieve.return_value = MagicMock(
             id='pi_test_kantu_9999',
             status='succeeded',
+            currency='usd',
             metadata={'cliente_id': str(self.cliente.id)},
             amount=1437,
         )
